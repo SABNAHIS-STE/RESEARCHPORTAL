@@ -255,7 +255,6 @@ tr:hover td{background:var(--surface)}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
@@ -275,8 +274,6 @@ const firebaseConfig = {
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth    = firebase.auth();
 const db      = firebase.firestore();
-const storage = firebase.storage();
-
 // Enable offline persistence — data loads from cache instantly on repeat visits
 db.enablePersistence({ synchronizeTabs: true }).catch(()=>{});
 
@@ -403,16 +400,6 @@ const API = {
   },
 
   async deleteStudy(id) {
-    try {
-      // Also delete the file from Storage if it exists
-      const snap = await db.collection('studies').doc(id).get();
-      if (snap.exists) {
-        const data = snap.data();
-        if (data.file?.path) {
-          await storage.ref(data.file.path).delete().catch(()=>{});
-        }
-      }
-    } catch {}
     await db.collection('studies').doc(id).delete();
   },
 
@@ -949,24 +936,20 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
           In-text: <code style={{fontFamily:'var(--font-mono)',fontSize:'0.73rem'}}>{generateInText(study)}</code>
         </p>
       </div>
-      {study.file&&(
+      {study.file?.driveLink&&(
         <div className="ds" style={{marginBottom:20}}>
-          <h4>Attached File</h4>
+          <h4>Research File</h4>
           <div style={{display:'flex',alignItems:'center',gap:11,background:'var(--surface)',padding:'11px 14px',borderRadius:'var(--radius)'}}>
-            <Ico.file/>
+            <span style={{fontSize:'1.6rem'}}>📄</span>
             <div style={{flex:1}}>
-              <div style={{fontWeight:500,fontSize:'0.875rem'}}>{study.file.originalName}</div>
-              <div style={{fontSize:'0.73rem',color:'var(--muted)'}}>{fmtBytes(study.file.size)}</div>
+              <div style={{fontWeight:500,fontSize:'0.875rem'}}>Google Drive Document</div>
+              <div style={{fontSize:'0.73rem',color:'var(--muted)',fontFamily:'var(--font-mono)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:300}}>{study.file.driveLink}</div>
             </div>
-            {study.file.downloadURL?(
-              <a href={study.file.downloadURL} target="_blank" rel="noreferrer"
-                style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 14px',background:'var(--ink)',color:'#fff',borderRadius:'var(--radius)',fontSize:'0.8rem',fontWeight:500,textDecoration:'none',whiteSpace:'nowrap'}}
-                onClick={()=>API.trackStudy(study.id,'downloadCount')}>
-                <Ico.dl/> Download
-              </a>
-            ):(
-              <span style={{fontSize:'0.73rem',color:'var(--muted)'}}>No file stored</span>
-            )}
+            <a href={study.file.driveLink} target="_blank" rel="noreferrer"
+              style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 14px',background:'#1a73e8',color:'#fff',borderRadius:'var(--radius)',fontSize:'0.8rem',fontWeight:500,textDecoration:'none',whiteSpace:'nowrap',flexShrink:0}}
+              onClick={()=>API.trackStudy(study.id,'downloadCount')}>
+              <Ico.dl/> Open in Drive
+            </a>
           </div>
         </div>
       )}
@@ -985,58 +968,43 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  UPLOAD MODAL
+//  UPLOAD MODAL — uses Google Drive link instead of file upload
 // ══════════════════════════════════════════════════════════════════
 function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
-  const [form,setForm]=useState({title:'',authors:'',abstract:'',keywords:'',year:String(new Date().getFullYear())});
+  const [form,setForm]=useState({title:'',authors:'',abstract:'',keywords:'',year:String(new Date().getFullYear()),driveLink:''});
   const [selCats,setSelCats]=useState([]);
-  const [file,setFile]=useState(null);
   const [loading,setLoading]=useState(false);
-  const [drag,setDrag]=useState(false);
-  const fRef=useRef();
   const sf=(k,v)=>setForm(f=>({...f,[k]:v}));
 
-  const handleFile=f=>{
-    if(!f)return;
-    if(!['pdf','doc','docx'].includes(f.name.split('.').pop().toLowerCase())){toast.err('Only PDF, DOC, DOCX allowed');return;}
-    if(f.size>200*1024*1024){toast.err('Max file size is 200 MB');return;}
-    setFile(f);
+  // Validate and normalise a Google Drive link
+  const parseDriveLink=url=>{
+    if(!url.trim()) return null;
+    // Accept any google drive / docs URL
+    if(url.includes('drive.google.com')||url.includes('docs.google.com')) return url.trim();
+    return null;
   };
 
-  const [uploadProgress,setUploadProgress]=useState(0);
-
   const submit=async()=>{
+    if(!form.title.trim()){toast.err('Title is required.');return;}
+    if(!form.authors.trim()){toast.err('At least one author is required.');return;}
+    if(!form.abstract.trim()){toast.err('Abstract is required.');return;}
+    if(!selCats.length){toast.err('Please select at least one category.');return;}
+
+    let driveUrl=null;
+    if(form.driveLink.trim()){
+      driveUrl=parseDriveLink(form.driveLink);
+      if(!driveUrl){toast.err('Please enter a valid Google Drive link.');return;}
+    }
+
     setLoading(true);
-    setUploadProgress(0);
     try{
       const authors=form.authors.split(',').map(a=>a.trim()).filter(Boolean);
       const keywords=form.keywords.split(',').map(k=>k.trim()).filter(Boolean);
-
-      let fileData=null;
-      if(file){
-        // Upload real file to Firebase Storage
-        const path=`studies/${currentUser.id}/${Date.now()}_${file.name}`;
-        const ref=storage.ref(path);
-        const task=ref.put(file);
-
-        // Track progress
-        await new Promise((resolve,reject)=>{
-          task.on('state_changed',
-            snap=>setUploadProgress(Math.round(snap.bytesTransferred/snap.totalBytes*100)),
-            reject,
-            resolve
-          );
-        });
-
-        const downloadURL=await ref.getDownloadURL();
-        fileData={ originalName:file.name, size:file.size, path, downloadURL };
-      }
-
+      const fileData=driveUrl?{driveLink:driveUrl}:null;
       await API.createStudy({title:form.title,authors,abstract:form.abstract,keywords,categories:selCats,year:form.year,file:fileData,uploadedBy:currentUser.id,uploadedByName:currentUser.name});
-      toast.ok('Study uploaded successfully!');onUpload();onClose();
-    }catch(e){toast.err(e.message||'Upload failed. Check your connection and try again.');}
+      toast.ok('Study submitted successfully!');onUpload();onClose();
+    }catch(e){toast.err(e.message||'Failed to save. Please try again.');}
     setLoading(false);
-    setUploadProgress(0);
   };
 
   return (
@@ -1050,25 +1018,24 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
         <div className="fg"><label>Keywords <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></label><input placeholder="e.g. robotics, AI, biology" value={form.keywords} onChange={e=>sf('keywords',e.target.value)}/></div>
       </div>
       <div className="fg">
-        <label>File Upload <span style={{fontWeight:300,color:'var(--muted)'}}>(PDF, DOC, DOCX — max 200 MB)</span></label>
-        <div className={`uz ${drag?'drag':''} ${file?'has':''}`} onClick={()=>fRef.current?.click()} onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);handleFile(e.dataTransfer.files[0]);}}>
-          <input ref={fRef} type="file" accept=".pdf,.doc,.docx" onChange={e=>handleFile(e.target.files[0])}/>
-          {file?(<><div style={{color:'var(--green)',fontSize:'1.5rem',marginBottom:3}}>✓</div><strong style={{color:'var(--green)'}}>{file.name}</strong><p style={{fontFamily:'var(--font-mono)',fontSize:'0.73rem',color:'var(--teal)',marginTop:6}}>{fmtBytes(file.size)}</p></>):(<><div style={{marginBottom:7,color:'var(--muted)',fontSize:'1.5rem'}}>📄</div><strong>Drag & drop or click to browse</strong><p>PDF, DOC, or DOCX · Max 200 MB</p></>)}
+        <label>Google Drive Link <span style={{fontWeight:300,color:'var(--muted)'}}>(optional)</span></label>
+        <input
+          placeholder="https://drive.google.com/file/d/..."
+          value={form.driveLink}
+          onChange={e=>sf('driveLink',e.target.value)}
+          style={{fontFamily:'var(--font-mono)',fontSize:'0.82rem'}}
+        />
+        <div style={{marginTop:7,background:'var(--blue-light)',borderRadius:'var(--radius)',padding:'9px 12px',fontSize:'0.78rem',color:'var(--blue)'}}>
+          <strong>How to get a Google Drive link:</strong><br/>
+          1. Upload your PDF to Google Drive<br/>
+          2. Right-click the file → <strong>Share</strong> → <strong>Copy link</strong><br/>
+          3. Make sure access is set to <strong>"Anyone with the link"</strong><br/>
+          4. Paste the link above
         </div>
       </div>
-      {loading&&uploadProgress>0&&(
-        <div style={{marginBottom:14}}>
-          <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.78rem',color:'var(--muted)',marginBottom:5}}>
-            <span>Uploading file…</span><span>{uploadProgress}%</span>
-          </div>
-          <div style={{background:'var(--border)',borderRadius:99,height:6}}>
-            <div style={{background:'var(--gold)',height:6,borderRadius:99,width:`${uploadProgress}%`,transition:'width .2s'}}/>
-          </div>
-        </div>
-      )}
-      <div style={{display:'flex',gap:9,justifyContent:'flex-end'}}>
+      <div style={{display:'flex',gap:9,justifyContent:'flex-end',marginTop:6}}>
         <button className="btn btn-ol" onClick={onClose} disabled={loading}>Cancel</button>
-        <button className="btn btn-gold" onClick={submit} disabled={loading}>{loading?<><span className="spin spin-dark"/>{uploadProgress>0?`Uploading ${uploadProgress}%`:'Saving…'}</>:<><Ico.up/> Upload Study</>}</button>
+        <button className="btn btn-gold" onClick={submit} disabled={loading}>{loading?<><span className="spin spin-dark"/>Saving…</>:<><Ico.up/> Submit Study</>}</button>
       </div>
     </Modal>
   );
