@@ -1,0 +1,1736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SABNAHIS STE Research Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --ink:#0d0f14;--ink-2:#1e2130;--ink-3:#2e3250;--slate:#4a5174;--muted:#7c85a8;
+  --border:#e2e5f0;--surface:#f5f6fa;--white:#ffffff;
+  --gold:#c9a227;--gold-light:#f0d882;--gold-bg:#fdf8ec;
+  --teal:#1a7f6e;--teal-light:#e6f5f2;--red:#c0392b;--red-light:#fdf0ee;
+  --green:#1a7f4a;--green-light:#e6f5ee;--blue:#1a5fa8;--blue-light:#e6f0fd;
+  --purple:#6d3fa8;--purple-light:#f3eeff;
+  --radius:10px;--radius-lg:16px;
+  --shadow:0 2px 12px rgba(13,15,20,0.08);--shadow-lg:0 8px 32px rgba(13,15,20,0.12);
+  --font-display:'Playfair Display',Georgia,serif;
+  --font-body:'DM Sans',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --transition:0.2s cubic-bezier(0.4,0,0.2,1)
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-body);background:var(--surface);color:var(--ink);min-height:100vh;font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+/* LAYOUT */
+.app-shell{display:flex;min-height:100vh}
+.sidebar{width:260px;min-height:100vh;background:var(--ink);color:#fff;display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100;transition:transform .3s ease}
+.sidebar-logo{padding:24px 24px 18px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.sidebar-logo h1{font-family:var(--font-display);font-size:1.05rem;font-weight:700;color:#fff;line-height:1.3}
+.sidebar-logo h1 span{color:var(--gold)}
+.sidebar-logo p{font-size:0.73rem;color:rgba(255,255,255,0.4);margin-top:4px}
+.sidebar-nav{flex:1;padding:16px 12px;overflow-y:auto}
+.nav-label{font-size:0.63rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.28);padding:12px 12px 5px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:0.875rem;color:rgba(255,255,255,0.58);transition:all var(--transition);margin-bottom:2px;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:#fff}
+.nav-item.active{background:rgba(201,162,39,0.16);color:var(--gold-light);font-weight:500}
+.nav-item svg{width:17px;flex-shrink:0;opacity:0.8}
+.nav-badge{margin-left:auto;background:var(--gold);color:var(--ink);font-size:0.63rem;font-weight:700;padding:1px 6px;border-radius:99px}
+.sidebar-footer{padding:14px;border-top:1px solid rgba(255,255,255,0.08)}
+.user-chip{display:flex;align-items:center;gap:9px;padding:8px;border-radius:8px}
+.avatar{width:33px;height:33px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--teal));display:flex;align-items:center;justify-content:center;font-size:0.78rem;font-weight:700;color:#fff;flex-shrink:0}
+.user-info strong{display:block;font-size:0.78rem;color:#fff;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.user-info span{font-size:0.68rem;color:rgba(255,255,255,0.38);text-transform:capitalize}
+.main-content{flex:1;margin-left:260px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:0 28px;height:58px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+.topbar-title{font-family:var(--font-display);font-size:1.1rem;font-weight:600;color:var(--ink);flex:1}
+.page{padding:26px;flex:1}
+/* AUTH */
+.auth-wrap{min-height:100vh;display:flex;background:var(--ink);position:relative;overflow:hidden}
+.auth-inner{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;position:relative;z-index:1}
+.auth-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(201,162,39,0.12) 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(26,127,110,0.09) 0%,transparent 50%),radial-gradient(ellipse at 60% 80%,rgba(109,63,168,0.07) 0%,transparent 40%);pointer-events:none}
+.auth-brand{text-align:center;margin-bottom:32px}
+.auth-brand h1{font-family:var(--font-display);font-size:2rem;font-weight:700;color:#fff;letter-spacing:-1px;line-height:1.2}
+.auth-brand h1 span{color:var(--gold);display:block;font-size:1.3rem;margin-top:4px}
+.auth-brand p{color:rgba(255,255,255,0.42);margin-top:8px;font-size:0.875rem}
+.auth-card{background:var(--white);border-radius:var(--radius-lg);padding:32px;width:100%;max-width:440px;box-shadow:0 24px 64px rgba(0,0,0,0.3)}
+.auth-tabs{display:flex;gap:4px;background:var(--surface);border-radius:8px;padding:4px;margin-bottom:22px}
+.auth-tab{flex:1;padding:8px;text-align:center;border-radius:6px;cursor:pointer;font-size:0.875rem;font-weight:500;color:var(--muted);transition:all var(--transition);border:none;background:none}
+.auth-tab.active{background:var(--white);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+/* FORMS */
+.fg{margin-bottom:14px}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+label{display:block;font-size:0.78rem;font-weight:500;color:var(--ink-3);margin-bottom:5px}
+input,select,textarea{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:var(--font-body);font-size:0.875rem;color:var(--ink);background:var(--white);transition:border-color var(--transition);outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,162,39,0.1)}
+textarea{resize:vertical;min-height:90px}
+.hint{font-size:0.74rem;color:var(--muted);margin-top:3px}
+/* CATEGORY PICKER */
+.cat-picker{display:flex;flex-direction:column;gap:7px}
+.cat-opt{display:flex;align-items:center;gap:10px;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all var(--transition);user-select:none}
+.cat-opt:hover,.cat-opt.sel{border-color:var(--gold);background:var(--gold-bg)}
+.cat-opt.dis{opacity:0.4;cursor:not-allowed}
+.cat-opt.dis:hover{border-color:var(--border);background:none}
+.cat-cb{width:15px;height:15px;border:2px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all var(--transition)}
+.cat-opt.sel .cat-cb{border-color:var(--gold);background:var(--gold)}
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 18px;border-radius:var(--radius);font-family:var(--font-body);font-size:0.875rem;font-weight:500;cursor:pointer;transition:all var(--transition);border:none;white-space:nowrap}
+.btn-ink{background:var(--ink);color:#fff}.btn-ink:hover{background:var(--ink-2);transform:translateY(-1px)}
+.btn-gold{background:var(--gold);color:var(--ink);font-weight:600}.btn-gold:hover{background:#b8911f;transform:translateY(-1px)}
+.btn-ol{background:none;border:1.5px solid var(--border);color:var(--ink-3)}.btn-ol:hover{border-color:var(--ink-3);background:var(--surface)}
+.btn-red{background:var(--red);color:#fff}.btn-red:hover{background:#a93226}
+.btn-grn{background:var(--green);color:#fff}.btn-grn:hover{background:#156b3c}
+.btn-pur{background:var(--purple);color:#fff}.btn-pur:hover{background:#5c2d99}
+.btn-teal{background:var(--teal);color:#fff}.btn-teal:hover{background:#156b5c}
+.btn-sm{padding:5px 11px;font-size:0.78rem}
+.btn-full{width:100%}
+.btn:disabled{opacity:0.48;cursor:not-allowed;transform:none!important}
+/* CARDS */
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;box-shadow:var(--shadow)}
+.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:9px}
+.card-title{font-family:var(--font-display);font-size:1rem;font-weight:600;color:var(--ink)}
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
+.stat{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;display:flex;flex-direction:column;gap:6px}
+.stat.gold{border-left:4px solid var(--gold)}.stat.teal{border-left:4px solid var(--teal)}.stat.blue{border-left:4px solid var(--blue)}.stat.red{border-left:4px solid var(--red)}.stat.pur{border-left:4px solid var(--purple)}.stat.slate{border-left:4px solid var(--slate)}
+.stat-lbl{font-size:0.73rem;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+.stat-val{font-family:var(--font-display);font-size:1.9rem;font-weight:700;color:var(--ink);line-height:1}
+.stat-sub{font-size:0.73rem;color:var(--muted)}
+/* STUDY CARDS */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px}
+.sc{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow);transition:all var(--transition);cursor:pointer;position:relative;overflow:hidden}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--teal));transform:scaleX(0);transform-origin:left;transition:transform var(--transition)}
+.sc:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:rgba(201,162,39,0.3)}.sc:hover::before{transform:scaleX(1)}
+.sc-cats{display:flex;flex-wrap:wrap;gap:4px}
+.sc-cat{font-size:0.67rem;font-weight:600;padding:2px 7px;border-radius:4px;background:var(--gold-bg);color:var(--gold)}
+.sc-title{font-family:var(--font-display);font-size:0.97rem;font-weight:600;color:var(--ink);line-height:1.4}
+.sc-authors{font-size:0.78rem;color:var(--muted)}
+.sc-abs{font-size:0.8rem;color:var(--slate);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.sc-meta{display:flex;align-items:center;gap:10px;font-size:0.71rem;color:var(--muted);flex-wrap:wrap;margin-top:auto}
+.sc-meta span{display:flex;align-items:center;gap:3px}
+/* TABLE */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:0.71rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;padding:9px 13px;text-align:left;border-bottom:1.5px solid var(--border);white-space:nowrap}
+td{padding:11px 13px;border-bottom:1px solid var(--border);font-size:0.85rem;color:var(--ink-3);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface)}
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 9px;border-radius:99px;font-size:0.7rem;font-weight:600}
+.badge-pend{background:#fff8e6;color:#b7860b}.badge-appr{background:var(--green-light);color:var(--green)}.badge-rej{background:var(--red-light);color:var(--red)}.badge-admin{background:var(--blue-light);color:var(--blue)}
+/* SEARCH / FILTER */
+.sb{display:flex;align-items:center;gap:9px;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);padding:0 13px;transition:border-color var(--transition)}.sb svg{width:16px;height:16px;flex-shrink:0;color:var(--muted)}
+.sb:focus-within{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,162,39,0.1)}
+.sb input{border:none;background:none;padding:9px 0;flex:1;outline:none;font-size:0.875rem}
+.fb{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+/* UPLOAD ZONE */
+.uz{border:2px dashed var(--border);border-radius:var(--radius);padding:28px;text-align:center;cursor:pointer;transition:all var(--transition)}
+.uz:hover,.uz.drag{border-color:var(--gold);background:var(--gold-bg)}.uz.has{border-color:var(--green);background:var(--green-light)}
+.uz p{color:var(--muted);font-size:0.875rem}.uz strong{color:var(--ink);display:block;margin-bottom:3px}
+.uz input[type=file]{display:none}
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(13,15,20,0.6);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;padding:18px;animation:fIn .2s ease}
+.modal{background:var(--white);border-radius:var(--radius-lg);width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.22);animation:sUp .25s cubic-bezier(0.34,1.56,0.64,1)}
+.modal-hd{padding:22px 26px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:11px;position:sticky;top:0;background:var(--white);z-index:1;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.modal-bd{padding:20px 26px 26px}
+.modal-title{font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--ink)}
+.modal-x{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:6px;transition:all var(--transition)}
+.modal-x:hover{background:var(--surface);color:var(--ink)}
+/* TOASTS */
+.toasts{position:fixed;bottom:22px;right:22px;z-index:9999;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.toast{background:var(--ink);color:#fff;padding:11px 15px;border-radius:var(--radius);font-size:0.875rem;display:flex;align-items:center;gap:9px;min-width:270px;max-width:360px;box-shadow:var(--shadow-lg);animation:sRight .3s ease;pointer-events:all}
+.toast.ok{background:var(--green)}.toast.err{background:var(--red)}.toast.info{background:var(--blue)}
+/* EMPTY */
+.empty{text-align:center;padding:52px 20px;color:var(--muted)}
+.empty-ico{font-size:2.8rem;margin-bottom:10px;opacity:0.45}
+.empty h3{font-family:var(--font-display);font-size:1.05rem;color:var(--slate);margin-bottom:5px}
+/* SPINNERS */
+.spin{width:19px;height:19px;border:2px solid rgba(255,255,255,0.28);border-top-color:#fff;border-radius:50%;animation:spinning .7s linear infinite;flex-shrink:0;display:inline-block}
+.spin-dark{border-color:rgba(13,15,20,0.15)!important;border-top-color:var(--ink)!important}
+.spin-gold{border-color:rgba(201,162,39,0.25)!important;border-top-color:var(--gold)!important}
+/* PAGINATION */
+.pages{display:flex;align-items:center;gap:5px;margin-top:24px;justify-content:center}
+.pg{width:34px;height:34px;border-radius:8px;border:1.5px solid var(--border);background:var(--white);color:var(--ink);cursor:pointer;font-size:0.875rem;display:flex;align-items:center;justify-content:center;transition:all var(--transition)}
+.pg:hover{border-color:var(--gold);background:var(--gold-bg)}.pg.active{background:var(--ink);color:#fff;border-color:var(--ink)}.pg:disabled{opacity:0.38;cursor:not-allowed}
+/* ALERTS */
+.al{display:flex;align-items:flex-start;gap:9px;padding:11px 14px;border-radius:var(--radius);font-size:0.875rem;margin-bottom:14px}
+.al-info{background:var(--blue-light);color:var(--blue)}.al-ok{background:var(--green-light);color:var(--green)}.al-err{background:var(--red-light);color:var(--red)}.al-warn{background:#fff8e6;color:#b7860b}
+/* STUDY DETAIL */
+.sd-title{font-family:var(--font-display);font-size:1.5rem;font-weight:700;color:var(--ink);line-height:1.3;margin-bottom:10px}
+.sd-auth{font-size:0.97rem;color:var(--slate);margin-bottom:14px}
+.kw{display:inline-block;padding:2px 9px;background:var(--surface);border:1px solid var(--border);border-radius:99px;font-size:0.73rem;color:var(--slate);margin:2px}
+.ds h4{font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:7px}
+.ds p{color:var(--ink-3);font-size:0.88rem;line-height:1.7}
+.apa-box{background:var(--surface);border-left:3px solid var(--gold);padding:11px 14px;border-radius:0 var(--radius) var(--radius) 0;font-family:var(--font-mono);font-size:0.76rem;color:var(--ink-3);line-height:1.6;word-break:break-word;position:relative;padding-right:70px}
+.apa-cp{position:absolute;top:7px;right:7px;background:var(--gold);border:none;border-radius:5px;padding:2px 8px;font-size:0.68rem;cursor:pointer;color:var(--ink);font-weight:600;transition:all var(--transition)}
+.apa-cp:hover{background:#b8911f}
+/* CATEGORY MANAGER */
+.cm-item{display:flex;align-items:center;gap:9px;padding:9px 13px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:7px;background:var(--white)}
+.cm-name{flex:1;font-size:0.875rem;font-weight:500;color:var(--ink-3)}
+.cm-in{border:none;background:none;font-size:0.875rem;color:var(--ink);flex:1;outline:none;padding:0}
+/* ══════════════════════════════════════════
+   ADVANCED CHAT STYLES
+══════════════════════════════════════════ */
+.chat-layout{display:flex;height:calc(100vh - 120px);min-height:500px;gap:16px}
+.chat-main{flex:1;display:flex;flex-direction:column;min-width:0}
+.chat-sidebar{width:280px;flex-shrink:0;display:flex;flex-direction:column;gap:12px}
+.chat-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;border:1px solid var(--border);border-bottom:none;scroll-behavior:smooth}
+.cm{display:flex;gap:10px;align-items:flex-start;animation:msgIn .3s ease}
+.cm.user{flex-direction:row-reverse}
+.cm-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0;box-shadow:var(--shadow)}
+.cm-av.bot{background:linear-gradient(135deg,var(--purple),var(--blue));color:#fff}
+.cm-av.user{background:linear-gradient(135deg,var(--gold),var(--teal));color:#fff}
+.cm-body{display:flex;flex-direction:column;gap:4px;max-width:78%}
+.cm.user .cm-body{align-items:flex-end}
+.cm-bub{padding:10px 14px;border-radius:var(--radius-lg);font-size:0.875rem;line-height:1.65;word-break:break-word}
+.cm-bub.bot{background:var(--white);border:1px solid var(--border);color:var(--ink-3);border-radius:4px var(--radius-lg) var(--radius-lg) var(--radius-lg);box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.cm-bub.user{background:var(--ink);color:#fff;border-radius:var(--radius-lg) 4px var(--radius-lg) var(--radius-lg)}
+.cm-meta{font-size:0.64rem;color:var(--muted);display:flex;align-items:center;gap:5px}
+.cm-src{font-size:0.64rem;padding:1px 6px;border-radius:4px;font-weight:500}
+.cm-src.claude{background:var(--purple-light);color:var(--purple)}
+.cm-src.local{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
+/* typing dots */
+.typing{display:flex;gap:5px;padding:4px 2px;align-items:center}
+.dot{width:7px;height:7px;background:var(--muted);border-radius:50%;animation:pulse 1.4s infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+/* chat input */
+.chat-input-area{background:var(--white);border:1px solid var(--border);border-radius:0 0 var(--radius-lg) var(--radius-lg);padding:12px 14px}
+.chat-input-row{display:flex;gap:9px;align-items:flex-end}
+.chat-in{flex:1;border:1.5px solid var(--border);border-radius:var(--radius);padding:9px 13px;font-family:var(--font-body);font-size:0.875rem;outline:none;resize:none;max-height:120px;min-height:42px;transition:border-color var(--transition);background:var(--surface)}
+.chat-in:focus{border-color:var(--purple);background:var(--white);box-shadow:0 0 0 3px rgba(109,63,168,0.1)}
+.chat-actions{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;align-items:center}
+.chat-action-btn{font-size:0.72rem;padding:4px 10px;border-radius:99px;border:1.5px solid var(--border);background:var(--surface);color:var(--ink-3);cursor:pointer;transition:all var(--transition);display:flex;align-items:center;gap:4px}
+.chat-action-btn:hover{border-color:var(--purple);background:var(--purple-light);color:var(--purple)}
+.chat-action-btn.active{border-color:var(--purple);background:var(--purple-light);color:var(--purple)}
+/* chat refs */
+.chat-refs{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)}
+.chat-ref-lbl{font-size:0.67rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;display:flex;align-items:center;gap:4px}
+.chat-ref{font-family:var(--font-mono);font-size:0.68rem;color:var(--slate);padding:5px 9px;background:var(--surface);border-radius:5px;margin-bottom:3px;border-left:2px solid var(--gold);line-height:1.5;cursor:pointer;transition:background var(--transition)}
+.chat-ref:hover{background:var(--gold-bg)}
+/* sidebar panels */
+.chat-panel{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.chat-panel-hd{padding:12px 14px;border-bottom:1px solid var(--border);font-size:0.78rem;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:6px;background:var(--surface)}
+.chat-panel-body{padding:12px 14px;max-height:300px;overflow-y:auto}
+.sugg-chip{display:block;width:100%;text-align:left;font-size:0.78rem;padding:7px 10px;border-radius:7px;border:none;background:none;color:var(--ink-3);cursor:pointer;transition:all var(--transition);margin-bottom:3px;line-height:1.4}
+.sugg-chip:hover{background:var(--purple-light);color:var(--purple)}
+.chat-stat-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.78rem}
+.chat-stat-row:last-child{border-bottom:none}
+.chat-stat-val{font-weight:600;color:var(--ink)}
+/* mode pills */
+.mode-pills{display:flex;gap:5px;flex-wrap:wrap;padding:8px 14px;background:var(--surface);border-left:1px solid var(--border);border-right:1px solid var(--border)}
+.mode-pill{font-size:0.71rem;padding:3px 10px;border-radius:99px;border:1.5px solid var(--border);background:var(--white);color:var(--muted);cursor:pointer;transition:all var(--transition);font-weight:500}
+.mode-pill.on{border-color:var(--purple);background:var(--purple-light);color:var(--purple);font-weight:600}
+/* MARKDOWN */
+.md strong{font-weight:600;color:var(--ink)}.md em{font-style:italic;color:var(--slate)}.md code{font-family:var(--font-mono);background:var(--surface);padding:1px 5px;border-radius:4px;font-size:0.83em;border:1px solid var(--border)}
+.md h3{font-family:var(--font-display);font-size:0.97rem;font-weight:600;color:var(--ink);margin:8px 0 4px}
+.md-bullet{display:flex;gap:7px;padding-left:2px;margin:2px 0}
+.md-bullet-dot{color:var(--gold);flex-shrink:0;font-weight:700}
+.md-num{display:flex;gap:7px;padding-left:2px;margin:2px 0}
+.md-num-n{color:var(--purple);flex-shrink:0;font-weight:700;min-width:16px}
+/* MISC */
+.divider{height:1px;background:var(--border);margin:14px 0}
+.sec-title{font-family:var(--font-display);font-size:1.15rem;font-weight:600;color:var(--ink);margin-bottom:14px}
+.muted{color:var(--muted);font-size:0.875rem}
+.mt12{margin-top:12px}.mb12{margin-bottom:12px}.mt16{margin-top:16px}
+.page-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.page-hd-left h2{font-family:var(--font-display);font-size:1.25rem;font-weight:600;margin-bottom:2px}
+/* ANIMATIONS */
+@keyframes fIn{from{opacity:0}to{opacity:1}}
+@keyframes sUp{from{opacity:0;transform:translateY(20px) scale(0.97)}to{opacity:1;transform:none}}
+@keyframes sRight{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+@keyframes spinning{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,80%,100%{transform:scale(1);opacity:.4}40%{transform:scale(1.3);opacity:1}}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* RESPONSIVE */
+@media(max-width:900px){.chat-layout{flex-direction:column}.chat-sidebar{width:100%;flex-direction:row;overflow-x:auto}.chat-panel{min-width:220px;flex-shrink:0}}
+@media(max-width:768px){.sidebar{transform:translateX(-100%)}.main-content{margin-left:0}.grid{grid-template-columns:1fr}.fr{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.page{padding:14px}.chat-sidebar{display:none}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
+
+// ══════════════════════════════════════════════════════════════════
+//  FIREBASE CONFIG
+// ══════════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyD_2lO2W9OvEh0c8uMO_AEUZcQz8YTqZU8",
+  authDomain: "sabnahis-portal.firebaseapp.com",
+  projectId: "sabnahis-portal",
+  storageBucket: "sabnahis-portal.firebasestorage.app",
+  messagingSenderId: "155537469341",
+  appId: "1:155537469341:web:85650f06744d422dc58974"
+};
+
+// Safe init — avoid "already initialized" error on hot reload
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const auth    = firebase.auth();
+const db      = firebase.firestore();
+const storage = firebase.storage();
+
+// Module-level flag: login() sets this true BEFORE signInWithEmailAndPassword
+// so the onAuthStateChanged listener knows not to interfere.
+let _loginInProgress = false;
+
+// ══════════════════════════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════════════════════════
+const SEC_QS = [
+  "What is the name of your first pet?",
+  "What is your mother's maiden name?",
+  "What city were you born in?",
+  "What was the name of your elementary school?",
+  "What is your favorite book?"
+];
+const DEFAULT_CATS = [
+  "Life Science",
+  "Physical Science",
+  "Mathematical and Computational Science",
+  "Robotics and Intelligent Machines",
+  "STE Innovation Expo"
+];
+
+// ══════════════════════════════════════════════════════════════════
+//  FIREBASE API  — all reads use simple .get() to avoid index errors
+// ══════════════════════════════════════════════════════════════════
+const API = {
+  /* AUTH */
+  async register({ name, email, password, institution, department, secQ, secA }) {
+    if (!name||!email||!password) throw new Error('Name, email and password are required.');
+    if (password.length < 8)       throw new Error('Password must be at least 8 characters.');
+    if (!secA?.trim())             throw new Error('Security answer is required.');
+    // Firebase Auth itself prevents duplicate emails — no need for a slow Firestore pre-check
+    const cred = await auth.createUserWithEmailAndPassword(email, password);
+    const uid  = cred.user.uid;
+    // Sign out FIRST so onAuthStateChanged doesn't fire with a pending user
+    await auth.signOut();
+    // Then write the profile (no active auth session = no listener conflict)
+    await db.collection('users').doc(uid).set({
+      name: name.trim(), email: email.toLowerCase(),
+      role: 'student', status: 'pending',
+      institution: institution?.trim()||'', department: department?.trim()||'',
+      secQ: secQ||SEC_QS[0], secA: secA.trim().toLowerCase(),
+      uploadCount: 0, createdAt: new Date().toISOString()
+    });
+  },
+
+  async login(email, password) {
+    _loginInProgress = true;   // tell listener: we own this sign-in
+    const cred = await auth.signInWithEmailAndPassword(email, password);
+    const snap = await db.collection('users').doc(cred.user.uid).get();
+    if (!snap.exists) { _loginInProgress=false; await auth.signOut(); throw new Error('User profile not found. Contact your administrator.'); }
+    const data = snap.data();
+    if (data.status==='pending')  { _loginInProgress=false; await auth.signOut(); throw new Error('Your account is awaiting admin approval.'); }
+    if (data.status==='rejected') { _loginInProgress=false; await auth.signOut(); throw new Error('Your registration was rejected.'); }
+    // Fire-and-forget the lastLogin update — don't block login on it
+    db.collection('users').doc(cred.user.uid).update({ lastLogin: new Date().toISOString() }).catch(()=>{});
+    return { id: cred.user.uid, ...data };
+  },
+
+  async logout() { await auth.signOut(); },
+
+  async getProfile(uid) {
+    try {
+      const snap = await db.collection('users').doc(uid).get();
+      if (!snap.exists) return null;
+      return { id: uid, ...snap.data() };
+    } catch { return null; }
+  },
+
+  /* STUDIES — fetch all then filter client-side to avoid index requirements */
+  async getStudies({ search='', category='', uploadedBy='', status='active', page=1, perPage=6 }={}) {
+    try {
+      const snap = await db.collection('studies').orderBy('createdAt','desc').get();
+      let items = snap.docs.map(d=>({id:d.id,...d.data()}));
+      if (status)     items = items.filter(s=>s.status===status);
+      if (uploadedBy) items = items.filter(s=>s.uploadedBy===uploadedBy);
+      if (category)   items = items.filter(s=>(s.categories||[]).includes(category));
+      if (search) {
+        const q = search.toLowerCase();
+        items = items.filter(s=>[s.title,...(s.authors||[]),s.abstract||'',...(s.keywords||[])].join(' ').toLowerCase().includes(q));
+      }
+      const total = items.length;
+      const totalPages = Math.ceil(total/perPage)||1;
+      return { data: items.slice((page-1)*perPage, page*perPage), total, totalPages, page };
+    } catch(e) { console.error('getStudies',e); return {data:[],total:0,totalPages:1,page:1}; }
+  },
+
+  async getAllStudies() {
+    try {
+      const snap = await db.collection('studies').orderBy('createdAt','desc').get();
+      return snap.docs.map(d=>({id:d.id,...d.data()})).filter(s=>s.status==='active');
+    } catch { return []; }
+  },
+
+  async createStudy({ title, authors, abstract, keywords, categories, year, file, uploadedBy, uploadedByName }) {
+    if (!title||!abstract)  throw new Error('Title and abstract are required.');
+    if (!authors?.length)   throw new Error('At least one author is required.');
+    if (!categories?.length) throw new Error('At least one category is required.');
+    await db.collection('studies').add({
+      title:title.trim(), authors, abstract:abstract.trim(),
+      keywords:keywords||[], categories,
+      year:parseInt(year)||new Date().getFullYear(),
+      file:file||null, uploadedBy, uploadedByName,
+      viewCount:0, downloadCount:0, status:'active',
+      createdAt:new Date().toISOString()
+    });
+    await db.collection('users').doc(uploadedBy).update({
+      uploadCount: firebase.firestore.FieldValue.increment(1)
+    });
+  },
+
+  async deleteStudy(id) {
+    try {
+      // Also delete the file from Storage if it exists
+      const snap = await db.collection('studies').doc(id).get();
+      if (snap.exists) {
+        const data = snap.data();
+        if (data.file?.path) {
+          await storage.ref(data.file.path).delete().catch(()=>{});
+        }
+      }
+    } catch {}
+    await db.collection('studies').doc(id).delete();
+  },
+
+  async trackStudy(id, field) {
+    try { await db.collection('studies').doc(id).update({ [field]: firebase.firestore.FieldValue.increment(1) }); } catch {}
+  },
+
+  /* USERS */
+  async getUsers({ role='student', status='', search='' }={}) {
+    try {
+      const snap = await db.collection('users').where('role','==',role).get();
+      let users = snap.docs.map(d=>({id:d.id,...d.data()}));
+      if (status) users = users.filter(u=>u.status===status);
+      if (search) {
+        const q = search.toLowerCase();
+        users = users.filter(u=>u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||(u.institution||'').toLowerCase().includes(q));
+      }
+      return users.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+    } catch { return []; }
+  },
+
+  async updateUserStatus(id, status) {
+    await db.collection('users').doc(id).update({ status });
+  },
+
+  async deleteUser(id) {
+    const snap = await db.collection('studies').where('uploadedBy','==',id).get();
+    const batch = db.batch();
+    snap.docs.forEach(d=>batch.delete(d.ref));
+    batch.delete(db.collection('users').doc(id));
+    await batch.commit();
+  },
+
+  /* CATEGORIES */
+  async getCategories() {
+    try {
+      const snap = await db.collection('config').doc('categories').get();
+      return snap.exists ? (snap.data().list||DEFAULT_CATS) : [...DEFAULT_CATS];
+    } catch { return [...DEFAULT_CATS]; }
+  },
+
+  async setCategories(cats) {
+    await db.collection('config').doc('categories').set({ list: cats });
+  },
+
+  /* STATS */
+  async getStats() {
+    try {
+      const [uSnap, sSnap] = await Promise.all([
+        db.collection('users').where('role','==','student').get(),
+        db.collection('studies').get()
+      ]);
+      const users   = uSnap.docs.map(d=>d.data());
+      const studies = sSnap.docs.map(d=>d.data());
+      return {
+        totalStudents:    users.length,
+        approvedStudents: users.filter(u=>u.status==='approved').length,
+        pendingStudents:  users.filter(u=>u.status==='pending').length,
+        totalStudies:     studies.length,
+        totalViews:       studies.reduce((a,s)=>a+(s.viewCount||0),0),
+        totalDownloads:   studies.reduce((a,s)=>a+(s.downloadCount||0),0),
+      };
+    } catch { return {totalStudents:0,approvedStudents:0,pendingStudents:0,totalStudies:0,totalViews:0,totalDownloads:0}; }
+  },
+
+  async sendPasswordReset(email) {
+    await auth.sendPasswordResetEmail(email.trim());
+  }
+};
+
+// ══════════════════════════════════════════════════════════════════
+//  APA CITATION ENGINE
+// ══════════════════════════════════════════════════════════════════
+function fmtAPA(name) {
+  if (!name) return '';
+  const p = name.trim().split(/\s+/);
+  if (p.length===1) return p[0];
+  const last = p[p.length-1];
+  const inits = p.slice(0,-1).map(x=>x[0].toUpperCase()+'.').join(' ');
+  return `${last}, ${inits}`;
+}
+
+function generateAPA(s) {
+  if (!s) return '';
+  const authors = s.authors||[];
+  let a = 'Unknown Author';
+  if (authors.length===1) a=fmtAPA(authors[0]);
+  else if (authors.length===2) a=`${fmtAPA(authors[0])}, & ${fmtAPA(authors[1])}`;
+  else if (authors.length>2) { const f=authors.map(fmtAPA),l=f.pop(); a=f.join(', ')+', & '+l; }
+  const year = s.year||new Date().getFullYear();
+  const cat  = (s.categories||[])[0]||'';
+  return `${a}. (${year}). ${s.title||'Untitled'}.${cat?` [${cat}].`:''}`;
+}
+
+function generateInText(s) {
+  const authors = s.authors||[];
+  const year    = s.year||new Date().getFullYear();
+  const last    = n=>n?.trim().split(/\s+/).pop()||'Unknown';
+  if (!authors.length)   return `(Unknown, ${year})`;
+  if (authors.length===1) return `(${last(authors[0])}, ${year})`;
+  if (authors.length===2) return `(${last(authors[0])} & ${last(authors[1])}, ${year})`;
+  return `(${last(authors[0])} et al., ${year})`;
+}
+
+function scoreStudy(study, words) {
+  const txt = [study.title,...(study.authors||[]),study.abstract||'',...(study.keywords||[]),...(study.categories||[])].join(' ').toLowerCase();
+  return words.reduce((a,w)=>a+(txt.match(new RegExp(w,'g'))||[]).length,0);
+}
+
+function findRelevant(query, studies, limit=4) {
+  if (!query||!studies?.length) return [];
+  const words = query.toLowerCase().split(/\s+/).filter(w=>w.length>3);
+  if (!words.length) return studies.slice(0,limit);
+  return studies.map(s=>({s,score:scoreStudy(s,words)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,limit).map(x=>x.s);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ADVANCED AI ENGINE
+// ══════════════════════════════════════════════════════════════════
+const AI_MODES = {
+  general:   { label:'General Q&A',   icon:'💬', desc:'Answer research questions' },
+  find:      { label:'Find Studies',  icon:'🔍', desc:'Search the repository' },
+  cite:      { label:'APA Citations', icon:'📝', desc:'Generate citations' },
+  compare:   { label:'Compare',       icon:'⚖️',  desc:'Compare multiple studies' },
+  summarize: { label:'Summarize',     icon:'📋', desc:'Summarize abstracts' },
+  suggest:   { label:'Suggest Topics',icon:'💡', desc:'Research topic ideas' },
+};
+
+function buildSystemPrompt(studies, mode) {
+  const repoSummary = studies.length>0
+    ? studies.slice(0,25).map((s,i)=>
+        `[${i+1}] ID:${s.id}\n  Title: "${s.title}"\n  Authors: ${(s.authors||[]).join(', ')}\n  Year: ${s.year}\n  Categories: ${(s.categories||[]).join(', ')}\n  Keywords: ${(s.keywords||[]).join(', ')}\n  Abstract: ${(s.abstract||'').slice(0,250)}`
+      ).join('\n\n')
+    : '(Repository is currently empty)';
+
+  const modeInstructions = {
+    general:   'Answer research questions thoughtfully. Reference studies when relevant using in-text citations.',
+    find:      'Search the repository thoroughly. When the user describes a topic, find ALL matching studies and explain why each is relevant.',
+    cite:      'Generate precise APA 7th edition citations. Always provide both the full reference list entry AND the in-text citation format.',
+    compare:   'Compare studies side-by-side. Use structured format with categories like Methodology, Findings, Scope, Year.',
+    summarize: 'Provide clear, structured summaries. Include: Purpose, Methods, Key Findings, Significance.',
+    suggest:   'Suggest specific research topics or questions based on gaps you notice in the repository. Be creative and academic.',
+  };
+
+  return `You are an advanced academic research assistant for the SABNAHIS STE Research Portal — an institutional repository for Science, Technology, and Engineering student research.
+
+CURRENT MODE: ${AI_MODES[mode]?.label || 'General Q&A'}
+MODE INSTRUCTIONS: ${modeInstructions[mode] || modeInstructions.general}
+
+══════════════════════════════
+REPOSITORY (${studies.length} active studies):
+══════════════════════════════
+${repoSummary}
+
+══════════════════════════════
+YOUR CAPABILITIES:
+══════════════════════════════
+1. Find and retrieve studies from the repository by topic, author, year, or category
+2. Generate accurate APA 7th edition citations (both reference list and in-text)
+3. Summarize research abstracts in clear, accessible language
+4. Compare multiple studies across methodology, findings, scope
+5. Identify research gaps and suggest new study topics
+6. Answer STEM research questions with repository context
+7. Generate full reference lists for multiple studies at once
+
+══════════════════════════════
+APA 7TH EDITION FORMAT RULES:
+══════════════════════════════
+- Reference: LastName, F. M., & LastName, F. M. (Year). Title of work. [Category].
+- In-text (1 author): (LastName, Year)
+- In-text (2 authors): (LastName & LastName, Year)
+- In-text (3+ authors): (FirstLastName et al., Year)
+- For student research without publisher: use [Category] in place of journal/publisher
+
+══════════════════════════════
+RESPONSE FORMATTING:
+══════════════════════════════
+- Use **bold** for study titles and important terms
+- Use bullet lists (•) for multiple items
+- Use numbered lists (1. 2. 3.) for steps or rankings
+- Use ### for section headers when structuring long responses
+- Keep responses focused and academic but accessible
+- Always cite studies you mention using in-text format
+- When listing references, use the full APA format
+
+If a topic is not in the repository, say so clearly, then offer to help with related topics or suggest what kind of study could address the gap.`;
+}
+
+async function callAI(query, history, studies, mode='general') {
+  const relevant = findRelevant(query, studies, 4);
+  const system   = buildSystemPrompt(studies, mode);
+  const messages = [...history.slice(-12), { role:'user', content:query }];
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1200,
+        system,
+        messages
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const text = data.content?.[0]?.text||'No response generated.';
+    return { text, citations:relevant, source:'claude' };
+  } catch(err) {
+    console.error('AI error:',err);
+    return buildLocalResponse(query, studies, relevant, mode);
+  }
+}
+
+function buildLocalResponse(query, all, relevant, mode) {
+  const q = query.toLowerCase().trim();
+
+  // Greeting
+  if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|kumusta)/.test(q)) {
+    return { text:`Hello! 👋 I'm your **SABNAHIS STE Research Portal** AI assistant.\n\nI can help you with:\n• **Finding studies** by topic, author, keyword, or category\n• **APA 7th edition citations** — both reference list and in-text\n• **Summarizing** research abstracts\n• **Comparing** multiple studies side-by-side\n• **Suggesting** research topics and identifying gaps\n\nThe repository currently has **${all.length}** ${all.length===1?'study':'studies'}. What would you like to explore?`, citations:[], source:'local' };
+  }
+
+  // Stats
+  if (/how many|total|statistics|stats|count/.test(q)) {
+    const byCat={};
+    all.forEach(s=>(s.categories||['Uncategorized']).forEach(c=>{byCat[c]=(byCat[c]||0)+1;}));
+    const catList=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`• **${c}:** ${n} ${n===1?'study':'studies'}`).join('\n');
+    const views=all.reduce((a,s)=>a+(s.viewCount||0),0);
+    const dls=all.reduce((a,s)=>a+(s.downloadCount||0),0);
+    return { text:`### Repository Statistics\n\n📚 **${all.length}** total studies\n👁 **${views}** total views\n⬇ **${dls}** total downloads\n\n**Breakdown by category:**\n${catList||'• No studies yet'}`, citations:[], source:'local' };
+  }
+
+  // APA citations
+  if (/\b(cite|citation|apa|reference|bibliography|in.text|intext)\b/.test(q)) {
+    if (relevant.length) {
+      const list=relevant.map((s,i)=>`**[${i+1}] ${s.title}**\n\n*Full APA Reference:*\n\`${generateAPA(s)}\`\n\n*In-text citation:* ${generateInText(s)}`).join('\n\n---\n\n');
+      const refList='\n\n### References\n'+relevant.map(s=>`${generateAPA(s)}`).join('\n');
+      return { text:`Here are the **APA 7th edition citations** for the most relevant studies:\n\n${list}${refList}`, citations:relevant, source:'local' };
+    }
+    return { text:`I can generate **APA 7th edition citations** for any study in the repository.\n\nTry:\n• *"APA citation for the biology study"*\n• *"Cite all studies by Juan dela Cruz"*\n• *"References for all chemistry studies"*`, citations:[], source:'local' };
+  }
+
+  // List all
+  if (/list all|show all|all studies|every study/.test(q)) {
+    if (!all.length) return { text:'The repository is currently empty. Upload the first study using the **Upload Study** button!', citations:[], source:'local' };
+    const list=all.map((s,i)=>`**${i+1}.** ${s.title}\n   — *${(s.authors||[]).join(', ')}* (${s.year}) · ${(s.categories||[]).join(', ')}`).join('\n');
+    return { text:`### All Studies in the Repository (${all.length})\n\n${list}\n\nClick any study card in the **Repository** tab to view full details and citations.`, citations:all.slice(0,3), source:'local' };
+  }
+
+  // Compare
+  if (/compar|versus|vs\b|difference between|contrast/.test(q)&&relevant.length>=2) {
+    const [a,b]=relevant;
+    return { text:`### Comparing Studies\n\n**Study 1:** ${a.title} ${generateInText(a)}\n**Study 2:** ${b.title} ${generateInText(b)}\n\n| Aspect | Study 1 | Study 2 |\n|--------|---------|----------|\n| **Year** | ${a.year} | ${b.year} |\n| **Category** | ${(a.categories||[]).join(', ')} | ${(b.categories||[]).join(', ')} |\n| **Authors** | ${(a.authors||[]).join(', ')} | ${(b.authors||[]).join(', ')} |\n\n*For a more detailed AI-powered comparison, set your Anthropic API key in the settings above.*`, citations:relevant, source:'local' };
+  }
+
+  // Relevant results
+  if (relevant.length) {
+    const list=relevant.map((s,i)=>`**${i+1}. ${s.title}** ${generateInText(s)}\n👤 *${(s.authors||[]).join(', ')}* · 📅 ${s.year} · 🏷 ${(s.categories||[]).join(', ')}\n${(s.abstract||'').slice(0,200)}${(s.abstract||'').length>200?'...':''}`).join('\n\n');
+    const refs='\n\n---\n### References\n'+relevant.map(s=>generateAPA(s)).join('\n');
+    return { text:`Found **${relevant.length}** relevant ${relevant.length===1?'study':'studies'} for "*${query}*":\n\n${list}${refs}`, citations:relevant, source:'local' };
+  }
+
+  // No results
+  return { text:`I searched the repository for **"${query}"** but found no matching studies.\n\n**Try:**\n• Broader keywords (e.g., "biology" instead of a specific species)\n• Ask *"List all studies"* to browse everything\n• Check the **Repository** tab and filter by category\n• Upload a relevant study if it doesn't exist yet`, citations:[], source:'local' };
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════════════
+const fmtDate  = d=>d?new Date(d).toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric'}):'—';
+const fmtBytes = b=>!b?'—':b<1048576?`${(b/1024).toFixed(1)} KB`:`${(b/1048576).toFixed(1)} MB`;
+const initials = n=>n?.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()||'??';
+const now      = ()=>new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
+
+// Markdown renderer
+function MD({ text }) {
+  const lines = (text||'').split('\n');
+  return (
+    <div className="md">
+      {lines.map((line,i) => {
+        if (!line.trim()) return <div key={i} style={{height:5}}/>;
+        if (line.startsWith('---')) return <hr key={i} style={{border:'none',borderTop:'1px solid var(--border)',margin:'8px 0'}}/>;
+        if (/^###\s/.test(line)) return <div key={i} className="md" style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:'0.97rem',color:'var(--ink)',margin:'8px 0 4px'}}>{line.replace(/^###\s/,'')}</div>;
+        const html = line
+          .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+          .replace(/\*(.+?)\*/g,'<em>$1</em>')
+          .replace(/`(.+?)`/g,'<code>$1</code>');
+        if (/^\d+\.\s/.test(line)) {
+          const num = line.match(/^(\d+)\./)[1];
+          return <div key={i} className="md-num"><span className="md-num-n">{num}.</span><span dangerouslySetInnerHTML={{__html:html.replace(/^\d+\.\s*/,'')}}/></div>;
+        }
+        if (/^[•\-]\s/.test(line)) return <div key={i} className="md-bullet"><span className="md-bullet-dot">•</span><span dangerouslySetInnerHTML={{__html:html.replace(/^[•\-]\s*/,'')}}/></div>;
+        return <div key={i} dangerouslySetInnerHTML={{__html:html}}/>;
+      })}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════════════════════════
+let toastFn = null;
+function ToastProvider({ children }) {
+  const [toasts,setToasts] = useState([]);
+  toastFn = useCallback((msg,type='ok')=>{
+    const id=Date.now();
+    setToasts(t=>[...t,{id,msg,type}]);
+    setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),3800);
+  },[]);
+  return (<>
+    {children}
+    <div className="toasts">
+      {toasts.map(t=><div key={t.id} className={`toast ${t.type}`}><span>{t.type==='ok'?'✓':t.type==='err'?'✕':'ℹ'}</span>{t.msg}</div>)}
+    </div>
+  </>);
+}
+const toast = { ok:m=>toastFn?.(m,'ok'), err:m=>toastFn?.(m,'err'), info:m=>toastFn?.(m,'info') };
+
+// ══════════════════════════════════════════════════════════════════
+//  ICONS
+// ══════════════════════════════════════════════════════════════════
+const Ico = {
+  home:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  book:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>,
+  up:     ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>,
+  users:  ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  tag:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
+  bot:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="11"/><line x1="8" y1="15" x2="8" y2="15" strokeWidth="3" strokeLinecap="round"/><line x1="12" y1="15" x2="12" y2="15" strokeWidth="3" strokeLinecap="round"/><line x1="16" y1="15" x2="16" y2="15" strokeWidth="3" strokeLinecap="round"/></svg>,
+  search: ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  dl:     ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+  eye:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  trash:  ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
+  X:      ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  chk:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="13" height="13"><polyline points="20 6 9 17 4 12"/></svg>,
+  plus:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  file:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="28" height="28"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
+  cal:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  edit:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  send:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
+  copy:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
+  spark:  ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>,
+};
+
+// ══════════════════════════════════════════════════════════════════
+//  SHARED COMPONENTS
+// ══════════════════════════════════════════════════════════════════
+function Modal({ title, onClose, children, wide }) {
+  useEffect(()=>{
+    const esc=e=>e.key==='Escape'&&onClose?.();
+    document.addEventListener('keydown',esc);
+    return ()=>document.removeEventListener('keydown',esc);
+  },[onClose]);
+  return (
+    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose?.()}>
+      <div className="modal" style={wide?{maxWidth:740}:{}}>
+        <div className="modal-hd"><h2 className="modal-title">{title}</h2><button className="modal-x" onClick={onClose}><Ico.X/></button></div>
+        <div className="modal-bd">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function APABox({ study }) {
+  const [copied,setCopied]=useState(false);
+  const apa=generateAPA(study);
+  const copy=()=>navigator.clipboard?.writeText(apa).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
+  return <div className="apa-box">{apa}<button className="apa-cp" onClick={copy}>{copied?'✓ Copied':'Copy'}</button></div>;
+}
+
+function CatPicker({ selected, onChange, max=2, cats=[] }) {
+  const toggle=cat=>{
+    if (selected.includes(cat)){onChange(selected.filter(c=>c!==cat));return;}
+    if (selected.length>=max){toast.err(`Select up to ${max} categories only.`);return;}
+    onChange([...selected,cat]);
+  };
+  return (
+    <div className="cat-picker">
+      {cats.map(cat=>{
+        const isSel=selected.includes(cat),isDis=!isSel&&selected.length>=max;
+        return (
+          <div key={cat} className={`cat-opt${isSel?' sel':''}${isDis?' dis':''}`} onClick={()=>!isDis&&toggle(cat)}>
+            <div className="cat-cb">{isSel&&<span style={{color:'var(--ink)',fontSize:'0.63rem',fontWeight:900}}>✓</span>}</div>
+            <span style={{fontSize:'0.875rem',fontWeight:500,color:'var(--ink-3)'}}>{cat}</span>
+          </div>
+        );
+      })}
+      <p className="hint">Select 1–{max} categories. {selected.length}/{max} selected.</p>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  FORGOT PASSWORD
+// ══════════════════════════════════════════════════════════════════
+function ForgotModal({ onClose }) {
+  const [step,setStep]=useState('email');
+  const [email,setEmail]=useState('');
+  const [err,setErr]=useState('');
+  const [loading,setLoading]=useState(false);
+  const submit=async()=>{
+    setErr('');setLoading(true);
+    try{await API.sendPasswordReset(email);setStep('done');}
+    catch(e){setErr(e.message);}
+    setLoading(false);
+  };
+  return (
+    <Modal title="Reset Your Password" onClose={onClose}>
+      {err&&<div className="al al-err">{err}</div>}
+      {step==='email'&&(<>
+        <p className="muted" style={{marginBottom:14}}>Enter your email and we'll send a reset link.</p>
+        <div className="fg"><label>Email Address</label><input type="email" placeholder="your@email.com" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} autoFocus/></div>
+        <div style={{display:'flex',gap:9,justifyContent:'flex-end'}}>
+          <button className="btn btn-ol" onClick={onClose}>Cancel</button>
+          <button className="btn btn-gold" onClick={submit} disabled={loading||!email.trim()}>{loading?<><span className="spin spin-dark"/>Sending…</>:'Send Reset Link'}</button>
+        </div>
+      </>)}
+      {step==='done'&&(
+        <div style={{textAlign:'center',padding:'18px 0'}}>
+          <div style={{fontSize:'2.8rem',marginBottom:10}}>📧</div>
+          <h3 style={{fontFamily:'var(--font-display)',fontSize:'1.15rem',marginBottom:7}}>Check Your Email</h3>
+          <p className="muted" style={{marginBottom:22}}>A reset link was sent to <strong>{email}</strong>.</p>
+          <button className="btn btn-gold btn-full" onClick={onClose}>Back to Sign In</button>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  AUTH PAGE
+// ══════════════════════════════════════════════════════════════════
+function AuthPage({ onLogin }) {
+  const [tab,setTab]=useState('login');
+  const [loading,setLoading]=useState(false);
+  const [form,setForm]=useState({name:'',email:'',password:'',confirm:'',institution:'',department:'',secQ:SEC_QS[0],secA:''});
+  const [err,setErr]=useState('');
+  const [ok,setOk]=useState('');
+  const [showForgot,setShowForgot]=useState(false);
+  const sf=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  const login=async()=>{
+    setErr('');setLoading(true);
+    try{const user=await API.login(form.email,form.password);toast.ok(`Welcome back, ${user.name.split(' ')[0]}!`);onLogin(user);}
+    catch(e){setErr(e.message);}
+    setLoading(false);
+  };
+
+  const register=async()=>{
+    setErr('');
+    if(!form.secA?.trim()){setErr('Security answer is required.');return;}
+    if(form.password!==form.confirm){setErr('Passwords do not match.');return;}
+    setLoading(true);
+    try{
+      await API.register({name:form.name,email:form.email,password:form.password,institution:form.institution,department:form.department,secQ:form.secQ,secA:form.secA});
+      setOk('Registration submitted! Wait for admin approval before signing in.');
+      setTab('login');setForm({name:'',email:'',password:'',confirm:'',institution:'',department:'',secQ:SEC_QS[0],secA:''});
+    }catch(e){setErr(e.message);}
+    setLoading(false);
+  };
+
+  return (
+    <div className="auth-wrap">
+      <div className="auth-bg"/>
+      <div className="auth-inner">
+        <div className="auth-brand">
+          <h1>SABNAHIS STE <span>Research Portal</span></h1>
+          <p>Institutional Research Study Repository</p>
+        </div>
+        <div className="auth-card">
+          <div className="auth-tabs">
+            <button className={`auth-tab ${tab==='login'?'active':''}`} onClick={()=>{setTab('login');setErr('');setOk('');}}>Sign In</button>
+            <button className={`auth-tab ${tab==='register'?'active':''}`} onClick={()=>{setTab('register');setErr('');setOk('');}}>Register</button>
+          </div>
+          {err&&<div className="al al-err">{err}</div>}
+          {ok&&<div className="al al-ok">{ok}</div>}
+          {tab==='login'?(<>
+            <div className="fg"><label>Email Address</label><input type="email" placeholder="your@email.com" value={form.email} onChange={e=>sf('email',e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()}/></div>
+            <div className="fg">
+              <label>Password</label>
+              <input type="password" placeholder="••••••••" value={form.password} onChange={e=>sf('password',e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()}/>
+              <div style={{textAlign:'right',marginTop:5}}><button style={{background:'none',border:'none',color:'var(--gold)',fontSize:'0.78rem',cursor:'pointer',padding:0,textDecoration:'underline'}} onClick={()=>setShowForgot(true)}>Forgot password?</button></div>
+            </div>
+            <button className="btn btn-gold btn-full" onClick={login} disabled={loading}>{loading?<><span className="spin spin-dark"/>Signing in…</>:'Sign In'}</button>
+          </>):(<>
+            <div className="fg"><label>Full Name *</label><input placeholder="Your full name" value={form.name} onChange={e=>sf('name',e.target.value)}/></div>
+            <div className="fg"><label>Email Address *</label><input type="email" placeholder="yourname@email.com" value={form.email} onChange={e=>sf('email',e.target.value)}/></div>
+            <div className="fr">
+              <div className="fg"><label>School / Institution</label><input placeholder="e.g. SABNAHIS" value={form.institution} onChange={e=>sf('institution',e.target.value)}/></div>
+              <div className="fg"><label>Grade / Section</label><input placeholder="e.g. Grade 10 – STE A" value={form.department} onChange={e=>sf('department',e.target.value)}/></div>
+            </div>
+            <div className="fr">
+              <div className="fg"><label>Password *</label><input type="password" placeholder="Min. 8 characters" value={form.password} onChange={e=>sf('password',e.target.value)}/></div>
+              <div className="fg"><label>Confirm Password *</label><input type="password" placeholder="Repeat password" value={form.confirm} onChange={e=>sf('confirm',e.target.value)}/></div>
+            </div>
+            <div className="divider"/>
+            <p style={{fontSize:'0.71rem',fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:11}}>🔒 Password Recovery</p>
+            <div className="fg"><label>Security Question *</label><select value={form.secQ} onChange={e=>sf('secQ',e.target.value)}>{SEC_QS.map(q=><option key={q} value={q}>{q}</option>)}</select></div>
+            <div className="fg"><label>Your Answer *</label><input placeholder="Your answer" value={form.secA} onChange={e=>sf('secA',e.target.value)}/><p className="hint">Not case-sensitive when used for recovery.</p></div>
+            <button className="btn btn-ink btn-full" onClick={register} disabled={loading}>{loading?<><span className="spin"/>Submitting…</>:'Submit Registration'}</button>
+            <p className="hint mt12" style={{textAlign:'center'}}>Requires admin approval before sign-in.</p>
+          </>)}
+        </div>
+      </div>
+      {showForgot&&<ForgotModal onClose={()=>setShowForgot(false)}/>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  STUDY DETAIL MODAL
+// ══════════════════════════════════════════════════════════════════
+function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
+  const canDel = currentUser.role==='admin'||study.uploadedBy===currentUser.id;
+  return (
+    <Modal title="" onClose={onClose} wide>
+      <div style={{marginBottom:22}}>
+        <div className="sc-cats" style={{marginBottom:10}}>{(study.categories||[]).map(c=><span key={c} className="sc-cat">{c}</span>)}</div>
+        <h2 className="sd-title">{study.title}</h2>
+        <p className="sd-auth">By: {(study.authors||[]).join(', ')}</p>
+        <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',marginBottom:14}}>
+          <span style={{display:'flex',alignItems:'center',gap:4,fontSize:'0.8rem',color:'var(--muted)'}}><Ico.eye/> {study.viewCount||0} views</span>
+          <span style={{display:'flex',alignItems:'center',gap:4,fontSize:'0.8rem',color:'var(--muted)'}}><Ico.dl/> {study.downloadCount||0} downloads</span>
+          <span style={{display:'flex',alignItems:'center',gap:4,fontSize:'0.8rem',color:'var(--muted)'}}><Ico.cal/> {fmtDate(study.createdAt)}</span>
+          <span style={{fontSize:'0.8rem',color:'var(--muted)'}}>📅 Year: {study.year}</span>
+        </div>
+        {study.keywords?.length>0&&<div style={{marginBottom:8}}>{study.keywords.map(k=><span key={k} className="kw">{k}</span>)}</div>}
+      </div>
+      <div className="ds" style={{marginBottom:20}}><h4>Abstract</h4><p>{study.abstract}</p></div>
+      <div className="ds" style={{marginBottom:20}}>
+        <h4>APA Citation (7th Edition)</h4>
+        <APABox study={study}/>
+        <p style={{fontSize:'0.73rem',color:'var(--muted)',marginTop:6}}>
+          In-text: <code style={{fontFamily:'var(--font-mono)',fontSize:'0.73rem'}}>{generateInText(study)}</code>
+        </p>
+      </div>
+      {study.file&&(
+        <div className="ds" style={{marginBottom:20}}>
+          <h4>Attached File</h4>
+          <div style={{display:'flex',alignItems:'center',gap:11,background:'var(--surface)',padding:'11px 14px',borderRadius:'var(--radius)'}}>
+            <Ico.file/>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:500,fontSize:'0.875rem'}}>{study.file.originalName}</div>
+              <div style={{fontSize:'0.73rem',color:'var(--muted)'}}>{fmtBytes(study.file.size)}</div>
+            </div>
+            {study.file.downloadURL?(
+              <a href={study.file.downloadURL} target="_blank" rel="noreferrer"
+                style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 14px',background:'var(--ink)',color:'#fff',borderRadius:'var(--radius)',fontSize:'0.8rem',fontWeight:500,textDecoration:'none',whiteSpace:'nowrap'}}
+                onClick={()=>API.trackStudy(study.id,'downloadCount')}>
+                <Ico.dl/> Download
+              </a>
+            ):(
+              <span style={{fontSize:'0.73rem',color:'var(--muted)'}}>No file stored</span>
+            )}
+          </div>
+        </div>
+      )}
+      {study.uploadedByName&&(
+        <div className="ds" style={{marginBottom:20}}>
+          <h4>Uploaded By</h4>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div className="avatar" style={{width:34,height:34,fontSize:'0.82rem'}}>{initials(study.uploadedByName)}</div>
+            <div style={{fontWeight:500,fontSize:'0.875rem'}}>{study.uploadedByName}</div>
+          </div>
+        </div>
+      )}
+      {canDel&&<div style={{display:'flex',justifyContent:'flex-end',marginTop:6,paddingTop:14,borderTop:'1px solid var(--border)'}}><button className="btn btn-red btn-sm" onClick={()=>{onDelete(study.id);onClose();}}><Ico.trash/> Delete Study</button></div>}
+    </Modal>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  UPLOAD MODAL
+// ══════════════════════════════════════════════════════════════════
+function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
+  const [form,setForm]=useState({title:'',authors:'',abstract:'',keywords:'',year:String(new Date().getFullYear())});
+  const [selCats,setSelCats]=useState([]);
+  const [file,setFile]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [drag,setDrag]=useState(false);
+  const fRef=useRef();
+  const sf=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  const handleFile=f=>{
+    if(!f)return;
+    if(!['pdf','doc','docx'].includes(f.name.split('.').pop().toLowerCase())){toast.err('Only PDF, DOC, DOCX allowed');return;}
+    if(f.size>200*1024*1024){toast.err('Max file size is 200 MB');return;}
+    setFile(f);
+  };
+
+  const [uploadProgress,setUploadProgress]=useState(0);
+
+  const submit=async()=>{
+    setLoading(true);
+    setUploadProgress(0);
+    try{
+      const authors=form.authors.split(',').map(a=>a.trim()).filter(Boolean);
+      const keywords=form.keywords.split(',').map(k=>k.trim()).filter(Boolean);
+
+      let fileData=null;
+      if(file){
+        // Upload real file to Firebase Storage
+        const path=`studies/${currentUser.id}/${Date.now()}_${file.name}`;
+        const ref=storage.ref(path);
+        const task=ref.put(file);
+
+        // Track progress
+        await new Promise((resolve,reject)=>{
+          task.on('state_changed',
+            snap=>setUploadProgress(Math.round(snap.bytesTransferred/snap.totalBytes*100)),
+            reject,
+            resolve
+          );
+        });
+
+        const downloadURL=await ref.getDownloadURL();
+        fileData={ originalName:file.name, size:file.size, path, downloadURL };
+      }
+
+      await API.createStudy({title:form.title,authors,abstract:form.abstract,keywords,categories:selCats,year:form.year,file:fileData,uploadedBy:currentUser.id,uploadedByName:currentUser.name});
+      toast.ok('Study uploaded successfully!');onUpload();onClose();
+    }catch(e){toast.err(e.message||'Upload failed. Check your connection and try again.');}
+    setLoading(false);
+    setUploadProgress(0);
+  };
+
+  return (
+    <Modal title="Upload Research Study" onClose={onClose} wide>
+      <div className="fg"><label>Title *</label><input placeholder="Full title of your research study" value={form.title} onChange={e=>sf('title',e.target.value)}/></div>
+      <div className="fg"><label>Author(s) * <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></label><input placeholder="Juan dela Cruz, Maria Santos" value={form.authors} onChange={e=>sf('authors',e.target.value)}/></div>
+      <div className="fg"><label>Abstract / Description *</label><textarea placeholder="Concise summary of your research…" value={form.abstract} onChange={e=>sf('abstract',e.target.value)} style={{minHeight:110}}/></div>
+      <div className="fg"><label>Category * <span style={{fontWeight:300,color:'var(--muted)'}}>(select 1–2)</span></label><CatPicker selected={selCats} onChange={setSelCats} max={2} cats={cats}/></div>
+      <div className="fr">
+        <div className="fg"><label>Year</label><input type="number" min="1900" max="2099" value={form.year} onChange={e=>sf('year',e.target.value)}/></div>
+        <div className="fg"><label>Keywords <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></label><input placeholder="e.g. robotics, AI, biology" value={form.keywords} onChange={e=>sf('keywords',e.target.value)}/></div>
+      </div>
+      <div className="fg">
+        <label>File Upload <span style={{fontWeight:300,color:'var(--muted)'}}>(PDF, DOC, DOCX — max 200 MB)</span></label>
+        <div className={`uz ${drag?'drag':''} ${file?'has':''}`} onClick={()=>fRef.current?.click()} onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);handleFile(e.dataTransfer.files[0]);}}>
+          <input ref={fRef} type="file" accept=".pdf,.doc,.docx" onChange={e=>handleFile(e.target.files[0])}/>
+          {file?(<><div style={{color:'var(--green)',fontSize:'1.5rem',marginBottom:3}}>✓</div><strong style={{color:'var(--green)'}}>{file.name}</strong><p style={{fontFamily:'var(--font-mono)',fontSize:'0.73rem',color:'var(--teal)',marginTop:6}}>{fmtBytes(file.size)}</p></>):(<><div style={{marginBottom:7,color:'var(--muted)',fontSize:'1.5rem'}}>📄</div><strong>Drag & drop or click to browse</strong><p>PDF, DOC, or DOCX · Max 200 MB</p></>)}
+        </div>
+      </div>
+      {loading&&uploadProgress>0&&(
+        <div style={{marginBottom:14}}>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.78rem',color:'var(--muted)',marginBottom:5}}>
+            <span>Uploading file…</span><span>{uploadProgress}%</span>
+          </div>
+          <div style={{background:'var(--border)',borderRadius:99,height:6}}>
+            <div style={{background:'var(--gold)',height:6,borderRadius:99,width:`${uploadProgress}%`,transition:'width .2s'}}/>
+          </div>
+        </div>
+      )}
+      <div style={{display:'flex',gap:9,justifyContent:'flex-end'}}>
+        <button className="btn btn-ol" onClick={onClose} disabled={loading}>Cancel</button>
+        <button className="btn btn-gold" onClick={submit} disabled={loading}>{loading?<><span className="spin spin-dark"/>{uploadProgress>0?`Uploading ${uploadProgress}%`:'Saving…'}</>:<><Ico.up/> Upload Study</>}</button>
+      </div>
+    </Modal>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  STUDIES PAGE
+// ══════════════════════════════════════════════════════════════════
+function StudiesPage({ currentUser }) {
+  const [studies,setStudies]=useState([]);
+  const [cats,setCats]=useState([]);
+  const [total,setTotal]=useState(0);
+  const [totalPages,setTotalPages]=useState(1);
+  const [search,setSearch]=useState('');
+  const [filterCat,setFilterCat]=useState('');
+  const [page,setPage]=useState(1);
+  const [selected,setSelected]=useState(null);
+  const [showUpload,setShowUpload]=useState(false);
+  const [loading,setLoading]=useState(true);
+
+  const load=async()=>{
+    setLoading(true);
+    try{
+      const [res,catsArr]=await Promise.all([API.getStudies({search,category:filterCat,page,perPage:6}),API.getCategories()]);
+      setStudies(res.data);setTotal(res.total);setTotalPages(res.totalPages);setCats(catsArr);
+    }catch(e){toast.err('Failed to load studies.');}
+    setLoading(false);
+  };
+
+  useEffect(()=>{load();},[search,filterCat,page]);
+
+  const handleDelete=async id=>{await API.deleteStudy(id);toast.ok('Study deleted.');load();};
+
+  return (
+    <div>
+      <div className="page-hd">
+        <div className="page-hd-left"><h2>Research Repository</h2><p className="muted">{total} {total===1?'study':'studies'} found</p></div>
+        <button className="btn btn-gold" onClick={()=>setShowUpload(true)}><Ico.up/> Upload Study</button>
+      </div>
+      <div className="fb" style={{marginBottom:18}}>
+        <div className="sb" style={{flex:1,minWidth:230}}><Ico.search/><input placeholder="Search by title, author, or keywords…" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}}/></div>
+        <select value={filterCat} onChange={e=>{setFilterCat(e.target.value);setPage(1);}} style={{width:'auto',padding:'9px 13px'}}>
+          <option value="">All Categories</option>
+          {cats.map(c=><option key={c}>{c}</option>)}
+        </select>
+      </div>
+      {loading?<div style={{textAlign:'center',padding:'50px',color:'var(--muted)'}}><span className="spin spin-gold" style={{width:28,height:28,border:'3px solid rgba(201,162,39,0.25)',borderTopColor:'var(--gold)'}}/><p style={{marginTop:12}}>Loading studies…</p></div>
+      :studies.length===0?<div className="empty"><div className="empty-ico">📚</div><h3>No studies found</h3><p>{search||filterCat?'Try adjusting your search.':'Be the first to upload a research study!'}</p></div>
+      :<div className="grid">{studies.map(study=>(
+        <div key={study.id} className="sc" onClick={async()=>{await API.trackStudy(study.id,'viewCount');setSelected({...study,viewCount:(study.viewCount||0)+1});}}>
+          <div className="sc-cats">{(study.categories||[]).map(c=><span key={c} className="sc-cat">{c}</span>)}</div>
+          <h3 className="sc-title">{study.title}</h3>
+          <p className="sc-authors">By: {(study.authors||[]).join(', ')}</p>
+          <p className="sc-abs">{study.abstract}</p>
+          <div className="sc-meta">
+            <span><Ico.eye/>{study.viewCount||0}</span>
+            <span><Ico.dl/>{study.downloadCount||0}</span>
+            <span><Ico.cal/>{study.year}</span>
+            <span style={{marginLeft:'auto'}}>{fmtDate(study.createdAt)}</span>
+          </div>
+        </div>
+      ))}</div>}
+      {totalPages>1&&<div className="pages">
+        <button className="pg" disabled={page===1} onClick={()=>setPage(p=>p-1)}>‹</button>
+        {Array.from({length:totalPages},(_,i)=>i+1).map(n=><button key={n} className={`pg ${page===n?'active':''}`} onClick={()=>setPage(n)}>{n}</button>)}
+        <button className="pg" disabled={page===totalPages} onClick={()=>setPage(p=>p+1)}>›</button>
+      </div>}
+      {selected&&<StudyDetailModal study={selected} onClose={()=>setSelected(null)} currentUser={currentUser} onDelete={handleDelete}/>}
+      {showUpload&&<UploadModal onClose={()=>setShowUpload(false)} currentUser={currentUser} cats={cats} onUpload={()=>{load();setShowUpload(false);}}/>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ADVANCED AI CHAT PAGE
+// ══════════════════════════════════════════════════════════════════
+const QUICK_PROMPTS = {
+  general:   ['What is this repository about?','Show me recent studies','What STEM topics are covered?','Which studies have the most views?'],
+  find:      ['Find studies about climate change','Show all Biology studies','Studies from 2024','Research about AI or machine learning'],
+  cite:      ['APA citation for all studies','Cite the most recent study','Generate a full reference list','In-text citation format examples'],
+  compare:   ['Compare the two most recent studies','What are differences between Biology and Chemistry studies?','Which study is most comprehensive?'],
+  summarize: ['Summarize all studies in one paragraph','Key findings from the repository','What are the main research themes?'],
+  suggest:   ['Suggest new research topics based on gaps','What topics are underrepresented?','Ideas for follow-up studies','Research questions based on existing studies'],
+};
+
+function ChatPage({ currentUser }) {
+  const [studies,setStudies]=useState([]);
+  const [msgs,setMsgs]=useState([]);
+  const [input,setInput]=useState('');
+  const [loading,setLoading]=useState(false);
+  const [history,setHistory]=useState([]);
+  const [mode,setMode]=useState('general');
+  const [studiesLoaded,setStudiesLoaded]=useState(false);
+  const [repoStats,setRepoStats]=useState(null);
+  const bottomRef=useRef();
+  const inputRef=useRef();
+
+  useEffect(()=>{
+    API.getAllStudies().then(s=>{
+      setStudies(s);
+      setStudiesLoaded(true);
+      // Compute quick repo stats
+      const byCat={};
+      s.forEach(st=>(st.categories||['Uncategorized']).forEach(c=>{byCat[c]=(byCat[c]||0)+1;}));
+      setRepoStats({
+        total:s.length,
+        categories:Object.entries(byCat).sort((a,b)=>b[1]-a[1]),
+        views:s.reduce((a,x)=>a+(x.viewCount||0),0),
+        recent:s[0]?.title||'—'
+      });
+      setMsgs([{
+        id:1,role:'bot',citations:[],time:now(),
+        text:`Hello! 👋 I'm your **SABNAHIS STE Research Portal** AI assistant.\n\nI have **${s.length}** ${s.length===1?'study':'studies'} loaded and ready to search. Use the **mode buttons** below to focus my capabilities:\n\n• 💬 **General Q&A** — Ask anything about the research\n• 🔍 **Find Studies** — Search by topic, author, keyword\n• 📝 **APA Citations** — Generate properly formatted citations\n• ⚖️ **Compare** — Side-by-side study comparisons\n• 📋 **Summarize** — Get concise summaries\n• 💡 **Suggest Topics** — Discover research gaps\n\nWhat would you like to explore?`
+      }]);
+    });
+  },[]);
+
+  useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[msgs]);
+
+  const send=async(text)=>{
+    const q=(text||input).trim();
+    if(!q||loading)return;
+    setInput('');
+    const userMsg={id:Date.now(),role:'user',text:q,citations:[],time:now()};
+    setMsgs(m=>[...m,userMsg]);
+    setLoading(true);
+    try{
+      const r=await callAI(q,history,studies,mode);
+      setMsgs(m=>[...m,{id:Date.now()+1,role:'bot',text:r.text,citations:r.citations||[],source:r.source,time:now()}]);
+      setHistory(h=>[...h,{role:'user',content:q},{role:'assistant',content:r.text}]);
+    }catch{
+      setMsgs(m=>[...m,{id:Date.now()+1,role:'bot',text:'Sorry, something went wrong. Please try again.',citations:[],time:now()}]);
+    }
+    setLoading(false);
+    setTimeout(()=>inputRef.current?.focus(),80);
+  };
+
+  const copyMsg=text=>navigator.clipboard?.writeText(text).then(()=>toast.ok('Copied to clipboard!'));
+
+  const clearChat=()=>{
+    setMsgs([{id:Date.now(),role:'bot',citations:[],time:now(),text:`Chat cleared. ${studies.length} studies loaded. Mode: **${AI_MODES[mode]?.label}**. Ask me anything!`}]);
+    setHistory([]);
+  };
+
+  return (
+    <div>
+      <div className="page-hd">
+        <div className="page-hd-left">
+          <h2 style={{fontFamily:'var(--font-display)',fontSize:'1.25rem',fontWeight:600}}>AI Research Assistant</h2>
+          <p className="muted">Claude-powered · {studies.length} studies loaded · APA citations · Multi-mode</p>
+        </div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <span style={{background:'var(--green-light)',color:'var(--green)',fontSize:'0.73rem',fontWeight:500,padding:'4px 10px',borderRadius:99,display:'flex',alignItems:'center',gap:4}}>● Claude AI</span>
+          <button className="btn btn-ol btn-sm" onClick={clearChat}>Clear</button>
+        </div>
+      </div>
+
+      <div className="chat-layout">
+        {/* Main chat */}
+        <div className="chat-main">
+          {/* Mode selector */}
+          <div className="mode-pills">
+            {Object.entries(AI_MODES).map(([key,m])=>(
+              <button key={key} className={`mode-pill ${mode===key?'on':''}`} onClick={()=>setMode(key)}>{m.icon} {m.label}</button>
+            ))}
+          </div>
+
+          {/* Messages */}
+          <div className="chat-msgs">
+            {!studiesLoaded?(
+              <div style={{textAlign:'center',padding:'50px',color:'var(--muted)'}}>
+                <span className="spin spin-gold" style={{width:28,height:28,border:'3px solid rgba(201,162,39,0.25)',borderTopColor:'var(--gold)',display:'inline-block',marginBottom:12}}/>
+                <p>Loading AI assistant…</p>
+              </div>
+            ):msgs.map(msg=>(
+              <div key={msg.id} className={`cm ${msg.role}`}>
+                <div className={`cm-av ${msg.role}`}>{msg.role==='bot'?'🤖':initials(currentUser.name)}</div>
+                <div className="cm-body">
+                  <div className={`cm-bub ${msg.role}`}>
+                    {msg.role==='bot'?<MD text={msg.text}/>:msg.text}
+                    {msg.citations?.length>0&&(
+                      <div className="chat-refs">
+                        <div className="chat-ref-lbl">📚 Referenced Studies ({msg.citations.length})</div>
+                        {msg.citations.map((s,i)=>(
+                          <div key={i} className="chat-ref" title="Click to copy APA citation" onClick={()=>{navigator.clipboard?.writeText(generateAPA(s));toast.ok('APA citation copied!');}}>
+                            [{i+1}] {generateAPA(s)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="cm-meta">
+                    <span>{msg.time}</span>
+                    {msg.source&&<span className={`cm-src ${msg.source}`}>{msg.source==='claude'?'⚡ Claude AI':'🔧 Local'}</span>}
+                    {msg.role==='bot'&&<button style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 3px',borderRadius:4}} onClick={()=>copyMsg(msg.text)} title="Copy response"><Ico.copy/></button>}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {loading&&(
+              <div className="cm bot">
+                <div className="cm-av bot">🤖</div>
+                <div className="cm-body">
+                  <div className="cm-bub bot"><div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div></div>
+                  <div className="cm-meta"><span>Thinking…</span></div>
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef}/>
+          </div>
+
+          {/* Input area */}
+          <div className="chat-input-area">
+            <div className="chat-input-row">
+              <textarea
+                ref={inputRef}
+                className="chat-in"
+                placeholder={`${AI_MODES[mode]?.icon} ${AI_MODES[mode]?.desc}… (Enter to send, Shift+Enter for new line)`}
+                value={input}
+                onChange={e=>setInput(e.target.value)}
+                onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}}
+                rows={1}
+              />
+              <button className="btn btn-pur" onClick={()=>send()} disabled={loading||!input.trim()} style={{alignSelf:'flex-end',gap:6}}>
+                {loading?<span className="spin"/>:<Ico.send/>} Send
+              </button>
+            </div>
+            {/* Quick action buttons */}
+            <div className="chat-actions">
+              <span style={{fontSize:'0.7rem',color:'var(--muted)',marginRight:2}}>Quick:</span>
+              {(QUICK_PROMPTS[mode]||[]).map(q=>(
+                <button key={q} className="chat-action-btn" onClick={()=>send(q)}><Ico.spark/>{q}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <div className="chat-sidebar">
+          {/* Mode info */}
+          <div className="chat-panel">
+            <div className="chat-panel-hd">🎯 Current Mode</div>
+            <div className="chat-panel-body" style={{padding:'12px 14px'}}>
+              <div style={{fontSize:'1.2rem',marginBottom:4}}>{AI_MODES[mode]?.icon}</div>
+              <div style={{fontWeight:600,fontSize:'0.875rem',marginBottom:4}}>{AI_MODES[mode]?.label}</div>
+              <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>{AI_MODES[mode]?.desc}</div>
+            </div>
+          </div>
+
+          {/* Repository stats */}
+          {repoStats&&(
+            <div className="chat-panel">
+              <div className="chat-panel-hd">📊 Repository</div>
+              <div className="chat-panel-body">
+                <div className="chat-stat-row"><span>Total Studies</span><span className="chat-stat-val">{repoStats.total}</span></div>
+                <div className="chat-stat-row"><span>Total Views</span><span className="chat-stat-val">{repoStats.views}</span></div>
+                <div className="chat-stat-row"><span>Categories</span><span className="chat-stat-val">{repoStats.categories.length}</span></div>
+                {repoStats.categories.slice(0,4).map(([c,n])=>(
+                  <div key={c} className="chat-stat-row" style={{fontSize:'0.73rem'}}>
+                    <span style={{color:'var(--slate)'}}>{c}</span>
+                    <span style={{color:'var(--muted)'}}>{n}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Suggestions */}
+          <div className="chat-panel">
+            <div className="chat-panel-hd">💡 Suggested Questions</div>
+            <div className="chat-panel-body" style={{padding:'8px'}}>
+              {(QUICK_PROMPTS[mode]||[]).map(q=>(
+                <button key={q} className="sugg-chip" onClick={()=>send(q)}>{q}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  STUDENT DASHBOARD
+// ══════════════════════════════════════════════════════════════════
+function StudentDash({ currentUser }) {
+  const [myStudies,setMyStudies]=useState([]);
+  const [cats,setCats]=useState([]);
+  const [showUpload,setShowUpload]=useState(false);
+  const [loading,setLoading]=useState(true);
+  const [allTotal,setAllTotal]=useState(0);
+
+  const load=async()=>{
+    setLoading(true);
+    const [res,catsArr,allRes]=await Promise.all([
+      API.getStudies({uploadedBy:currentUser.id,status:'active',perPage:100}),
+      API.getCategories(),
+      API.getStudies({perPage:1})
+    ]);
+    setMyStudies(res.data);setCats(catsArr);setAllTotal(allRes.total);
+    setLoading(false);
+  };
+
+  useEffect(()=>{load();},[]);
+
+  return (
+    <div>
+      <div style={{marginBottom:22}}>
+        <h2 style={{fontFamily:'var(--font-display)',fontSize:'1.45rem',marginBottom:3}}>Welcome back, {currentUser.name.split(' ')[0]} 👋</h2>
+        <p className="muted">{currentUser.institution}{currentUser.department?` · ${currentUser.department}`:''}</p>
+      </div>
+      <div className="stats">
+        <div className="stat gold"><div className="stat-lbl">My Studies</div><div className="stat-val">{myStudies.length}</div><div className="stat-sub">Uploaded</div></div>
+        <div className="stat teal"><div className="stat-lbl">Total Views</div><div className="stat-val">{myStudies.reduce((a,s)=>a+(s.viewCount||0),0)}</div><div className="stat-sub">Across all my studies</div></div>
+        <div className="stat blue"><div className="stat-lbl">Downloads</div><div className="stat-val">{myStudies.reduce((a,s)=>a+(s.downloadCount||0),0)}</div><div className="stat-sub">Total</div></div>
+        <div className="stat slate"><div className="stat-lbl">Repository</div><div className="stat-val">{allTotal}</div><div className="stat-sub">Total studies</div></div>
+      </div>
+      <div className="card">
+        <div className="card-hd"><span className="card-title">My Uploaded Studies</span><button className="btn btn-gold btn-sm" onClick={()=>setShowUpload(true)}><Ico.up/> Upload New</button></div>
+        {loading?<div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
+        :myStudies.length===0?<div className="empty" style={{padding:'36px 20px'}}><div className="empty-ico">📄</div><h3>No studies yet</h3><p>Upload your first research study.</p><button className="btn btn-ink mt12" onClick={()=>setShowUpload(true)}>Upload Study</button></div>
+        :<div className="tw"><table>
+          <thead><tr><th>Title</th><th>Categories</th><th>Year</th><th>Views</th><th>Downloads</th><th>Uploaded</th></tr></thead>
+          <tbody>{myStudies.map(s=><tr key={s.id}>
+            <td style={{maxWidth:230}}><div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></td>
+            <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{(s.categories||[]).map(c=><span key={c} className="badge" style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.66rem'}}>{c}</span>)}</div></td>
+            <td>{s.year}</td><td>{s.viewCount||0}</td><td>{s.downloadCount||0}</td><td>{fmtDate(s.createdAt)}</td>
+          </tr>)}</tbody>
+        </table></div>}
+      </div>
+      {showUpload&&<UploadModal onClose={()=>setShowUpload(false)} currentUser={currentUser} cats={cats} onUpload={()=>{load();setShowUpload(false);}}/>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ADMIN DASHBOARD
+// ══════════════════════════════════════════════════════════════════
+function AdminDash() {
+  const [stats,setStats]=useState(null);
+  const [pending,setPending]=useState([]);
+  const [recent,setRecent]=useState([]);
+
+  const load=async()=>{
+    const [s,p,r]=await Promise.all([API.getStats(),API.getUsers({role:'student',status:'pending'}),API.getStudies({status:'',perPage:5})]);
+    setStats(s);setPending(p);setRecent(r.data);
+  };
+  useEffect(()=>{load();},[]);
+
+  const upd=async(id,status)=>{await API.updateUserStatus(id,status);toast.ok(`Account ${status}.`);load();};
+
+  if(!stats)return <div style={{textAlign:'center',padding:'50px',color:'var(--muted)'}}>Loading dashboard…</div>;
+
+  return (
+    <div>
+      <div style={{marginBottom:22}}><h2 style={{fontFamily:'var(--font-display)',fontSize:'1.45rem',marginBottom:3}}>Admin Dashboard</h2><p className="muted">System overview and management</p></div>
+      <div className="stats">
+        <div className="stat gold"><div className="stat-lbl">Total Students</div><div className="stat-val">{stats.totalStudents}</div><div className="stat-sub">{stats.approvedStudents} approved</div></div>
+        <div className="stat red"><div className="stat-lbl">Pending</div><div className="stat-val">{stats.pendingStudents}</div><div className="stat-sub">Awaiting review</div></div>
+        <div className="stat teal"><div className="stat-lbl">Studies</div><div className="stat-val">{stats.totalStudies}</div><div className="stat-sub">In repository</div></div>
+        <div className="stat blue"><div className="stat-lbl">Total Views</div><div className="stat-val">{stats.totalViews}</div><div className="stat-sub">All time</div></div>
+        <div className="stat pur"><div className="stat-lbl">Downloads</div><div className="stat-val">{stats.totalDownloads}</div><div className="stat-sub">All time</div></div>
+      </div>
+      {pending.length>0&&<div className="card" style={{marginBottom:18,borderLeft:'4px solid var(--gold)'}}>
+        <div className="card-hd"><span className="card-title">⏳ Pending Approvals</span><span className="badge badge-pend">{pending.length} waiting</span></div>
+        <div className="tw"><table>
+          <thead><tr><th>Name</th><th>Email</th><th>School</th><th>Registered</th><th>Actions</th></tr></thead>
+          <tbody>{pending.map(u=><tr key={u.id}>
+            <td><div style={{fontWeight:500}}>{u.name}</div></td>
+            <td style={{fontSize:'0.8rem'}}>{u.email}</td><td>{u.institution||'—'}</td><td>{fmtDate(u.createdAt)}</td>
+            <td><div style={{display:'flex',gap:6}}><button className="btn btn-grn btn-sm" onClick={()=>upd(u.id,'approved')}><Ico.chk/> Approve</button><button className="btn btn-red btn-sm" onClick={()=>upd(u.id,'rejected')}><Ico.X/> Reject</button></div></td>
+          </tr>)}</tbody>
+        </table></div>
+      </div>}
+      <div className="card">
+        <div className="card-hd"><span className="card-title">Recent Uploads</span></div>
+        {recent.length===0?<p className="muted">No studies yet.</p>
+        :<div className="tw"><table>
+          <thead><tr><th>Title</th><th>Authors</th><th>Categories</th><th>Views</th><th>Date</th></tr></thead>
+          <tbody>{recent.map(s=><tr key={s.id}>
+            <td style={{maxWidth:200}}><div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></td>
+            <td style={{fontSize:'0.8rem'}}>{(s.authors||[]).join(', ')}</td>
+            <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{(s.categories||[]).map(c=><span key={c} className="badge" style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.65rem'}}>{c}</span>)}</div></td>
+            <td>{s.viewCount||0}</td><td>{fmtDate(s.createdAt)}</td>
+          </tr>)}</tbody>
+        </table></div>}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ADMIN USERS
+// ══════════════════════════════════════════════════════════════════
+function AdminUsers() {
+  const [filter,setFilter]=useState('all');
+  const [search,setSearch]=useState('');
+  const [students,setStudents]=useState([]);
+  const [loading,setLoading]=useState(true);
+
+  const load=async()=>{setLoading(true);const res=await API.getUsers({role:'student',status:filter==='all'?'':filter,search});setStudents(res);setLoading(false);};
+  useEffect(()=>{load();},[filter,search]);
+
+  const upd=async(id,status)=>{await API.updateUserStatus(id,status);toast.ok(`Account ${status}.`);load();};
+  const del=async id=>{if(!confirm('Delete this user and all their studies?'))return;await API.deleteUser(id);toast.ok('User deleted.');load();};
+
+  return (
+    <div>
+      <div style={{marginBottom:18}}><h2 className="sec-title" style={{marginBottom:1}}>User Management</h2><p className="muted">{students.length} students</p></div>
+      <div className="fb" style={{marginBottom:18}}>
+        <div className="sb" style={{flex:1,minWidth:200}}><Ico.search/><input placeholder="Search by name, email, or school…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
+        <select value={filter} onChange={e=>setFilter(e.target.value)} style={{width:'auto',padding:'9px 13px'}}>
+          <option value="all">All Status</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option>
+        </select>
+      </div>
+      <div className="card">
+        {loading?<div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
+        :students.length===0?<div className="empty" style={{padding:'36px 0'}}><div className="empty-ico">👤</div><h3>No users found</h3></div>
+        :<div className="tw"><table>
+          <thead><tr><th>Student</th><th>School / Section</th><th>Status</th><th>Uploads</th><th>Registered</th><th>Actions</th></tr></thead>
+          <tbody>{students.map(u=><tr key={u.id}>
+            <td><div style={{display:'flex',alignItems:'center',gap:9}}><div className="avatar" style={{width:30,height:30,fontSize:'0.72rem',background:'var(--ink-3)'}}>{initials(u.name)}</div><div><div style={{fontWeight:500}}>{u.name}</div><div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{u.email}</div></div></div></td>
+            <td>{u.institution||'—'}<br/><span style={{fontSize:'0.72rem',color:'var(--muted)'}}>{u.department}</span></td>
+            <td><span className={`badge badge-${u.status==='approved'?'appr':u.status==='rejected'?'rej':'pend'}`}>{u.status}</span></td>
+            <td>{u.uploadCount||0}</td><td>{fmtDate(u.createdAt)}</td>
+            <td><div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+              {u.status!=='approved'&&<button className="btn btn-grn btn-sm" onClick={()=>upd(u.id,'approved')}><Ico.chk/></button>}
+              {u.status!=='rejected'&&<button className="btn btn-ol btn-sm" onClick={()=>upd(u.id,'rejected')}>Reject</button>}
+              <button className="btn btn-red btn-sm" onClick={()=>del(u.id)}><Ico.trash/></button>
+            </div></td>
+          </tr>)}</tbody>
+        </table></div>}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ADMIN STUDIES
+// ══════════════════════════════════════════════════════════════════
+function AdminStudies() {
+  const [search,setSearch]=useState('');
+  const [studies,setStudies]=useState([]);
+  const [loading,setLoading]=useState(true);
+
+  const load=async()=>{setLoading(true);const res=await API.getStudies({search,status:'',perPage:100});setStudies(res.data);setLoading(false);};
+  useEffect(()=>{load();},[search]);
+
+  const del=async id=>{if(!confirm('Delete this study?'))return;await API.deleteStudy(id);toast.ok('Study deleted.');load();};
+
+  return (
+    <div>
+      <div style={{marginBottom:18}}><h2 className="sec-title" style={{marginBottom:1}}>Manage Studies</h2><p className="muted">{studies.length} studies</p></div>
+      <div className="sb" style={{marginBottom:18}}><Ico.search/><input placeholder="Search studies…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
+      <div className="card">
+        {loading?<div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
+        :studies.length===0?<div className="empty" style={{padding:'36px 0'}}><div className="empty-ico">📚</div><h3>No studies yet</h3></div>
+        :<div className="tw"><table>
+          <thead><tr><th>Title</th><th>Authors</th><th>Categories</th><th>Uploader</th><th>Views</th><th>Dls</th><th>Date</th><th></th></tr></thead>
+          <tbody>{studies.map(s=><tr key={s.id}>
+            <td style={{maxWidth:190}}><div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></td>
+            <td style={{fontSize:'0.78rem'}}>{(s.authors||[]).join(', ')}</td>
+            <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{(s.categories||[]).map(c=><span key={c} className="badge" style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.63rem'}}>{c}</span>)}</div></td>
+            <td style={{fontSize:'0.82rem'}}>{s.uploadedByName}</td>
+            <td>{s.viewCount||0}</td><td>{s.downloadCount||0}</td><td>{fmtDate(s.createdAt)}</td>
+            <td><button className="btn btn-red btn-sm" onClick={()=>del(s.id)}><Ico.trash/></button></td>
+          </tr>)}</tbody>
+        </table></div>}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ADMIN CATEGORIES
+// ══════════════════════════════════════════════════════════════════
+function AdminCats() {
+  const [cats,setCats]=useState([]);
+  const [newCat,setNewCat]=useState('');
+  const [editIdx,setEditIdx]=useState(null);
+  const [editVal,setEditVal]=useState('');
+  const [loading,setLoading]=useState(true);
+
+  useEffect(()=>{API.getCategories().then(c=>{setCats(c);setLoading(false);});},[]);
+
+  const save=async()=>{await API.setCategories(cats);toast.ok('Categories saved!');};
+  const add=()=>{const t=newCat.trim();if(!t)return;if(cats.includes(t)){toast.err('Already exists.');return;}setCats([...cats,t]);setNewCat('');};
+  const rem=i=>{if(cats.length<=1){toast.err('Need at least one category.');return;}setCats(cats.filter((_,idx)=>idx!==i));};
+  const startEdit=i=>{setEditIdx(i);setEditVal(cats[i]);};
+  const saveEdit=()=>{if(!editVal.trim())return;setCats(cats.map((c,i)=>i===editIdx?editVal.trim():c));setEditIdx(null);};
+
+  if(loading)return <div style={{textAlign:'center',padding:'40px',color:'var(--muted)'}}>Loading…</div>;
+
+  return (
+    <div>
+      <div style={{marginBottom:18}}><h2 className="sec-title" style={{marginBottom:1}}>Manage Categories</h2><p className="muted">Students can select 1–2 per upload.</p></div>
+      <div className="card" style={{marginBottom:18}}>
+        <div className="card-hd"><span className="card-title">Current Categories ({cats.length})</span></div>
+        {cats.map((cat,idx)=>(
+          <div key={idx} className="cm-item">
+            {editIdx===idx?(<><input className="cm-in" value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>e.key==='Enter'&&saveEdit()} autoFocus/><button className="btn btn-grn btn-sm" onClick={saveEdit}><Ico.chk/> Save</button><button className="btn btn-ol btn-sm" onClick={()=>setEditIdx(null)}>Cancel</button></>)
+            :(<><span className="cm-name">{cat}</span><button className="btn btn-ol btn-sm" onClick={()=>startEdit(idx)}><Ico.edit/> Edit</button><button className="btn btn-red btn-sm" onClick={()=>rem(idx)}><Ico.trash/></button></>)}
+          </div>
+        ))}
+        <div style={{display:'flex',gap:9,marginTop:14}}><input placeholder="Add new category…" value={newCat} onChange={e=>setNewCat(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} style={{flex:1}}/><button className="btn btn-ink" onClick={add}><Ico.plus/> Add</button></div>
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end'}}><button className="btn btn-gold" onClick={save}>Save All Changes</button></div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  SIDEBAR
+// ══════════════════════════════════════════════════════════════════
+function Sidebar({ currentUser, activeTab, setActiveTab, onLogout, pendingCount=0 }) {
+  const isAdmin=currentUser.role==='admin';
+  const adminNav=[
+    {id:'dashboard',label:'Dashboard',icon:<Ico.home/>},
+    {id:'users',label:'Users',icon:<Ico.users/>,badge:pendingCount||null},
+    {id:'studies-admin',label:'All Studies',icon:<Ico.book/>},
+    {id:'categories',label:'Categories',icon:<Ico.tag/>},
+    {id:'repository',label:'Repository',icon:<Ico.search/>},
+    {id:'chatbot',label:'AI Assistant',icon:<Ico.bot/>},
+  ];
+  const studentNav=[
+    {id:'dashboard',label:'Dashboard',icon:<Ico.home/>},
+    {id:'repository',label:'Browse Studies',icon:<Ico.book/>},
+    {id:'chatbot',label:'AI Assistant',icon:<Ico.bot/>},
+  ];
+  return (
+    <nav className="sidebar">
+      <div className="sidebar-logo">
+        <h1>SABNAHIS <span>STE Research Portal</span></h1>
+        <p>Institutional Research Repository</p>
+      </div>
+      <div className="sidebar-nav">
+        <div className="nav-label">{isAdmin?'Administration':'Navigation'}</div>
+        {(isAdmin?adminNav:studentNav).map(item=>(
+          <button key={item.id} className={`nav-item ${activeTab===item.id?'active':''}`} onClick={()=>setActiveTab(item.id)}>
+            {item.icon}{item.label}{item.badge&&<span className="nav-badge">{item.badge}</span>}
+          </button>
+        ))}
+      </div>
+      <div className="sidebar-footer">
+        <div className="user-chip">
+          <div className="avatar">{initials(currentUser.name)}</div>
+          <div className="user-info"><strong>{currentUser.name}</strong><span>{currentUser.role}</span></div>
+        </div>
+        <button style={{width:'100%',textAlign:'center',marginTop:8,padding:'7px',borderRadius:6,background:'none',border:'none',color:'rgba(255,255,255,0.38)',cursor:'pointer',fontSize:'0.78rem',transition:'color .2s'}} onMouseEnter={e=>e.target.style.color='rgba(255,255,255,0.7)'} onMouseLeave={e=>e.target.style.color='rgba(255,255,255,0.38)'} onClick={onLogout}>Sign Out</button>
+      </div>
+    </nav>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ROOT APP
+// ══════════════════════════════════════════════════════════════════
+function App() {
+  const [currentUser,setCurrentUser]=useState(null);
+  const [authChecked,setAuthChecked]=useState(false);
+  const [activeTab,setActiveTab]=useState('dashboard');
+  const [pendingCount,setPendingCount]=useState(0);
+  const [initError,setInitError]=useState('');
+
+  useEffect(()=>{
+    let unsub=()=>{};
+    try{
+      unsub=auth.onAuthStateChanged(async fbUser=>{
+        // If login() is handling this sign-in, skip — it will call onLogin directly.
+        if(_loginInProgress){ return; }
+        if(fbUser){
+          try{
+            const profile=await API.getProfile(fbUser.uid);
+            if(profile&&(profile.status==='approved'||profile.role==='admin')){
+              setCurrentUser(profile);
+              if(profile.role==='admin'){
+                API.getUsers({role:'student',status:'pending'}).then(p=>setPendingCount(p.length)).catch(()=>{});
+              }
+            } else {
+              // Pending/rejected user is still Firebase-authed — sign them out silently
+              await auth.signOut().catch(()=>{});
+              setCurrentUser(null);
+            }
+          }catch(e){
+            console.error('Profile load error:',e);
+            await auth.signOut().catch(()=>{});
+            setCurrentUser(null);
+          }
+        } else {
+          setCurrentUser(null);
+        }
+        setAuthChecked(true);
+      },err=>{
+        console.error('Auth error:',err);
+        setInitError(err.message);
+        setAuthChecked(true);
+      });
+    }catch(e){
+      console.error('Firebase init error:',e);
+      setInitError(e.message);
+      setAuthChecked(true);
+    }
+    return ()=>{try{unsub();}catch{}};
+  },[]);
+
+  const titles={dashboard:'Dashboard',users:'User Management','studies-admin':'Manage Studies',categories:'Manage Categories',repository:'Research Repository',chatbot:'AI Research Assistant'};
+
+  // Loading screen
+  if(!authChecked){
+    return (
+      <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'var(--ink)',gap:16}}>
+        <div style={{fontFamily:'var(--font-display)',fontSize:'1.3rem',color:'var(--gold)',letterSpacing:'-0.5px'}}>SABNAHIS STE Research Portal</div>
+        <span className="spin" style={{width:28,height:28,border:'3px solid rgba(201,162,39,0.25)',borderTopColor:'var(--gold)'}}/>
+        <p style={{color:'rgba(255,255,255,0.35)',fontSize:'0.8rem'}}>Connecting to database…</p>
+      </div>
+    );
+  }
+
+  // Error screen
+  if(initError){
+    return (
+      <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'var(--ink)',gap:14,padding:24}}>
+        <div style={{fontSize:'2rem'}}>⚠️</div>
+        <div style={{fontFamily:'var(--font-display)',fontSize:'1.1rem',color:'#fff'}}>Connection Error</div>
+        <div style={{background:'rgba(255,255,255,0.07)',borderRadius:8,padding:'12px 18px',maxWidth:480,color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',fontFamily:'var(--font-mono)',wordBreak:'break-all'}}>{initError}</div>
+        <p style={{color:'rgba(255,255,255,0.4)',fontSize:'0.82rem',textAlign:'center',maxWidth:400}}>Check that your Firebase project is active and the domain is authorized in Firebase Console → Authentication → Settings → Authorized domains.</p>
+        <button className="btn btn-gold" onClick={()=>window.location.reload()}>Reload Page</button>
+      </div>
+    );
+  }
+
+  // Auth screen
+  if(!currentUser){
+    return (
+      <ToastProvider>
+        <AuthPage onLogin={user=>{
+          _loginInProgress=false;   // login complete, reset flag
+          setCurrentUser(user);
+          setAuthChecked(true);
+          if(user.role==='admin') API.getUsers({role:'student',status:'pending'}).then(p=>setPendingCount(p.length)).catch(()=>{});
+        }}/>
+      </ToastProvider>
+    );
+  }
+
+  const isAdmin=currentUser.role==='admin';
+
+  const renderPage=()=>{
+    switch(activeTab){
+      case 'dashboard':     return isAdmin?<AdminDash/>:<StudentDash currentUser={currentUser}/>;
+      case 'users':         return isAdmin?<AdminUsers/>:null;
+      case 'studies-admin': return isAdmin?<AdminStudies/>:null;
+      case 'categories':    return isAdmin?<AdminCats/>:null;
+      case 'repository':    return <StudiesPage currentUser={currentUser}/>;
+      case 'chatbot':       return <ChatPage currentUser={currentUser}/>;
+      default:              return null;
+    }
+  };
+
+  return (
+    <ToastProvider>
+      <div className="app-shell">
+        <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} pendingCount={pendingCount}
+          onLogout={async()=>{await API.logout();setCurrentUser(null);setActiveTab('dashboard');}}/>
+        <div className="main-content">
+          <div className="topbar">
+            <span className="topbar-title">{titles[activeTab]||'Dashboard'}</span>
+            <span className={`badge ${isAdmin?'badge-admin':'badge-appr'}`}>{isAdmin?'⚙ Admin':'🎓 Student'}</span>
+          </div>
+          <div className="page">{renderPage()}</div>
+        </div>
+      </div>
+    </ToastProvider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
