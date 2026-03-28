@@ -277,6 +277,9 @@ const auth    = firebase.auth();
 const db      = firebase.firestore();
 const storage = firebase.storage();
 
+// Enable offline persistence — data loads from cache instantly on repeat visits
+db.enablePersistence({ synchronizeTabs: true }).catch(()=>{});
+
 // Module-level flag: login() sets this true BEFORE signInWithEmailAndPassword
 // so the onAuthStateChanged listener knows not to interfere.
 let _loginInProgress = false;
@@ -346,22 +349,33 @@ const API = {
     } catch { return null; }
   },
 
-  /* STUDIES — fetch all then filter client-side to avoid index requirements */
+  /* STUDIES */
   async getStudies({ search='', category='', uploadedBy='', status='active', page=1, perPage=6 }={}) {
     try {
-      const snap = await db.collection('studies').orderBy('createdAt','desc').get();
+      // Build the most specific query possible to minimise reads
+      let q = db.collection('studies').orderBy('createdAt','desc');
+      if (status)     q = q.where('status','==',status);
+      if (uploadedBy) q = q.where('uploadedBy','==',uploadedBy);
+      const snap = await q.get();
       let items = snap.docs.map(d=>({id:d.id,...d.data()}));
-      if (status)     items = items.filter(s=>s.status===status);
-      if (uploadedBy) items = items.filter(s=>s.uploadedBy===uploadedBy);
-      if (category)   items = items.filter(s=>(s.categories||[]).includes(category));
+      // Client-side filters for fields that can't be compound-indexed without setup
+      if (category) items = items.filter(s=>(s.categories||[]).includes(category));
       if (search) {
-        const q = search.toLowerCase();
-        items = items.filter(s=>[s.title,...(s.authors||[]),s.abstract||'',...(s.keywords||[])].join(' ').toLowerCase().includes(q));
+        const ql = search.toLowerCase();
+        items = items.filter(s=>[s.title,...(s.authors||[]),s.abstract||'',...(s.keywords||[])].join(' ').toLowerCase().includes(ql));
       }
       const total = items.length;
       const totalPages = Math.ceil(total/perPage)||1;
       return { data: items.slice((page-1)*perPage, page*perPage), total, totalPages, page };
     } catch(e) { console.error('getStudies',e); return {data:[],total:0,totalPages:1,page:1}; }
+  },
+
+  /* Fast total count without fetching all docs */
+  async countStudies() {
+    try {
+      const snap = await db.collection('studies').where('status','==','active').get();
+      return snap.size;
+    } catch { return 0; }
   },
 
   async getAllStudies() {
@@ -444,19 +458,20 @@ const API = {
     await db.collection('config').doc('categories').set({ list: cats });
   },
 
-  /* STATS */
+  /* STATS — parallel targeted queries, no full-collection dumps */
   async getStats() {
     try {
-      const [uSnap, sSnap] = await Promise.all([
+      const [allStudents, approvedStudents, pendingStudents, allStudies] = await Promise.all([
         db.collection('users').where('role','==','student').get(),
+        db.collection('users').where('role','==','student').where('status','==','approved').get(),
+        db.collection('users').where('role','==','student').where('status','==','pending').get(),
         db.collection('studies').get()
       ]);
-      const users   = uSnap.docs.map(d=>d.data());
-      const studies = sSnap.docs.map(d=>d.data());
+      const studies = allStudies.docs.map(d=>d.data());
       return {
-        totalStudents:    users.length,
-        approvedStudents: users.filter(u=>u.status==='approved').length,
-        pendingStudents:  users.filter(u=>u.status==='pending').length,
+        totalStudents:    allStudents.size,
+        approvedStudents: approvedStudents.size,
+        pendingStudents:  pendingStudents.size,
         totalStudies:     studies.length,
         totalViews:       studies.reduce((a,s)=>a+(s.viewCount||0),0),
         totalDownloads:   studies.reduce((a,s)=>a+(s.downloadCount||0),0),
@@ -1348,12 +1363,12 @@ function StudentDash({ currentUser }) {
 
   const load=async()=>{
     setLoading(true);
-    const [res,catsArr,allRes]=await Promise.all([
-      API.getStudies({uploadedBy:currentUser.id,status:'active',perPage:100}),
+    const [res, catsArr, total]=await Promise.all([
+      API.getStudies({uploadedBy:currentUser.id, status:'active', perPage:100}),
       API.getCategories(),
-      API.getStudies({perPage:1})
+      API.countStudies()
     ]);
-    setMyStudies(res.data);setCats(catsArr);setAllTotal(allRes.total);
+    setMyStudies(res.data); setCats(catsArr); setAllTotal(total);
     setLoading(false);
   };
 
