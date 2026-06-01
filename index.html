@@ -7,296 +7,1177 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <title>SABNAHIS STE Research Portal</title>
-<link rel="manifest" href="data:application/json,{%22name%22:%22SABNAHIS%20STE%20Research%20Portal%22,%22short_name%22:%22SABNAHIS%22,%22display%22:%22standalone%22,%22background_color%22:%22%230d0f14%22,%22theme_color%22:%22%230d0f14%22}"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
 <noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/></noscript>
 <style>
-:root{
-  --ink:#0d0f14;--ink-2:#1e2130;--ink-3:#2e3250;--slate:#4a5174;--muted:#7c85a8;
-  --border:#e2e5f0;--surface:#f5f6fa;--white:#ffffff;
-  --gold:#c9a227;--gold-light:#f0d882;--gold-bg:#fdf8ec;
-  --teal:#1a7f6e;--teal-light:#e6f5f2;--red:#c0392b;--red-light:#fdf0ee;
-  --green:#1a7f4a;--green-light:#e6f5ee;--blue:#1a5fa8;--blue-light:#e6f0fd;
-  --purple:#6d3fa8;--purple-light:#f3eeff;
-  --radius:10px;--radius-lg:16px;
-  --shadow:0 2px 12px rgba(13,15,20,0.08);--shadow-lg:0 8px 32px rgba(13,15,20,0.12);
-  --font-display:'Playfair Display',Georgia,serif;
-  --font-body:'DM Sans',system-ui,sans-serif;
-  --font-mono:'JetBrains Mono',monospace;
-  --transition:0.2s cubic-bezier(0.4,0,0.2,1)
-}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:var(--font-body);background:var(--surface);color:var(--ink);min-height:100vh;font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
-/* LAYOUT */
-.app-shell{display:flex;min-height:100vh}
-.sidebar{width:260px;min-height:100vh;background:var(--ink);color:#fff;display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100;transition:transform .3s ease}
-.sidebar-logo{padding:24px 24px 18px;border-bottom:1px solid rgba(255,255,255,0.08)}
-.sidebar-logo h1{font-family:var(--font-display);font-size:1.05rem;font-weight:700;color:#fff;line-height:1.3}
-.sidebar-logo h1 span{color:var(--gold)}
-.sidebar-logo p{font-size:0.73rem;color:rgba(255,255,255,0.4);margin-top:4px}
-.sidebar-nav{flex:1;padding:16px 12px;overflow-y:auto}
-.nav-label{font-size:0.63rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.28);padding:12px 12px 5px}
-.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:0.875rem;color:rgba(255,255,255,0.58);transition:all var(--transition);margin-bottom:2px;border:none;background:none;width:100%;text-align:left}
-.nav-item:hover{background:rgba(255,255,255,0.07);color:#fff}
-.nav-item.active{background:rgba(201,162,39,0.16);color:var(--gold-light);font-weight:500}
-.nav-item svg{width:17px;flex-shrink:0;opacity:0.8}
-.nav-badge{margin-left:auto;background:var(--gold);color:var(--ink);font-size:0.63rem;font-weight:700;padding:1px 6px;border-radius:99px}
-.sidebar-footer{padding:14px;border-top:1px solid rgba(255,255,255,0.08)}
-.user-chip{display:flex;align-items:center;gap:9px;padding:8px;border-radius:8px}
-.avatar{width:33px;height:33px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--teal));display:flex;align-items:center;justify-content:center;font-size:0.78rem;font-weight:700;color:#fff;flex-shrink:0}
-.user-info strong{display:block;font-size:0.78rem;color:#fff;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
-.user-info span{font-size:0.68rem;color:rgba(255,255,255,0.38);text-transform:capitalize}
-.main-content{flex:1;margin-left:260px;min-height:100vh;display:flex;flex-direction:column}
-.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:0 28px;height:58px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
-.topbar-title{font-family:var(--font-display);font-size:1.1rem;font-weight:600;color:var(--ink);flex:1}
-.page{padding:26px;flex:1}
-/* AUTH */
-.auth-wrap{min-height:100vh;display:flex;background:var(--ink);position:relative;overflow:hidden}
-.auth-inner{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;position:relative;z-index:1}
-.auth-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(201,162,39,0.12) 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(26,127,110,0.09) 0%,transparent 50%),radial-gradient(ellipse at 60% 80%,rgba(109,63,168,0.07) 0%,transparent 40%);pointer-events:none}
-.auth-brand{text-align:center;margin-bottom:32px}
-.auth-brand h1{font-family:var(--font-display);font-size:2rem;font-weight:700;color:#fff;letter-spacing:-1px;line-height:1.2}
-.auth-brand h1 span{color:var(--gold);display:block;font-size:1.3rem;margin-top:4px}
-.auth-brand p{color:rgba(255,255,255,0.42);margin-top:8px;font-size:0.875rem}
-.auth-card{background:var(--white);border-radius:var(--radius-lg);padding:32px;width:100%;max-width:440px;box-shadow:0 24px 64px rgba(0,0,0,0.3)}
-.auth-tabs{display:flex;gap:4px;background:var(--surface);border-radius:8px;padding:4px;margin-bottom:22px}
-.auth-tab{flex:1;padding:8px;text-align:center;border-radius:6px;cursor:pointer;font-size:0.875rem;font-weight:500;color:var(--muted);transition:all var(--transition);border:none;background:none}
-.auth-tab.active{background:var(--white);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,0.08)}
-/* FORMS */
-.fg{margin-bottom:14px}
-.fr{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-label{display:block;font-size:0.78rem;font-weight:500;color:var(--ink-3);margin-bottom:5px}
-input,select,textarea{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:var(--font-body);font-size:0.875rem;color:var(--ink);background:var(--white);transition:border-color var(--transition);outline:none}
-input:focus,select:focus,textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,162,39,0.1)}
-textarea{resize:vertical;min-height:90px}
-.hint{font-size:0.74rem;color:var(--muted);margin-top:3px}
-/* CATEGORY PICKER */
-.cat-picker{display:flex;flex-direction:column;gap:7px}
-.cat-opt{display:flex;align-items:center;gap:10px;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all var(--transition);user-select:none}
-.cat-opt:hover,.cat-opt.sel{border-color:var(--gold);background:var(--gold-bg)}
-.cat-opt.dis{opacity:0.4;cursor:not-allowed}
-.cat-opt.dis:hover{border-color:var(--border);background:none}
-.cat-cb{width:15px;height:15px;border:2px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all var(--transition)}
-.cat-opt.sel .cat-cb{border-color:var(--gold);background:var(--gold)}
-/* BUTTONS */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 18px;border-radius:var(--radius);font-family:var(--font-body);font-size:0.875rem;font-weight:500;cursor:pointer;transition:all var(--transition);border:none;white-space:nowrap}
-.btn-ink{background:var(--ink);color:#fff}.btn-ink:hover{background:var(--ink-2);transform:translateY(-1px)}
-.btn-gold{background:var(--gold);color:var(--ink);font-weight:600}.btn-gold:hover{background:#b8911f;transform:translateY(-1px)}
-.btn-ol{background:none;border:1.5px solid var(--border);color:var(--ink-3)}.btn-ol:hover{border-color:var(--ink-3);background:var(--surface)}
-.btn-red{background:var(--red);color:#fff}.btn-red:hover{background:#a93226}
-.btn-grn{background:var(--green);color:#fff}.btn-grn:hover{background:#156b3c}
-.btn-pur{background:var(--purple);color:#fff}.btn-pur:hover{background:#5c2d99}
-.btn-teal{background:var(--teal);color:#fff}.btn-teal:hover{background:#156b5c}
-.btn-sm{padding:5px 11px;font-size:0.78rem}
-.btn-full{width:100%}
-.btn:disabled{opacity:0.48;cursor:not-allowed;transform:none!important}.btn:active:not(:disabled){transform:scale(0.97)!important}
-/* CARDS */
-.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;box-shadow:var(--shadow)}
-.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:9px}
-.card-title{font-family:var(--font-display);font-size:1rem;font-weight:600;color:var(--ink)}
-/* STATS */
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
-.stat{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;display:flex;flex-direction:column;gap:6px}
-.stat.gold{border-left:4px solid var(--gold)}.stat.teal{border-left:4px solid var(--teal)}.stat.blue{border-left:4px solid var(--blue)}.stat.red{border-left:4px solid var(--red)}.stat.pur{border-left:4px solid var(--purple)}.stat.slate{border-left:4px solid var(--slate)}
-.stat-lbl{font-size:0.73rem;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
-.stat-val{font-family:var(--font-display);font-size:1.9rem;font-weight:700;color:var(--ink);line-height:1}
-.stat-sub{font-size:0.73rem;color:var(--muted)}
-/* STUDY CARDS */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px}
-.sc{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow);transition:all var(--transition);cursor:pointer;position:relative;overflow:hidden}
-.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--teal));transform:scaleX(0);transform-origin:left;transition:transform var(--transition)}
-.sc:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:rgba(201,162,39,0.3)}.sc:hover::before{transform:scaleX(1)}
-.sc-cats{display:flex;flex-wrap:wrap;gap:4px}
-.sc-cat{font-size:0.67rem;font-weight:600;padding:2px 7px;border-radius:4px;background:var(--gold-bg);color:var(--gold)}
-.sc-title{font-family:var(--font-display);font-size:0.97rem;font-weight:600;color:var(--ink);line-height:1.4}
-.sc-authors{font-size:0.78rem;color:var(--muted)}
-.sc-abs{font-size:0.8rem;color:var(--slate);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.sc-meta{display:flex;align-items:center;gap:10px;font-size:0.71rem;color:var(--muted);flex-wrap:wrap;margin-top:auto}
-.sc-meta span{display:flex;align-items:center;gap:3px}.sc:active{transform:scale(0.98)}
-/* TABLE */
-.tw{overflow-x:auto}
-table{width:100%;border-collapse:collapse}
-th{font-size:0.71rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;padding:9px 13px;text-align:left;border-bottom:1.5px solid var(--border);white-space:nowrap}
-td{padding:11px 13px;border-bottom:1px solid var(--border);font-size:0.85rem;color:var(--ink-3);vertical-align:middle}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:var(--surface)}
-/* BADGES */
-.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 9px;border-radius:99px;font-size:0.7rem;font-weight:600}
-.badge-pend{background:#fff8e6;color:#b7860b}.badge-appr{background:var(--green-light);color:var(--green)}.badge-rej{background:var(--red-light);color:var(--red)}.badge-admin{background:var(--blue-light);color:var(--blue)}
-/* SEARCH / FILTER */
-.sb{display:flex;align-items:center;gap:9px;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);padding:0 13px;transition:border-color var(--transition)}
-.sb:focus-within{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,162,39,0.1)}
-.sb input{border:none;background:none;padding:9px 0;flex:1;outline:none;font-size:0.875rem}
-.fb{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-/* UPLOAD ZONE */
-.uz{border:2px dashed var(--border);border-radius:var(--radius);padding:28px;text-align:center;cursor:pointer;transition:all var(--transition)}
-.uz:hover,.uz.drag{border-color:var(--gold);background:var(--gold-bg)}.uz.has{border-color:var(--green);background:var(--green-light)}
-.uz p{color:var(--muted);font-size:0.875rem}.uz strong{color:var(--ink);display:block;margin-bottom:3px}
-.uz input[type=file]{display:none}
-/* MODAL */
-.overlay{position:fixed;inset:0;background:rgba(13,15,20,0.6);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;padding:18px;animation:fIn .2s ease}
-.modal{background:var(--white);border-radius:var(--radius-lg);width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.22);animation:sUp .25s cubic-bezier(0.34,1.56,0.64,1)}
-.modal-hd{padding:22px 26px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:11px;position:sticky;top:0;background:var(--white);z-index:1;padding-bottom:14px;border-bottom:1px solid var(--border)}
-.modal-bd{padding:20px 26px 26px}
-.modal-title{font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--ink)}
-.modal-x{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:6px;transition:all var(--transition)}
-.modal-x:hover{background:var(--surface);color:var(--ink)}
-/* TOASTS */
-.toasts{position:fixed;bottom:22px;right:22px;z-index:9999;display:flex;flex-direction:column;gap:7px;pointer-events:none}
-.toast{background:var(--ink);color:#fff;padding:11px 15px;border-radius:var(--radius);font-size:0.875rem;display:flex;align-items:center;gap:9px;min-width:270px;max-width:360px;box-shadow:var(--shadow-lg);animation:sRight .3s ease;pointer-events:all}
-.toast.ok{background:var(--green)}.toast.err{background:var(--red)}.toast.info{background:var(--blue)}
-/* EMPTY */
-.empty{text-align:center;padding:52px 20px;color:var(--muted)}
-.empty-ico{font-size:2.8rem;margin-bottom:10px;opacity:0.45}
-.empty h3{font-family:var(--font-display);font-size:1.05rem;color:var(--slate);margin-bottom:5px}
-/* SPINNERS */
-.spin{width:19px;height:19px;border:2px solid rgba(255,255,255,0.28);border-top-color:#fff;border-radius:50%;animation:spinning .7s linear infinite;flex-shrink:0;display:inline-block}
-.spin-dark{border-color:rgba(13,15,20,0.15)!important;border-top-color:var(--ink)!important}
-.spin-gold{border-color:rgba(201,162,39,0.25)!important;border-top-color:var(--gold)!important}
-/* PAGINATION */
-.pages{display:flex;align-items:center;gap:5px;margin-top:24px;justify-content:center}
-.pg{width:34px;height:34px;border-radius:8px;border:1.5px solid var(--border);background:var(--white);color:var(--ink);cursor:pointer;font-size:0.875rem;display:flex;align-items:center;justify-content:center;transition:all var(--transition)}
-.pg:hover{border-color:var(--gold);background:var(--gold-bg)}.pg.active{background:var(--ink);color:#fff;border-color:var(--ink)}.pg:disabled{opacity:0.38;cursor:not-allowed}
-/* ALERTS */
-.al{display:flex;align-items:flex-start;gap:9px;padding:11px 14px;border-radius:var(--radius);font-size:0.875rem;margin-bottom:14px}
-.al-info{background:var(--blue-light);color:var(--blue)}.al-ok{background:var(--green-light);color:var(--green)}.al-err{background:var(--red-light);color:var(--red)}.al-warn{background:#fff8e6;color:#b7860b}
-/* STUDY DETAIL */
-.sd-title{font-family:var(--font-display);font-size:1.5rem;font-weight:700;color:var(--ink);line-height:1.3;margin-bottom:10px}
-.sd-auth{font-size:0.97rem;color:var(--slate);margin-bottom:14px}
-.kw{display:inline-block;padding:2px 9px;background:var(--surface);border:1px solid var(--border);border-radius:99px;font-size:0.73rem;color:var(--slate);margin:2px}
-.ds h4{font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:7px}
-.ds p{color:var(--ink-3);font-size:0.88rem;line-height:1.7}
-.apa-box{background:var(--surface);border-left:3px solid var(--gold);padding:11px 14px;border-radius:0 var(--radius) var(--radius) 0;font-family:var(--font-mono);font-size:0.76rem;color:var(--ink-3);line-height:1.6;word-break:break-word;position:relative;padding-right:70px}
-.apa-cp{position:absolute;top:7px;right:7px;background:var(--gold);border:none;border-radius:5px;padding:2px 8px;font-size:0.68rem;cursor:pointer;color:var(--ink);font-weight:600;transition:all var(--transition)}
-.apa-cp:hover{background:#b8911f}
-/* CATEGORY MANAGER */
-.cm-item{display:flex;align-items:center;gap:9px;padding:9px 13px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:7px;background:var(--white)}
-.cm-name{flex:1;font-size:0.875rem;font-weight:500;color:var(--ink-3)}
-.cm-in{border:none;background:none;font-size:0.875rem;color:var(--ink);flex:1;outline:none;padding:0}
 /* ══════════════════════════════════════════
-   ADVANCED CHAT STYLES
+   DESIGN TOKENS
 ══════════════════════════════════════════ */
-.chat-layout{display:flex;height:calc(100vh - 120px);min-height:500px;gap:16px}
-.chat-main{flex:1;display:flex;flex-direction:column;min-width:0}
-.chat-sidebar{width:280px;flex-shrink:0;display:flex;flex-direction:column;gap:12px}
-.chat-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;border:1px solid var(--border);border-bottom:none;scroll-behavior:smooth}
-.cm{display:flex;gap:10px;align-items:flex-start;animation:msgIn .3s ease}
-.cm.user{flex-direction:row-reverse}
-.cm-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0;box-shadow:var(--shadow)}
-.cm-av.bot{background:linear-gradient(135deg,var(--purple),var(--blue));color:#fff}
-.cm-av.user{background:linear-gradient(135deg,var(--gold),var(--teal));color:#fff}
-.cm-body{display:flex;flex-direction:column;gap:4px;max-width:78%}
-.cm.user .cm-body{align-items:flex-end}
-.cm-bub{padding:10px 14px;border-radius:var(--radius-lg);font-size:0.875rem;line-height:1.65;word-break:break-word}
-.cm-bub.bot{background:var(--white);border:1px solid var(--border);color:var(--ink-3);border-radius:4px var(--radius-lg) var(--radius-lg) var(--radius-lg);box-shadow:0 1px 4px rgba(0,0,0,0.06)}
-.cm-bub.user{background:var(--ink);color:#fff;border-radius:var(--radius-lg) 4px var(--radius-lg) var(--radius-lg)}
-.cm-meta{font-size:0.64rem;color:var(--muted);display:flex;align-items:center;gap:5px}
-.cm-src{font-size:0.64rem;padding:1px 6px;border-radius:4px;font-weight:500}
-.cm-src.claude{background:var(--purple-light);color:var(--purple)}
-.cm-src.local{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
-/* typing dots */
-.typing{display:flex;gap:5px;padding:4px 2px;align-items:center}
-.dot{width:7px;height:7px;background:var(--muted);border-radius:50%;animation:pulse 1.4s infinite}
-.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
-/* chat input */
-.chat-input-area{background:var(--white);border:1px solid var(--border);border-radius:0 0 var(--radius-lg) var(--radius-lg);padding:12px 14px}
-.chat-input-row{display:flex;gap:9px;align-items:flex-end}
-.chat-in{flex:1;border:1.5px solid var(--border);border-radius:var(--radius);padding:9px 13px;font-family:var(--font-body);font-size:0.875rem;outline:none;resize:none;max-height:120px;min-height:42px;transition:border-color var(--transition);background:var(--surface)}
-.chat-in:focus{border-color:var(--purple);background:var(--white);box-shadow:0 0 0 3px rgba(109,63,168,0.1)}
-.chat-actions{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;align-items:center}
-.chat-action-btn{font-size:0.72rem;padding:4px 10px;border-radius:99px;border:1.5px solid var(--border);background:var(--surface);color:var(--ink-3);cursor:pointer;transition:all var(--transition);display:flex;align-items:center;gap:4px}
-.chat-action-btn:hover{border-color:var(--purple);background:var(--purple-light);color:var(--purple)}
-.chat-action-btn.active{border-color:var(--purple);background:var(--purple-light);color:var(--purple)}
-/* chat refs */
-.chat-refs{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)}
-.chat-ref-lbl{font-size:0.67rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;display:flex;align-items:center;gap:4px}
-.chat-ref{font-family:var(--font-mono);font-size:0.68rem;color:var(--slate);padding:5px 9px;background:var(--surface);border-radius:5px;margin-bottom:3px;border-left:2px solid var(--gold);line-height:1.5;cursor:pointer;transition:background var(--transition)}
-.chat-ref:hover{background:var(--gold-bg)}
-/* sidebar panels */
-.chat-panel{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
-.chat-panel-hd{padding:12px 14px;border-bottom:1px solid var(--border);font-size:0.78rem;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:6px;background:var(--surface)}
-.chat-panel-body{padding:12px 14px;max-height:300px;overflow-y:auto}
-.sugg-chip{display:block;width:100%;text-align:left;font-size:0.78rem;padding:7px 10px;border-radius:7px;border:none;background:none;color:var(--ink-3);cursor:pointer;transition:all var(--transition);margin-bottom:3px;line-height:1.4}
-.sugg-chip:hover{background:var(--purple-light);color:var(--purple)}
-.chat-stat-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.78rem}
-.chat-stat-row:last-child{border-bottom:none}
-.chat-stat-val{font-weight:600;color:var(--ink)}
-/* mode pills */
-.mode-pills{display:flex;gap:5px;flex-wrap:wrap;padding:8px 14px;background:var(--surface);border-left:1px solid var(--border);border-right:1px solid var(--border)}.mode-pill:active{transform:scale(0.96)}
-.mode-pill{font-size:0.71rem;padding:3px 10px;border-radius:99px;border:1.5px solid var(--border);background:var(--white);color:var(--muted);cursor:pointer;transition:all var(--transition);font-weight:500}
-.mode-pill.on{border-color:var(--purple);background:var(--purple-light);color:var(--purple);font-weight:600}
-/* MARKDOWN */
-.md strong{font-weight:600;color:var(--ink)}.md em{font-style:italic;color:var(--slate)}.md code{font-family:var(--font-mono);background:var(--surface);padding:1px 5px;border-radius:4px;font-size:0.83em;border:1px solid var(--border)}
-.md h3{font-family:var(--font-display);font-size:0.97rem;font-weight:600;color:var(--ink);margin:8px 0 4px}
-.md-bullet{display:flex;gap:7px;padding-left:2px;margin:2px 0}
-.md-bullet-dot{color:var(--gold);flex-shrink:0;font-weight:700}
-.md-num{display:flex;gap:7px;padding-left:2px;margin:2px 0}
-.md-num-n{color:var(--purple);flex-shrink:0;font-weight:700;min-width:16px}
-/* MISC */
-.divider{height:1px;background:var(--border);margin:14px 0}
-.sec-title{font-family:var(--font-display);font-size:1.15rem;font-weight:600;color:var(--ink);margin-bottom:14px}
-.muted{color:var(--muted);font-size:0.875rem}
-.mt12{margin-top:12px}.mb12{margin-bottom:12px}.mt16{margin-top:16px}
-.page-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
-.page-hd-left h2{font-family:var(--font-display);font-size:1.25rem;font-weight:600;margin-bottom:2px}
-/* ANIMATIONS */
-@keyframes fIn{from{opacity:0}to{opacity:1}}
-@keyframes sUp{from{opacity:0;transform:translateY(20px) scale(0.97)}to{opacity:1;transform:none}}
-@keyframes sRight{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
-@keyframes spinning{to{transform:rotate(360deg)}}
-@keyframes pulse{0%,80%,100%{transform:scale(1);opacity:.4}40%{transform:scale(1.3);opacity:1}}
-@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-/* MOBILE NAV BAR */
-.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;background:var(--ink);border-top:1px solid rgba(255,255,255,0.1);padding:6px 0 env(safe-area-inset-bottom,6px)}
-.mob-nav-inner{display:flex;justify-content:space-around;align-items:center}
-.mob-nav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 10px;border:none;background:none;color:rgba(255,255,255,0.5);cursor:pointer;border-radius:8px;transition:all .2s;min-width:56px;font-family:var(--font-body)}
-.mob-nav-btn.active{color:var(--gold-light)}
-.mob-nav-btn svg{width:20px;height:20px}
-.mob-nav-btn span{font-size:0.6rem;font-weight:500;white-space:nowrap}
-.mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:149;backdrop-filter:blur(2px)}
-.mob-overlay.show{display:block}
-.mob-header{display:none;position:fixed;top:0;left:0;right:0;z-index:99;background:var(--ink);height:54px;align-items:center;padding:0 16px;gap:10px;border-bottom:1px solid rgba(255,255,255,0.08)}
-.mob-header-title{font-family:var(--font-display);font-size:1rem;color:var(--gold);flex:1}
-.mob-menu-btn{background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;padding:6px;border-radius:8px}
-/* CHAT EXPORT BUTTON */
-.chat-export-btn{font-size:0.72rem;padding:4px 10px;border-radius:99px;border:1.5px solid var(--border);background:var(--surface);color:var(--ink-3);cursor:pointer;transition:all var(--transition);display:flex;align-items:center;gap:4px}
-.chat-export-btn:hover{border-color:var(--teal);background:var(--teal-light);color:var(--teal)}
-/* CITATION SAVE BADGE */
-.saved-cite{font-size:0.63rem;padding:1px 6px;border-radius:4px;background:var(--green-light);color:var(--green);font-weight:600;margin-left:4px}
-/* SCROLL TO TOP */
-.scroll-top{position:fixed;bottom:80px;right:16px;width:40px;height:40px;border-radius:50%;background:var(--ink);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-lg);z-index:50;transition:all .2s;opacity:0;pointer-events:none}
-.scroll-top.show{opacity:1;pointer-events:all}
-@media(max-width:768px){.sidebar-close-btn{display:block!important}}
-/* RESPONSIVE */
-@media(max-width:900px){.chat-layout{flex-direction:column}.chat-sidebar{width:100%;flex-direction:row;overflow-x:auto}.chat-panel{min-width:220px;flex-shrink:0}}
-@media(max-width:768px){
-  .sidebar{transform:translateX(-260px);transition:transform .3s ease;z-index:150}
-  .sidebar.open{transform:translateX(0)}
-  .main-content{margin-left:0}
-  .grid{grid-template-columns:1fr}
-  .fr{grid-template-columns:1fr}
-  .stats{grid-template-columns:repeat(2,1fr)}
-  .page{padding:12px;padding-top:66px;padding-bottom:80px}
-  .topbar{display:none}
-  .mob-nav{display:block}
-  .mob-header{display:flex}
-  .chat-sidebar{display:none}
-  .chat-layout{height:calc(100vh - 190px)}
-  .chat-msgs{padding:10px}
-  .cm-bub{max-width:88%}
-  .mode-pills{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding:8px 12px;gap:6px}
-  .mode-pill{white-space:nowrap;flex-shrink:0}
-  .chat-actions{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
-  .chat-action-btn{flex-shrink:0}
-  .modal{max-height:95vh;border-radius:var(--radius-lg) var(--radius-lg) 0 0;position:fixed;bottom:0;left:0;right:0;width:100%;max-width:100%}
-  .overlay{align-items:flex-end;padding:0}
-  .stats{grid-template-columns:repeat(2,1fr)}
-  .page-hd{flex-direction:column;gap:8px}
-  .auth-inner{padding:20px}
-  .auth-card{padding:22px}
+:root {
+  /* Colors */
+  --ink:#0d0f14; --ink-2:#1e2130; --ink-3:#2e3250;
+  --slate:#4a5174; --muted:#7c85a8;
+  --border:#e2e5f0; --surface:#f5f6fa; --white:#ffffff;
+  --gold:#c9a227; --gold-light:#f0d882; --gold-bg:#fdf8ec;
+  --teal:#1a7f6e; --teal-light:#e6f5f2;
+  --red:#c0392b; --red-light:#fdf0ee;
+  --green:#1a7f4a; --green-light:#e6f5ee;
+  --blue:#1a5fa8; --blue-light:#e6f0fd;
+  --purple:#6d3fa8; --purple-light:#f3eeff;
+
+  /* Shape */
+  --radius: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  /* Elevation */
+  --shadow: 0 2px 12px rgba(13,15,20,0.08);
+  --shadow-lg: 0 8px 32px rgba(13,15,20,0.12);
+  --shadow-xl: 0 24px 64px rgba(13,15,20,0.18);
+
+  /* Typography */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Fluid scale */
+  --text-xs:  clamp(0.65rem, 1.8vw, 0.72rem);
+  --text-sm:  clamp(0.78rem, 2.2vw, 0.875rem);
+  --text-base:clamp(0.875rem, 2.5vw, 1rem);
+  --text-lg:  clamp(1rem, 3vw, 1.15rem);
+  --text-xl:  clamp(1.1rem, 3.5vw, 1.35rem);
+  --text-2xl: clamp(1.25rem, 4.5vw, 1.65rem);
+
+  /* Motion */
+  --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+  --spring: 0.3s cubic-bezier(0.34,1.56,0.64,1);
+
+  /* Layout */
+  --sidebar-w: 260px;
+  --topbar-h: 58px;
+  --mob-header-h: 54px;
+  --mob-nav-h: 62px;
+
+  /* Safe areas */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* Touch targets */
+  --tap-min: 44px;
 }
-@media(max-width:400px){.stats{grid-template-columns:1fr}}
+
+/* ══════════════════════════════════════════
+   RESET & BASE
+══════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--surface);
+  color: var(--ink);
+  min-height: 100vh;
+  font-size: var(--text-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+img { max-width: 100%; height: auto; }
+button { font-family: var(--font-body); cursor: pointer; }
+a { color: inherit; }
+
+/* Prevent zoom on iOS input focus */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ══════════════════════════════════════════
+   LAYOUT SHELL
+══════════════════════════════════════════ */
+.app-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: var(--sidebar-w);
+  min-height: 100vh;
+  background: var(--ink);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 150;
+  transition: transform .3s cubic-bezier(0.4,0,0.2,1);
+  will-change: transform;
+}
+
+.sidebar-logo {
+  padding: clamp(16px,4vw,24px) clamp(16px,4vw,24px) 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.sidebar-logo h1 {
+  font-family: var(--font-display);
+  font-size: clamp(0.92rem,2.5vw,1.05rem);
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.3;
+}
+.sidebar-logo h1 span { color: var(--gold); }
+.sidebar-logo p { font-size: var(--text-xs); color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+.sidebar-nav { flex: 1; padding: 16px 12px; overflow-y: auto; overscroll-behavior: contain; }
+
+.nav-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.28);
+  padding: 12px 12px 5px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  min-height: var(--tap-min);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: rgba(255,255,255,0.58);
+  transition: all var(--transition);
+  margin-bottom: 2px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+.nav-item:hover { background: rgba(255,255,255,0.07); color: #fff; }
+.nav-item.active { background: rgba(201,162,39,0.16); color: var(--gold-light); font-weight: 500; }
+.nav-item svg { width: 17px; flex-shrink: 0; opacity: 0.8; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--gold); color: var(--ink);
+  font-size: 0.63rem; font-weight: 700;
+  padding: 2px 7px; border-radius: 99px;
+  min-width: 20px; text-align: center;
+}
+
+.sidebar-footer {
+  padding: 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px;
+  border-radius: 8px;
+}
+.avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,var(--gold),var(--teal));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.78rem; font-weight: 700; color: #fff;
+  flex-shrink: 0;
+}
+.user-info strong { display: block; font-size: var(--text-sm); color: #fff; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.user-info span { font-size: var(--text-xs); color: rgba(255,255,255,0.38); text-transform: capitalize; }
+
+.sidebar-close-btn {
+  background: none; border: none;
+  color: rgba(255,255,255,0.4);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  display: flex; align-items: center; justify-content: center;
+  transition: color var(--transition);
+}
+.sidebar-close-btn:hover { color: #fff; }
+
+.main-content {
+  flex: 1;
+  margin-left: var(--sidebar-w);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.topbar {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 0 clamp(16px,4vw,28px);
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.topbar-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink);
+  flex: 1;
+}
+
+.page {
+  padding: clamp(14px,4vw,26px);
+  flex: 1;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* ══════════════════════════════════════════
+   MOBILE HEADER & NAV
+══════════════════════════════════════════ */
+.mob-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 149;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.mob-overlay.show { display: block; animation: fIn .2s ease; }
+
+.mob-header {
+  display: none;
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 99;
+  background: var(--ink);
+  height: var(--mob-header-h);
+  align-items: center;
+  padding: 0 16px;
+  padding-top: var(--safe-top);
+  gap: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.mob-header-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--gold);
+  flex: 1;
+}
+.mob-menu-btn {
+  background: none; border: none;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mob-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  z-index: 200;
+  background: var(--ink);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-bottom: var(--safe-bottom);
+}
+.mob-nav-inner {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 6px 0;
+}
+.mob-nav-btn {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 3px;
+  padding: 8px;
+  min-width: 56px;
+  min-height: var(--tap-min);
+  border: none; background: none;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer; border-radius: 10px;
+  transition: all .2s;
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+.mob-nav-btn.active { color: var(--gold-light); }
+.mob-nav-btn svg { width: 20px; height: 20px; }
+.mob-nav-btn span { font-size: 0.6rem; font-weight: 500; white-space: nowrap; }
+
+/* ══════════════════════════════════════════
+   AUTH PAGE
+══════════════════════════════════════════ */
+.auth-wrap {
+  min-height: 100vh;
+  display: flex;
+  background: var(--ink);
+  position: relative;
+  overflow: hidden;
+  padding-top: var(--safe-top);
+}
+.auth-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%,rgba(201,162,39,0.12) 0%,transparent 60%),
+    radial-gradient(ellipse at 80% 20%,rgba(26,127,110,0.09) 0%,transparent 50%),
+    radial-gradient(ellipse at 60% 80%,rgba(109,63,168,0.07) 0%,transparent 40%);
+  pointer-events: none;
+}
+.auth-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(20px,5vw,40px);
+  position: relative; z-index: 1;
+}
+.auth-brand { text-align: center; margin-bottom: clamp(22px,4vw,32px); }
+.auth-brand h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem,5vw,2rem);
+  font-weight: 700; color: #fff;
+  letter-spacing: -1px; line-height: 1.2;
+}
+.auth-brand h1 span { color: var(--gold); display: block; font-size: clamp(1rem,3vw,1.3rem); margin-top: 4px; }
+.auth-brand p { color: rgba(255,255,255,0.42); margin-top: 8px; font-size: var(--text-sm); }
+
+.auth-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: clamp(20px,5vw,32px);
+  width: 100%; max-width: 440px;
+  box-shadow: var(--shadow-xl);
+}
+
+.auth-tabs {
+  display: flex; gap: 4px;
+  background: var(--surface);
+  border-radius: 8px; padding: 4px;
+  margin-bottom: 22px;
+}
+.auth-tab {
+  flex: 1;
+  padding: 10px;
+  min-height: var(--tap-min);
+  text-align: center;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--muted);
+  transition: all var(--transition);
+  border: none; background: none;
+}
+.auth-tab.active {
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+/* ══════════════════════════════════════════
+   FORMS
+══════════════════════════════════════════ */
+.fg { margin-bottom: 14px; }
+.fr { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+
+label {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--ink-3);
+  margin-bottom: 5px;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: clamp(10px,2.5vw,11px) clamp(12px,3vw,14px);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--ink);
+  background: var(--white);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201,162,39,0.1);
+}
+textarea { resize: vertical; min-height: 90px; }
+.hint { font-size: var(--text-xs); color: var(--muted); margin-top: 3px; }
+
+/* ══════════════════════════════════════════
+   CATEGORY PICKER
+══════════════════════════════════════════ */
+.cat-picker { display: flex; flex-direction: column; gap: 7px; }
+.cat-opt {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 13px;
+  min-height: var(--tap-min);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.cat-opt:hover, .cat-opt.sel { border-color: var(--gold); background: var(--gold-bg); }
+.cat-opt.dis { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.cat-cb {
+  width: 16px; height: 16px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+.cat-opt.sel .cat-cb { border-color: var(--gold); background: var(--gold); }
+
+/* ══════════════════════════════════════════
+   BUTTONS
+══════════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: clamp(10px,2.5vw,11px) clamp(14px,3.5vw,18px);
+  min-height: var(--tap-min);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  border: none;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-ink  { background:var(--ink);    color:#fff; }  .btn-ink:hover  { background:var(--ink-2); transform:translateY(-1px); }
+.btn-gold { background:var(--gold);   color:var(--ink); font-weight:600; } .btn-gold:hover { background:#b8911f; transform:translateY(-1px); }
+.btn-ol   { background:none; border:1.5px solid var(--border); color:var(--ink-3); } .btn-ol:hover { border-color:var(--ink-3); background:var(--surface); }
+.btn-red  { background:var(--red);    color:#fff; } .btn-red:hover  { background:#a93226; }
+.btn-grn  { background:var(--green);  color:#fff; } .btn-grn:hover  { background:#156b3c; }
+.btn-pur  { background:var(--purple); color:#fff; } .btn-pur:hover  { background:#5c2d99; }
+.btn-teal { background:var(--teal);   color:#fff; } .btn-teal:hover { background:#156b5c; }
+.btn-sm   { padding: 7px 13px; font-size: var(--text-xs); min-height: 36px; }
+.btn-full { width: 100%; }
+.btn:disabled { opacity: 0.48; cursor: not-allowed; transform: none !important; }
+.btn:active:not(:disabled) { transform: scale(0.97) !important; }
+
+/* ══════════════════════════════════════════
+   CARDS
+══════════════════════════════════════════ */
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: clamp(16px,4vw,22px);
+  box-shadow: var(--shadow);
+}
+.card-hd {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  flex-wrap: wrap; gap: 9px;
+}
+.card-title { font-family:var(--font-display); font-size:var(--text-base); font-weight:600; color:var(--ink); }
+
+/* ══════════════════════════════════════════
+   STATS
+══════════════════════════════════════════ */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.stat {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: clamp(14px,3vw,18px);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.stat.gold  { border-left: 4px solid var(--gold); }
+.stat.teal  { border-left: 4px solid var(--teal); }
+.stat.blue  { border-left: 4px solid var(--blue); }
+.stat.red   { border-left: 4px solid var(--red);  }
+.stat.pur   { border-left: 4px solid var(--purple); }
+.stat.slate { border-left: 4px solid var(--slate); }
+.stat-lbl { font-size: var(--text-xs); font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+.stat-val { font-family:var(--font-display); font-size:clamp(1.5rem,4vw,1.9rem); font-weight:700; color:var(--ink); line-height:1; }
+.stat-sub { font-size:var(--text-xs); color:var(--muted); }
+
+/* ══════════════════════════════════════════
+   STUDY CARDS
+══════════════════════════════════════════ */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr));
+  gap: 18px;
+}
+.sc {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: clamp(14px,3.5vw,20px);
+  display: flex; flex-direction: column; gap: 10px;
+  box-shadow: var(--shadow);
+  transition: all var(--transition);
+  cursor: pointer; position: relative; overflow: hidden;
+}
+.sc::before {
+  content: '';
+  position: absolute; top:0; left:0; right:0; height:3px;
+  background: linear-gradient(90deg,var(--gold),var(--teal));
+  transform: scaleX(0); transform-origin: left;
+  transition: transform var(--transition);
+}
+.sc:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: rgba(201,162,39,0.3); }
+.sc:hover::before { transform: scaleX(1); }
+.sc:active { transform: scale(0.98); }
+.sc-cats { display:flex; flex-wrap:wrap; gap:4px; }
+.sc-cat { font-size:var(--text-xs); font-weight:600; padding:2px 7px; border-radius:4px; background:var(--gold-bg); color:var(--gold); }
+.sc-title { font-family:var(--font-display); font-size:clamp(0.88rem,2.5vw,0.97rem); font-weight:600; color:var(--ink); line-height:1.4; }
+.sc-authors { font-size:var(--text-xs); color:var(--muted); }
+.sc-abs { font-size:var(--text-sm); color:var(--slate); line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.sc-meta { display:flex; align-items:center; gap:10px; font-size:var(--text-xs); color:var(--muted); flex-wrap:wrap; margin-top:auto; }
+.sc-meta span { display:flex; align-items:center; gap:3px; }
+
+/* ══════════════════════════════════════════
+   TABLE
+══════════════════════════════════════════ */
+.tw { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--radius); }
+table { width: 100%; border-collapse: collapse; min-width: 500px; }
+th {
+  font-size: var(--text-xs); font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 9px 13px; text-align: left;
+  border-bottom: 1.5px solid var(--border); white-space: nowrap;
+}
+td { padding: 12px 13px; border-bottom: 1px solid var(--border); font-size: var(--text-sm); color: var(--ink-3); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface); }
+
+/* ══════════════════════════════════════════
+   BADGES
+══════════════════════════════════════════ */
+.badge { display:inline-flex; align-items:center; gap:3px; padding:3px 9px; border-radius:99px; font-size:var(--text-xs); font-weight:600; }
+.badge-pend { background:#fff8e6; color:#b7860b; }
+.badge-appr { background:var(--green-light); color:var(--green); }
+.badge-rej  { background:var(--red-light);   color:var(--red); }
+.badge-admin{ background:var(--blue-light);  color:var(--blue); }
+
+/* ══════════════════════════════════════════
+   SEARCH / FILTER
+══════════════════════════════════════════ */
+.sb {
+  display: flex; align-items: center; gap: 9px;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 13px;
+  min-height: var(--tap-min);
+  transition: border-color var(--transition);
+}
+.sb:focus-within { border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,0.1); }
+.sb input { border:none; background:none; padding:9px 0; flex:1; outline:none; font-size:var(--text-sm); }
+.fb { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+
+/* ══════════════════════════════════════════
+   UPLOAD ZONE
+══════════════════════════════════════════ */
+.uz {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: clamp(20px,5vw,28px);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  -webkit-tap-highlight-color: transparent;
+}
+.uz:hover, .uz.drag { border-color:var(--gold); background:var(--gold-bg); }
+.uz.has { border-color:var(--green); background:var(--green-light); }
+.uz p { color:var(--muted); font-size:var(--text-sm); }
+.uz strong { color:var(--ink); display:block; margin-bottom:3px; }
+.uz input[type=file] { display:none; }
+
+/* ══════════════════════════════════════════
+   MODAL — mobile bottom sheet
+══════════════════════════════════════════ */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(13,15,20,0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  animation: fIn .2s ease;
+  overscroll-behavior: contain;
+}
+.modal {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  width: 100%; max-width: 620px;
+  max-height: 90vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-shadow: var(--shadow-xl);
+  animation: sUp var(--spring);
+}
+.modal-hd {
+  padding: 22px 24px 0;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 11px;
+  position: sticky; top: 0;
+  background: var(--white); z-index: 1;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-bd { padding: 20px 24px 28px; }
+.modal-title { font-family:var(--font-display); font-size:var(--text-xl); font-weight:600; color:var(--ink); }
+.modal-x {
+  background: none; border: none;
+  cursor: pointer; color: var(--muted);
+  padding: 6px; border-radius: 6px;
+  min-width: 36px; min-height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+.modal-x:hover { background:var(--surface); color:var(--ink); }
+
+/* ══════════════════════════════════════════
+   TOASTS
+══════════════════════════════════════════ */
+.toasts {
+  position: fixed;
+  bottom: max(22px, calc(var(--mob-nav-h) + 12px + var(--safe-bottom)));
+  right: 22px; left: auto;
+  z-index: 9999;
+  display: flex; flex-direction: column; gap: 7px;
+  pointer-events: none;
+  max-width: min(360px, calc(100vw - 44px));
+}
+.toast {
+  background: var(--ink); color: #fff;
+  padding: 12px 15px;
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  display: flex; align-items: center; gap: 9px;
+  min-width: 240px;
+  box-shadow: var(--shadow-lg);
+  animation: sRight .3s ease;
+  pointer-events: all;
+  word-break: break-word;
+}
+.toast.ok  { background:var(--green); }
+.toast.err { background:var(--red);   }
+.toast.info{ background:var(--blue);  }
+
+/* ══════════════════════════════════════════
+   EMPTY STATE
+══════════════════════════════════════════ */
+.empty { text-align:center; padding:clamp(36px,8vw,52px) 20px; color:var(--muted); }
+.empty-ico { font-size:2.8rem; margin-bottom:10px; opacity:0.45; }
+.empty h3 { font-family:var(--font-display); font-size:var(--text-lg); color:var(--slate); margin-bottom:5px; }
+
+/* ══════════════════════════════════════════
+   SPINNERS
+══════════════════════════════════════════ */
+.spin {
+  width:19px; height:19px;
+  border: 2px solid rgba(255,255,255,0.28);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spinning .7s linear infinite;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.spin-dark { border-color:rgba(13,15,20,0.15)!important; border-top-color:var(--ink)!important; }
+.spin-gold { border-color:rgba(201,162,39,0.25)!important; border-top-color:var(--gold)!important; }
+
+/* ══════════════════════════════════════════
+   PAGINATION
+══════════════════════════════════════════ */
+.pages { display:flex; align-items:center; gap:5px; margin-top:24px; justify-content:center; flex-wrap:wrap; }
+.pg {
+  width:36px; height:36px;
+  border-radius:8px;
+  border: 1.5px solid var(--border);
+  background: var(--white); color: var(--ink);
+  cursor: pointer; font-size: var(--text-sm);
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+  min-width: 36px;
+}
+.pg:hover { border-color:var(--gold); background:var(--gold-bg); }
+.pg.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+.pg:disabled { opacity:0.38; cursor:not-allowed; }
+
+/* ══════════════════════════════════════════
+   ALERTS
+══════════════════════════════════════════ */
+.al {
+  display:flex; align-items:flex-start; gap:9px;
+  padding: 11px 14px;
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.al-info{ background:var(--blue-light); color:var(--blue); }
+.al-ok  { background:var(--green-light); color:var(--green); }
+.al-err { background:var(--red-light); color:var(--red); }
+.al-warn{ background:#fff8e6; color:#b7860b; }
+
+/* ══════════════════════════════════════════
+   STUDY DETAIL
+══════════════════════════════════════════ */
+.sd-title { font-family:var(--font-display); font-size:clamp(1.15rem,4vw,1.5rem); font-weight:700; color:var(--ink); line-height:1.3; margin-bottom:10px; }
+.sd-auth  { font-size:var(--text-base); color:var(--slate); margin-bottom:14px; }
+.kw { display:inline-block; padding:2px 9px; background:var(--surface); border:1px solid var(--border); border-radius:99px; font-size:var(--text-xs); color:var(--slate); margin:2px; }
+.ds h4 { font-size:var(--text-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:var(--muted); margin-bottom:7px; }
+.ds p  { color:var(--ink-3); font-size:var(--text-sm); line-height:1.7; }
+.apa-box {
+  background:var(--surface);
+  border-left: 3px solid var(--gold);
+  padding: 11px 14px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+  line-height: 1.6;
+  word-break: break-word;
+  position: relative;
+  padding-right: 70px;
+}
+.apa-cp {
+  position:absolute; top:7px; right:7px;
+  background:var(--gold); border:none; border-radius:5px;
+  padding:3px 9px; font-size:var(--text-xs);
+  cursor:pointer; color:var(--ink); font-weight:600;
+  transition:all var(--transition);
+  min-height:28px;
+}
+.apa-cp:hover { background:#b8911f; }
+
+/* ══════════════════════════════════════════
+   CATEGORY MANAGER
+══════════════════════════════════════════ */
+.cm-item {
+  display:flex; align-items:center; gap:9px;
+  padding:9px 13px; min-height:var(--tap-min);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  margin-bottom:7px;
+  background:var(--white);
+  flex-wrap:wrap;
+}
+.cm-name { flex:1; font-size:var(--text-sm); font-weight:500; color:var(--ink-3); min-width:0; }
+.cm-in { border:none; background:none; font-size:var(--text-sm); color:var(--ink); flex:1; outline:none; padding:0; min-width:100px; }
+
+/* ══════════════════════════════════════════
+   CHAT — UPGRADED
+══════════════════════════════════════════ */
+.chat-layout {
+  display: flex;
+  height: calc(100vh - var(--topbar-h) - clamp(14px,4vw,26px) * 2 - 80px);
+  min-height: 480px;
+  gap: 16px;
+}
+.chat-main { flex:1; display:flex; flex-direction:column; min-width:0; }
+.chat-sidebar { width:280px; flex-shrink:0; display:flex; flex-direction:column; gap:12px; overflow-y:auto; }
+
+.chat-msgs {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: clamp(10px,2.5vw,16px);
+  display: flex; flex-direction: column; gap: 14px;
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  scroll-behavior: smooth;
+}
+
+/* Message */
+.cm { display:flex; gap:10px; align-items:flex-start; animation:msgIn .3s ease; }
+.cm.user { flex-direction:row-reverse; }
+.cm-av {
+  width:34px; height:34px;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:0.8rem; font-weight:700;
+  flex-shrink:0;
+  box-shadow:var(--shadow);
+}
+.cm-av.bot  { background:linear-gradient(135deg,var(--purple),var(--blue)); color:#fff; }
+.cm-av.user { background:linear-gradient(135deg,var(--gold),var(--teal)); color:#fff; }
+
+.cm-body { display:flex; flex-direction:column; gap:4px; max-width:80%; }
+.cm.user .cm-body { align-items:flex-end; }
+
+.cm-bub {
+  padding: clamp(9px,2vw,11px) clamp(12px,3vw,15px);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.cm-bub.bot {
+  background:var(--white);
+  border:1px solid var(--border);
+  color:var(--ink-3);
+  border-radius: 4px var(--radius-lg) var(--radius-lg) var(--radius-lg);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.cm-bub.user {
+  background:var(--ink); color:#fff;
+  border-radius: var(--radius-lg) 4px var(--radius-lg) var(--radius-lg);
+}
+
+.cm-meta { font-size:var(--text-xs); color:var(--muted); display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.cm-src  { font-size:var(--text-xs); padding:1px 6px; border-radius:4px; font-weight:500; }
+.cm-src.claude { background:var(--purple-light); color:var(--purple); }
+.cm-src.local  { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
+
+/* Typing dots */
+.typing { display:flex; gap:5px; padding:4px 2px; align-items:center; }
+.dot { width:7px; height:7px; background:var(--muted); border-radius:50%; animation:pulse 1.4s infinite; }
+.dot:nth-child(2){ animation-delay:.2s; } .dot:nth-child(3){ animation-delay:.4s; }
+
+/* Chat input area */
+.chat-input-area {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  padding: clamp(10px,2.5vw,13px) clamp(11px,3vw,14px);
+  padding-bottom: max(clamp(10px,2.5vw,13px), var(--safe-bottom));
+}
+.chat-input-row { display:flex; gap:9px; align-items:flex-end; }
+.chat-in {
+  flex: 1;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: clamp(9px,2.5vw,11px) 13px;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  outline: none; resize: none;
+  max-height: 130px;
+  min-height: 44px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+  background: var(--surface);
+  line-height: 1.5;
+  overflow-y: auto;
+}
+.chat-in:focus {
+  border-color: var(--purple);
+  background: var(--white);
+  box-shadow: 0 0 0 3px rgba(109,63,168,0.1);
+}
+
+.chat-send-btn {
+  flex-shrink: 0;
+  background: var(--purple); color: #fff;
+  border: none; border-radius: var(--radius);
+  width: var(--tap-min); height: var(--tap-min);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all var(--transition);
+}
+.chat-send-btn:hover:not(:disabled) { background: #5c2d99; }
+.chat-send-btn:disabled { opacity:0.48; cursor:not-allowed; }
+
+.chat-actions {
+  display:flex; gap:6px; margin-top:8px;
+  flex-wrap:wrap; align-items:center;
+}
+.chat-action-btn {
+  font-size: var(--text-xs);
+  padding: 6px 10px;
+  min-height: 32px;
+  border-radius:99px;
+  border:1.5px solid var(--border);
+  background:var(--surface);
+  color:var(--ink-3);
+  cursor:pointer;
+  transition:all var(--transition);
+  display:flex; align-items:center; gap:4px;
+  white-space:nowrap;
+  -webkit-tap-highlight-color:transparent;
+}
+.chat-action-btn:hover,.chat-action-btn.active {
+  border-color:var(--purple); background:var(--purple-light); color:var(--purple);
+}
+
+/* Research gap indicator */
+.gap-alert {
+  background: linear-gradient(135deg, #fff8e6, #fdf3d0);
+  border: 1px solid rgba(201,162,39,0.3);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-top: 10px;
+  font-size: var(--text-xs);
+  color: #8a6a00;
+  display: flex; align-items: flex-start; gap: 7px;
+}
+.gap-alert strong { color: #6a4f00; }
+
+/* Chat refs */
+.chat-refs { margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }
+.chat-ref-lbl { font-size:var(--text-xs); font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px; display:flex; align-items:center; gap:4px; }
+.chat-ref {
+  font-family:var(--font-mono); font-size:var(--text-xs); color:var(--slate);
+  padding:5px 9px; background:var(--surface);
+  border-radius:5px; margin-bottom:3px;
+  border-left:2px solid var(--gold);
+  line-height:1.5; cursor:pointer;
+  transition:background var(--transition);
+  display:flex; align-items:flex-start; gap:6px;
+}
+.chat-ref:hover { background:var(--gold-bg); }
+
+/* Chat sidebar panels */
+.chat-panel { background:var(--white); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+.chat-panel-hd {
+  padding:12px 14px;
+  border-bottom:1px solid var(--border);
+  font-size:var(--text-xs); font-weight:600; color:var(--ink);
+  display:flex; align-items:center; gap:6px;
+  background:var(--surface);
+}
+.chat-panel-body { padding:12px 14px; max-height:280px; overflow-y:auto; overscroll-behavior:contain; }
+.sugg-chip {
+  display:block; width:100%;
+  text-align:left; font-size:var(--text-xs);
+  padding:8px 10px; min-height:34px;
+  border-radius:7px; border:none; background:none;
+  color:var(--ink-3); cursor:pointer;
+  transition:all var(--transition);
+  margin-bottom:3px; line-height:1.4;
+  -webkit-tap-highlight-color:transparent;
+}
+.sugg-chip:hover { background:var(--purple-light); color:var(--purple); }
+
+.chat-stat-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:6px 0;
+  border-bottom:1px solid var(--border);
+  font-size:var(--text-xs);
+}
+.chat-stat-row:last-child { border-bottom:none; }
+.chat-stat-val { font-weight:600; color:var(--ink); }
+
+/* Mode pills */
+.mode-pills {
+  display:flex; gap:5px; flex-wrap:wrap;
+  padding:8px clamp(10px,2.5vw,14px);
+  background:var(--surface);
+  border-left:1px solid var(--border);
+  border-right:1px solid var(--border);
+}
+.mode-pill {
+  font-size:var(--text-xs);
+  padding:5px 11px; min-height:32px;
+  border-radius:99px; border:1.5px solid var(--border);
+  background:var(--white); color:var(--muted);
+  cursor:pointer; transition:all var(--transition);
+  font-weight:500; white-space:nowrap;
+  -webkit-tap-highlight-color:transparent;
+}
+.mode-pill.on { border-color:var(--purple); background:var(--purple-light); color:var(--purple); font-weight:600; }
+.mode-pill:active { transform:scale(0.96); }
+
+/* Export/actions */
+.chat-export-btn {
+  font-size:var(--text-xs); padding:5px 11px; min-height:32px;
+  border-radius:99px; border:1.5px solid var(--border);
+  background:var(--surface); color:var(--ink-3);
+  cursor:pointer; transition:all var(--transition);
+  display:flex; align-items:center; gap:4px;
+  -webkit-tap-highlight-color:transparent;
+}
+.chat-export-btn:hover { border-color:var(--teal); background:var(--teal-light); color:var(--teal); }
+
+.saved-cite { font-size:var(--text-xs); padding:1px 6px; border-radius:4px; background:var(--green-light); color:var(--green); font-weight:600; margin-left:4px; }
+
+/* ══════════════════════════════════════════
+   MARKDOWN RENDERER
+══════════════════════════════════════════ */
+.md strong { font-weight:600; color:var(--ink); }
+.md em { font-style:italic; color:var(--slate); }
+.md code { font-family:var(--font-mono); background:var(--surface); padding:1px 5px; border-radius:4px; font-size:0.85em; border:1px solid var(--border); }
+.md h3 { font-family:var(--font-display); font-size:var(--text-base); font-weight:600; color:var(--ink); margin:8px 0 4px; }
+.md-bullet { display:flex; gap:7px; padding-left:2px; margin:2px 0; }
+.md-bullet-dot { color:var(--gold); flex-shrink:0; font-weight:700; }
+.md-num { display:flex; gap:7px; padding-left:2px; margin:2px 0; }
+.md-num-n { color:var(--purple); flex-shrink:0; font-weight:700; min-width:18px; }
+
+/* ══════════════════════════════════════════
+   MISC UTILITIES
+══════════════════════════════════════════ */
+.divider { height:1px; background:var(--border); margin:14px 0; }
+.sec-title { font-family:var(--font-display); font-size:var(--text-xl); font-weight:600; color:var(--ink); margin-bottom:14px; }
+.muted { color:var(--muted); font-size:var(--text-sm); }
+.mt12{margin-top:12px} .mb12{margin-bottom:12px} .mt16{margin-top:16px}
+.page-hd { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+.page-hd-left h2 { font-family:var(--font-display); font-size:var(--text-2xl); font-weight:600; margin-bottom:2px; }
+
+/* ══════════════════════════════════════════
+   ANIMATIONS
+══════════════════════════════════════════ */
+@keyframes fIn    { from{opacity:0} to{opacity:1} }
+@keyframes sUp    { from{opacity:0;transform:translateY(20px) scale(0.97)} to{opacity:1;transform:none} }
+@keyframes sRight { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:none} }
+@keyframes spinning { to{transform:rotate(360deg)} }
+@keyframes pulse  { 0%,80%,100%{transform:scale(1);opacity:.4} 40%{transform:scale(1.3);opacity:1} }
+@keyframes msgIn  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+@keyframes slideUp{ from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+
+/* ══════════════════════════════════════════
+   SCROLL TO TOP
+══════════════════════════════════════════ */
+.scroll-top {
+  position:fixed; bottom:calc(var(--mob-nav-h) + 14px + var(--safe-bottom)); right:16px;
+  width:44px; height:44px;
+  border-radius:50%;
+  background:var(--ink); color:#fff;
+  border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:var(--shadow-lg); z-index:50;
+  transition:all .2s;
+  opacity:0; pointer-events:none;
+}
+.scroll-top.show { opacity:1; pointer-events:all; }
+
+/* ══════════════════════════════════════════
+   RESPONSIVE: TABLET
+══════════════════════════════════════════ */
+@media (max-width:900px) {
+  .chat-layout { flex-direction:column; }
+  .chat-sidebar { width:100%; flex-direction:row; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .chat-panel { min-width:220px; flex-shrink:0; }
+}
+
+/* ══════════════════════════════════════════
+   RESPONSIVE: MOBILE
+══════════════════════════════════════════ */
+@media (max-width:768px) {
+  /* Sidebar */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform .3s cubic-bezier(0.4,0,0.2,1);
+    z-index:150;
+    width: min(var(--sidebar-w), 90vw);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-close-btn { display:flex !important; }
+
+  /* Layout */
+  .main-content { margin-left: 0; }
+  .topbar { display:none; }
+  .mob-nav { display:block; }
+  .mob-header { display:flex; }
+
+  /* Page padding: header + bottom nav + safe areas */
+  .page {
+    padding: clamp(12px,3vw,18px);
+    padding-top: calc(var(--mob-header-h) + var(--safe-top) + 14px);
+    padding-bottom: calc(var(--mob-nav-h) + var(--safe-bottom) + 14px);
+    overflow-x: hidden;
+  }
+
+  /* Grids */
+  .grid { grid-template-columns: 1fr; }
+  .fr   { grid-template-columns: 1fr; }
+  .stats{ grid-template-columns: repeat(2,1fr); }
+
+  /* Chat mobile */
+  .chat-sidebar { display:none; }
+  .chat-layout {
+    height: calc(100dvh - var(--mob-header-h) - var(--mob-nav-h) - var(--safe-top) - var(--safe-bottom) - clamp(12px,3vw,18px) * 2 - 70px);
+    min-height: 340px;
+    gap: 0;
+  }
+  .chat-msgs { padding: 10px 12px; }
+  .cm-body { max-width: 86%; }
+  .cm-bub  { font-size: var(--text-sm); }
+  .mode-pills {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 8px 12px;
+    gap: 6px;
+  }
+  .mode-pills::-webkit-scrollbar { display:none; }
+  .mode-pill { flex-shrink:0; }
+  .chat-actions {
+    overflow-x: auto; flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .chat-actions::-webkit-scrollbar { display:none; }
+  .chat-action-btn { flex-shrink:0; }
+
+  /* Modal → bottom sheet */
+  .modal {
+    max-height: 96vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    position: fixed; bottom:0; left:0; right:0;
+    width: 100%; max-width: 100%;
+    animation: slideUp var(--spring);
+    padding-bottom: var(--safe-bottom);
+  }
+  .overlay { align-items:flex-end; padding:0; }
+
+  /* Misc */
+  .page-hd { flex-direction:column; gap:8px; }
+  .auth-inner { padding:16px; }
+  .auth-card { padding:20px 18px; }
+  .stats { grid-template-columns: repeat(2,1fr); }
+
+  /* Toast */
+  .toasts { right:12px; left:12px; max-width:100%; bottom:calc(var(--mob-nav-h) + 10px + var(--safe-bottom)); }
+}
+
+@media (max-width:400px) {
+  .stats { grid-template-columns: 1fr; }
+  .fr    { grid-template-columns: 1fr; }
+}
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:.01ms!important; transition-duration:.01ms!important; }
+}
+
+/* High contrast */
+@media (prefers-contrast: high) {
+  .nav-item.active { background:rgba(201,162,39,0.3); }
+}
 </style>
 </head>
 <body>
@@ -308,7 +1189,7 @@ tr:hover td{background:var(--surface)}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script type="text/babel">
-const { useState, useEffect, useCallback, useRef, useMemo } = React;
+const { useState, useEffect, useCallback, useRef, useMemo, memo } = React;
 
 // ══════════════════════════════════════════════════════════════════
 //  FIREBASE CONFIG
@@ -322,7 +1203,6 @@ const firebaseConfig = {
   appId: "1:155537469341:web:85650f06744d422dc58974"
 };
 
-// Safe init — avoid "already initialized" error on hot reload
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
@@ -343,17 +1223,14 @@ const DEFAULT_CATS = [
 ];
 
 // ══════════════════════════════════════════════════════════════════
-//  FIREBASE API  — all reads use simple .get() to avoid index errors
+//  FIREBASE API
 // ══════════════════════════════════════════════════════════════════
 const API = {
-  /* AUTH */
   async register({ name, email, password, institution, department, secQ, secA }) {
     if (!name||!email||!password) throw new Error('Name, email and password are required.');
     if (password.length < 8)       throw new Error('Password must be at least 8 characters.');
     if (!secA?.trim())             throw new Error('Security answer is required.');
-    const dup = await db.collection('users').where('email','==',email.toLowerCase()).get();
-    if (!dup.empty)                throw new Error('Email already registered.');
-    const cred = await auth.createUserWithEmailAndPassword(email, password);
+    const cred = await auth.createUserWithEmailAndPassword(email.trim(), password);
     await db.collection('users').doc(cred.user.uid).set({
       name: name.trim(), email: email.toLowerCase(),
       role: 'student', status: 'pending',
@@ -385,7 +1262,6 @@ const API = {
     } catch { return null; }
   },
 
-  /* STUDIES — fetch all then filter client-side to avoid index requirements */
   async getStudies({ search='', category='', uploadedBy='', status='active', page=1, perPage=6 }={}) {
     try {
       const snap = await db.collection('studies').orderBy('createdAt','desc').get();
@@ -398,9 +1274,8 @@ const API = {
         items = items.filter(s=>[s.title,...(s.authors||[]),s.abstract||'',...(s.keywords||[])].join(' ').toLowerCase().includes(q));
       }
       const total = items.length;
-      const totalPages = Math.ceil(total/perPage)||1;
-      return { data: items.slice((page-1)*perPage, page*perPage), total, totalPages, page };
-    } catch(e) { console.error('getStudies',e); return {data:[],total:0,totalPages:1,page:1}; }
+      return { data: items.slice((page-1)*perPage, page*perPage), total, totalPages:Math.ceil(total/perPage)||1, page };
+    } catch(e) { return {data:[],total:0,totalPages:1,page:1}; }
   },
 
   async getAllStudies() {
@@ -411,8 +1286,8 @@ const API = {
   },
 
   async createStudy({ title, authors, abstract, keywords, categories, year, file, uploadedBy, uploadedByName }) {
-    if (!title||!abstract)  throw new Error('Title and abstract are required.');
-    if (!authors?.length)   throw new Error('At least one author is required.');
+    if (!title||!abstract)   throw new Error('Title and abstract are required.');
+    if (!authors?.length)    throw new Error('At least one author is required.');
     if (!categories?.length) throw new Error('At least one category is required.');
     await db.collection('studies').add({
       title:title.trim(), authors, abstract:abstract.trim(),
@@ -427,15 +1302,12 @@ const API = {
     });
   },
 
-  async deleteStudy(id) {
-    await db.collection('studies').doc(id).delete();
-  },
+  async deleteStudy(id) { await db.collection('studies').doc(id).delete(); },
 
   async trackStudy(id, field) {
     try { await db.collection('studies').doc(id).update({ [field]: firebase.firestore.FieldValue.increment(1) }); } catch {}
   },
 
-  /* USERS */
   async getUsers({ role='student', status='', search='' }={}) {
     try {
       const snap = await db.collection('users').where('role','==',role).get();
@@ -449,9 +1321,7 @@ const API = {
     } catch { return []; }
   },
 
-  async updateUserStatus(id, status) {
-    await db.collection('users').doc(id).update({ status });
-  },
+  async updateUserStatus(id, status) { await db.collection('users').doc(id).update({ status }); },
 
   async deleteUser(id) {
     const snap = await db.collection('studies').where('uploadedBy','==',id).get();
@@ -461,7 +1331,6 @@ const API = {
     await batch.commit();
   },
 
-  /* CATEGORIES */
   async getCategories() {
     try {
       const snap = await db.collection('config').doc('categories').get();
@@ -469,11 +1338,8 @@ const API = {
     } catch { return [...DEFAULT_CATS]; }
   },
 
-  async setCategories(cats) {
-    await db.collection('config').doc('categories').set({ list: cats });
-  },
+  async setCategories(cats) { await db.collection('config').doc('categories').set({ list: cats }); },
 
-  /* STATS */
   async getStats() {
     try {
       const [uSnap, sSnap] = await Promise.all([
@@ -493,9 +1359,7 @@ const API = {
     } catch { return {totalStudents:0,approvedStudents:0,pendingStudents:0,totalStudies:0,totalViews:0,totalDownloads:0}; }
   },
 
-  async sendPasswordReset(email) {
-    await auth.sendPasswordResetEmail(email.trim());
-  }
+  async sendPasswordReset(email) { await auth.sendPasswordResetEmail(email.trim()); }
 };
 
 // ══════════════════════════════════════════════════════════════════
@@ -532,123 +1396,237 @@ function generateInText(s) {
   return `(${last(authors[0])} et al., ${year})`;
 }
 
-function scoreStudy(study, words) {
-  const txt = [study.title,...(study.authors||[]),study.abstract||'',...(study.keywords||[]),...(study.categories||[])].join(' ').toLowerCase();
-  return words.reduce((a,w)=>a+(txt.match(new RegExp(w,'g'))||[]).length,0);
+// ══════════════════════════════════════════════════════════════════
+//  INTELLIGENT SEARCH ENGINE
+// ══════════════════════════════════════════════════════════════════
+const STEM_STOPWORDS = new Set(['the','a','an','of','in','for','to','and','or','is','are','was','were','be','been','it','this','that','with','by','from','on','at','as','its','study','research','about','using','based']);
+
+function extractKeyTerms(text) {
+  return text.toLowerCase()
+    .replace(/[^\w\s]/g,' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !STEM_STOPWORDS.has(w))
+    .slice(0, 12);
 }
 
-function findRelevant(query, studies, limit=4) {
+function scoreStudy(study, terms) {
+  const fields = [
+    { text: study.title||'',        weight: 3 },
+    { text: (study.keywords||[]).join(' '), weight: 2.5 },
+    { text: (study.categories||[]).join(' '), weight: 2 },
+    { text: (study.authors||[]).join(' '), weight: 1.5 },
+    { text: study.abstract||'',     weight: 1 },
+  ];
+  let score = 0;
+  const fullText = fields.map(f=>f.text).join(' ').toLowerCase();
+  terms.forEach(term => {
+    fields.forEach(f => {
+      const matches = (f.text.toLowerCase().match(new RegExp(term,'g'))||[]).length;
+      score += matches * f.weight;
+    });
+    // Bonus for exact phrase in title
+    if ((study.title||'').toLowerCase().includes(term)) score += 2;
+  });
+  return score;
+}
+
+function findRelevant(query, studies, limit=5) {
   if (!query||!studies?.length) return [];
-  const words = query.toLowerCase().split(/\s+/).filter(w=>w.length>3);
-  if (!words.length) return studies.slice(0,limit);
-  return studies.map(s=>({s,score:scoreStudy(s,words)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,limit).map(x=>x.s);
+  const terms = extractKeyTerms(query);
+  if (!terms.length) return studies.slice(0,limit);
+  return studies
+    .map(s=>({s, score:scoreStudy(s, terms)}))
+    .filter(x=>x.score>0)
+    .sort((a,b)=>b.score-a.score)
+    .slice(0, limit)
+    .map(x=>x.s);
+}
+
+// Research gap detection
+function detectResearchGaps(studies, query='') {
+  if (!studies.length) return [];
+  
+  const allText = studies.map(s=>[s.title,s.abstract,...(s.keywords||[]),...(s.categories||[])].join(' ').toLowerCase()).join(' ');
+  const allCats = {};
+  studies.forEach(s=>(s.categories||[]).forEach(c=>{allCats[c]=(allCats[c]||0)+1;}));
+  
+  const gaps = [];
+  const DEFAULT_CATS_SET = ['Biology','Chemistry','Physics','Mathematics','Computer Science','Environmental Science','Engineering','Health Science','Earth Science','Social Science'];
+  DEFAULT_CATS_SET.forEach(cat => {
+    if (!allCats[cat]) gaps.push(cat);
+  });
+  
+  // Content-based gap detection
+  const gapTopics = [
+    { topic:'climate change impacts', check:/climate|global warming|carbon/ },
+    { topic:'machine learning applications', check:/machine learning|neural|deep learning|AI/ },
+    { topic:'renewable energy', check:/solar|wind energy|renewable|clean energy/ },
+    { topic:'mental health in students', check:/mental health|anxiety|depression|wellbeing/ },
+    { topic:'biodiversity conservation', check:/biodiversity|conservation|species|ecosystem/ },
+    { topic:'data privacy and cybersecurity', check:/privacy|cybersecurity|data security|encryption/ },
+  ];
+  
+  const contentGaps = gapTopics
+    .filter(g => !g.check.test(allText))
+    .map(g => g.topic)
+    .slice(0, 2);
+  
+  return contentGaps;
+}
+
+// Cluster studies by theme
+function clusterStudies(studies) {
+  const clusters = {};
+  studies.forEach(s => {
+    (s.categories||['General']).forEach(cat => {
+      if (!clusters[cat]) clusters[cat] = [];
+      clusters[cat].push(s);
+    });
+  });
+  return clusters;
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  ADVANCED AI ENGINE
+//  AI MODES
 // ══════════════════════════════════════════════════════════════════
 const AI_MODES = {
-  general:   { label:'Ask Anything',   icon:'💬', desc:'Definitions, concepts, research Q&A' },
-  find:      { label:'Find Studies',   icon:'🔍', desc:'Search the repository' },
-  cite:      { label:'APA Citations',  icon:'📝', desc:'Generate citations' },
-  define:    { label:'Define Topic',   icon:'📖', desc:'Define any STEM concept' },
-  compare:   { label:'Compare',        icon:'⚖️',  desc:'Compare studies or concepts' },
-  summarize: { label:'Summarize',      icon:'📋', desc:'Summarize abstracts' },
-  suggest:   { label:'Suggest Topics', icon:'💡', desc:'Research topic ideas' },
+  general:   { label:'Ask Anything',     icon:'💬', desc:'Definitions, concepts, research Q&A' },
+  find:      { label:'Find Studies',     icon:'🔍', desc:'Search the repository' },
+  cite:      { label:'APA Citations',    icon:'📝', desc:'Generate citations' },
+  define:    { label:'Define Topic',     icon:'📖', desc:'Define any STEM concept' },
+  compare:   { label:'Compare',          icon:'⚖️',  desc:'Compare studies or concepts' },
+  summarize: { label:'Summarize',        icon:'📋', desc:'Summarize abstracts' },
+  suggest:   { label:'Suggest Topics',   icon:'💡', desc:'Research topic ideas & gaps' },
 };
 
-function buildSystemPrompt(studies, mode) {
+// ══════════════════════════════════════════════════════════════════
+//  INTELLIGENT SYSTEM PROMPT — Research Copilot
+// ══════════════════════════════════════════════════════════════════
+function buildSystemPrompt(studies, mode, conversationContext='') {
+  const clusters = clusterStudies(studies);
+  const clusterSummary = Object.entries(clusters)
+    .sort((a,b)=>b[1].length-a[1].length)
+    .map(([cat,ss])=>`  ${cat}: ${ss.length} studies`)
+    .join('\n');
+
   const repoSummary = studies.length > 0
-    ? studies.slice(0, 25).map((s, i) =>
-        `[${i+1}] Title: "${s.title}" | Authors: ${(s.authors||[]).join(', ')} | Year: ${s.year} | Categories: ${(s.categories||[]).join(', ')} | Keywords: ${(s.keywords||[]).join(', ')} | Abstract: ${(s.abstract||'').slice(0,200)}`
+    ? studies.slice(0, 30).map((s, i) =>
+        `[${i+1}] "${s.title}" | Authors: ${(s.authors||[]).join(', ')} | Year: ${s.year} | Categories: ${(s.categories||[]).join(', ')} | Keywords: ${(s.keywords||[]).join(', ')} | Abstract: ${(s.abstract||'').slice(0,250)}`
       ).join('\n')
     : '(Repository is currently empty — no studies uploaded yet)';
 
+  const gaps = detectResearchGaps(studies);
+  const gapNote = gaps.length > 0 ? `\nKNOWN RESEARCH GAPS IN THIS REPOSITORY:\n${gaps.map(g=>`  • ${g} — no studies cover this yet`).join('\n')}` : '';
+
   const modeInstructions = {
-    general:   `You can answer ANY question the user asks. If it's about a STEM concept, definition, or topic — answer it fully and academically. If it's related to the repository, reference studies using APA in-text citations. Always stay academic and educational in tone.`,
-    find:      `Search the repository for matching studies. Explain WHY each result is relevant. If nothing matches, say so and suggest related topics.`,
-    cite:      `Generate precise APA 7th edition citations. Always provide BOTH the full reference entry AND the in-text citation. If the user asks about a topic not in the repo, explain what an APA citation would look like for that type of source.`,
-    define:    `Define the requested STEM concept or term clearly and academically. Structure your response as: 1) Definition, 2) Key characteristics, 3) Examples or applications, 4) Related concepts. If a study in the repository touches this topic, reference it. If not, define it from your general knowledge.`,
-    compare:   `Compare studies or concepts side-by-side using structured format. For studies: compare methodology, findings, scope, year. For general concepts: compare definitions, applications, similarities, differences.`,
-    summarize: `Summarize requested studies. Structure: Purpose, Methods, Key Findings, Significance. Keep it concise but complete.`,
-    suggest:   `Suggest specific research topics based on gaps in the repository. Be creative and grounded in what STEM topics are underrepresented. Propose concrete research questions.`,
+    general: `You are a smart research copilot. Answer ANY STEM/academic question comprehensively. 
+- Think beyond keyword matching — infer user intent
+- If the query is vague, make intelligent inferences AND ask one clarifying question at the end
+- Connect related topics across studies proactively  
+- When relevant, mention research gaps you notice
+- Always cite relevant repository studies using in-text APA format
+- End with a "🔍 You might also want to ask:" follow-up suggestion`,
+
+    find: `You are an intelligent study finder. When searching:
+1. Find exact matches AND thematically related studies
+2. Explain WHY each result is relevant (don't just list titles)
+3. Group results by theme if there are multiple matches
+4. Note what's MISSING from the repository on this topic
+5. Suggest 1-2 related searches the user might not have considered
+6. If no results: acknowledge this clearly, then suggest what WOULD be findable`,
+
+    cite: `Generate precise APA 7th edition citations. Always provide:
+1. Full reference entry (formatted)
+2. In-text citation format
+3. Where multiple studies are relevant, generate a full References section
+4. If you notice citation patterns (same author, same year), flag this
+5. Explain any unusual formatting decisions`,
+
+    define: `Define STEM concepts with depth and accessibility:
+Structure: 1) Concise definition, 2) Key characteristics with examples, 3) Real-world applications, 4) Related concepts in the repository, 5) Common misconceptions if any
+- Use analogies for complex concepts
+- Connect to repository studies where relevant
+- Offer to explain at a simpler or deeper level`,
+
+    compare: `Compare studies or concepts with analytical depth:
+- For studies: methodology, scope, findings, limitations, year, implications
+- Identify what they agree on and where they diverge
+- Note which is more recent or comprehensive
+- Suggest a synthesis or conclusion the user can draw
+- Use structured format with clear headers`,
+
+    summarize: `Summarize with insight, not just description:
+Structure: Purpose → Methods → Key Findings → Significance → Limitations
+- Extract the single most important finding
+- Note if the study supports or contradicts other studies in the repository
+- Suggest follow-up research questions this study raises`,
+
+    suggest: `You are a research innovation advisor. Generate creative, specific research ideas:
+1. Identify clear gaps in the repository (topics not yet studied)
+2. Suggest interdisciplinary connections
+3. Propose specific, actionable research questions (not just topics)
+4. Explain WHY each suggestion fills a real gap
+5. Suggest novel angles that combine existing repository themes
+6. Consider local/Filipino context where appropriate`,
   };
 
-  return `You are an academic research assistant for the SABNAHIS STE Research Portal — a Science, Technology, and Engineering institutional repository for student research in the Philippines.
+  return `You are a highly intelligent academic research copilot for the SABNAHIS STE Research Portal — a Science, Technology, and Engineering institutional repository for Filipino students.
 
 CURRENT MODE: ${AI_MODES[mode]?.label || 'General'}
-INSTRUCTIONS: ${modeInstructions[mode] || modeInstructions.general}
+MODE INSTRUCTIONS:
+${modeInstructions[mode] || modeInstructions.general}
 
-════════════════════════════
-REPOSITORY (${studies.length} studies):
-════════════════════════════
+════════════════════════════════════════
+REPOSITORY OVERVIEW (${studies.length} studies):
+By Category:
+${clusterSummary || '  (empty)'}
+${gapNote}
+
+FULL STUDY INDEX:
 ${repoSummary}
+════════════════════════════════════════
 
-════════════════════════════
-STRICT RULES — FOLLOW ALWAYS:
-════════════════════════════
-1. SCOPE: You ONLY answer questions about:
-   a) Studies in this repository (finding, citing, summarizing, comparing)
-   b) Definitions and explanations of STEM/academic concepts and topics
-   c) APA 7th edition citation formatting
-   d) Academic writing and research guidance
-   e) Science, Technology, Engineering, Mathematics topics
+CORE INTELLIGENCE PRINCIPLES — ALWAYS APPLY:
 
-2. OFF-TOPIC: If the user asks about something completely unrelated to academics, STEM, or research (e.g., jokes, movies, personal advice, cooking, sports), politely decline and redirect:
-   "I'm focused on academic and research topics. I can help you with STEM definitions, APA citations, or finding studies in the repository. What would you like to explore?"
+1. INTENT INFERENCE: When a query is short or vague, infer the most likely research intent. "climate" → assume they want studies AND definition AND gaps. Respond to ALL dimensions, not just the literal words.
 
-3. LANGUAGE & TONE:
-   - Be warm, helpful, and encouraging — this is a student research portal
-   - Use simple, clear language but maintain academic accuracy
-   - When a student seems confused, offer to explain in simpler terms
-   - For Filipino students: it's okay to understand Tagalog questions, but respond in English for academic consistency unless the user prefers Tagalog
+2. GAP AWARENESS: Proactively mention when the repository lacks coverage on a topic. Example: "I found 2 studies on robotics. Interestingly, none cover machine learning integration — this could be a research direction worth exploring."
 
-4. APA CITATIONS — Always use this format:
-   - Reference list: LastName, F. M. (Year). Title of work. [Category].
-   - In-text 1 author: (LastName, Year)
-   - In-text 2 authors: (LastName & LastName, Year)
-   - In-text 3+ authors: (LastName et al., Year)
+3. CONNECTION MAKING: Actively identify relationships between studies that the user may not have noticed. "Study 1 and Study 3 both examine [X] but from different angles..."
 
-4. DEFINITIONS — When defining a concept, always:
-   - Give a clear, precise academic definition
-   - Mention real-world applications in STEM
-   - Mention if any repository study relates to it
-   - Use **bold** for key terms
+4. RESPONSE CALIBRATION: 
+   - Simple factual questions → 2-4 sentences + bullets
+   - Repository searches → structured results with context
+   - Complex topics → use ### headers to organize
+   - Always end with a helpful next-step suggestion
 
-5. OUTSIDE KNOWLEDGE — You CAN and SHOULD use your knowledge to:
-   - Define scientific terms (e.g., "What is photosynthesis?", "Define algorithm")
-   - Explain research methodologies (e.g., "What is a control group?")
-   - Explain APA rules for source types not in the repo
-   - Answer general STEM questions academically
-   But always check if a repository study is relevant and cite it if so.
+5. LANGUAGE & TONE:
+   - Warm, encouraging, and academically rigorous
+   - For Filipino students: understand Tagalog, respond in English (unless user prefers Tagalog)
+   - When student seems stuck: offer to simplify or provide examples
 
-6. FORMATTING:
-   - Use **bold** for terms and titles
-   - Use ### for section headers in long responses
+6. APA FORMAT (7th edition):
+   - Reference: LastName, F. M. (Year). Title. [Category].
+   - In-text 1: (LastName, Year)
+   - In-text 2: (LastName & LastName, Year)  
+   - In-text 3+: (LastName et al., Year)
+
+7. SCOPE: Focus on STEM, academic research, and this repository. For off-topic questions, briefly redirect: "That's outside my focus area, but I can help you with STEM definitions, citations, or finding studies."
+
+8. FORMATTING:
+   - Use **bold** for key terms and study titles
+   - Use ### for section headers in longer responses
    - Use bullet points for lists
-   - Keep responses academic but clear and accessible
-   - Cite repository studies with in-text format when mentioning them
-
-7. LANGUAGE: Respond in the same language the user uses. Filipino/Tagalog questions get Tagalog-friendly responses.
-
-8. RESPONSE LENGTH:
-   - Simple definitions: 2-4 sentences + key bullet points
-   - APA citations: Full format, no shortcuts
-   - Study searches: Title + authors + brief excerpt per result
-   - Comparisons: Use structured table or side-by-side bullets
-   - Complex STEM topics: Use ### headers to organize
-   - Always end with a helpful follow-up offer
-
-9. WHEN NO MATCH IN REPOSITORY:
-   - Still answer from general STEM knowledge
-   - Note that no repository study covers this specific topic
-   - Suggest uploading a study on this topic
-   - Offer related topics that might be in the repository`;
+   - Tables for comparisons
+   - Always cite with in-text APA when mentioning studies${conversationContext ? `\n\nCONVERSATION CONTEXT:\n${conversationContext}` : ''}`;
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  AI CALL
+// ══════════════════════════════════════════════════════════════════
 async function callAI(query, history, studies, mode='general') {
-  const relevant = findRelevant(query, studies, 4);
-  const system   = buildSystemPrompt(studies, mode);
+  const recent = history.slice(-6).map(m=>`${m.role==='user'?'Student':'Assistant'}: ${m.content.slice(0,200)}`).join('\n');
+  const system = buildSystemPrompt(studies, mode, recent);
   const messages = [...history.slice(-14), { role:'user', content: query }];
 
   try {
@@ -657,7 +1635,7 @@ async function callAI(query, history, studies, mode='general') {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1400,
+        max_tokens: 1600,
         system,
         messages
       })
@@ -665,104 +1643,121 @@ async function callAI(query, history, studies, mode='general') {
     const data = await res.json();
     if (data.error) throw new Error(data.error.message);
     const text = data.content?.[0]?.text || 'No response generated.';
+    const relevant = findRelevant(query, studies, 4);
     return { text, citations: relevant, source: 'claude' };
   } catch(err) {
     console.error('AI error:', err);
-    return buildLocalResponse(query, studies, relevant, mode);
+    return buildLocalResponse(query, studies, mode);
   }
 }
 
-function buildLocalResponse(query, all, relevant, mode) {
+// ══════════════════════════════════════════════════════════════════
+//  LOCAL FALLBACK — Intelligent
+// ══════════════════════════════════════════════════════════════════
+function buildLocalResponse(query, all, mode) {
   const q = query.toLowerCase().trim();
+  const relevant = findRelevant(query, all, 4);
 
   // Greeting
   if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|kumusta|magandang)/.test(q)) {
+    const gaps = detectResearchGaps(all);
     return { text:`Hello! 👋 I'm your **SABNAHIS STE Research Assistant**.
 
 I can help you with:
-• 📖 **Define any STEM concept** — photosynthesis, algorithms, DNA replication, etc.
-• 🔍 **Find studies** in the repository by topic or author
-• 📝 **Generate APA 7th edition citations** — both reference list and in-text
-• 📋 **Summarize** research abstracts
+• 📖 **Define any STEM concept** — photosynthesis, algorithms, DNA replication, and more
+• 🔍 **Find studies** in the repository by topic, author, or keyword
+• 📝 **Generate APA 7th edition citations** — full reference list and in-text
+• 📋 **Summarize** research abstracts with key findings
 • ⚖️ **Compare** studies or concepts side-by-side
-• 💡 **Suggest** new research topics
+• 💡 **Identify research gaps** and suggest new directions
 
-The repository has **${all.length}** ${all.length===1?'study':'studies'}. What would you like to explore?`, citations:[], source:'local' };
+The repository has **${all.length}** ${all.length===1?'study':'studies'}${gaps.length?`. I've already spotted **${gaps.length} potential research gap${gaps.length>1?'s':''}** worth exploring`:''}.
+
+What would you like to explore?`, citations:[], source:'local' };
   }
 
-  // Definition requests
-  if (/^(what is|what are|define|definition of|meaning of|explain|ano ang|ibig sabihin)/i.test(q)) {
-    const topic = query.replace(/^(what is|what are|define|definition of|meaning of|explain|ano ang|ibig sabihin)\s*/i,'').trim();
-    if (relevant.length) {
-      return { text:`I'll answer from both general knowledge and the repository.
-
-**Definition of "${topic}":**
-This is a STEM concept I can explain. The repository also has relevant studies — see the references below.
-
-*(Switch to Claude AI mode for a full academic definition with examples and applications.)*
-
-**Related studies in repository:**
-${relevant.map((s,i)=>`• **${s.title}** ${generateInText(s)}`).join('\n')}`, citations:relevant, source:'local' };
-    }
-    return { text:`**Definition request: "${topic}"**
-
-I can provide academic definitions for STEM concepts. For the best answer with full explanation and examples, the Claude AI connection is needed.
-
-**In the meantime:**
-• No studies about this specific topic were found in the repository
-• Try the **Define Topic** mode for a structured definition
-• Or ask: *"Define [topic] with examples"*`, citations:[], source:'local' };
-  }
-
-  // Stats
-  if (/how many|total|statistics|stats|count/.test(q)) {
-    const byCat={};
+  // Stats / Overview
+  if (/how many|total|statistics|stats|count|overview/.test(q)) {
+    const byCat = {};
     all.forEach(s=>(s.categories||['Uncategorized']).forEach(c=>{byCat[c]=(byCat[c]||0)+1;}));
-    const catList=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`• **${c}:** ${n} ${n===1?'study':'studies'}`).join('\n');
-    const views=all.reduce((a,s)=>a+(s.viewCount||0),0);
-    const dls=all.reduce((a,s)=>a+(s.downloadCount||0),0);
-    return { text:`### Repository Statistics\n\n📚 **${all.length}** total studies\n👁 **${views}** total views\n⬇ **${dls}** total downloads\n\n**By category:**\n${catList||'• No studies yet'}`, citations:[], source:'local' };
+    const catList = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`• **${c}:** ${n} ${n===1?'study':'studies'}`).join('\n');
+    const views = all.reduce((a,s)=>a+(s.viewCount||0),0);
+    const dls   = all.reduce((a,s)=>a+(s.downloadCount||0),0);
+    const gaps  = detectResearchGaps(all);
+    const gapNote = gaps.length ? `\n\n**📌 Research Gaps Detected:**\n${gaps.map(g=>`• ${g} — no studies yet`).join('\n')}` : '';
+    return { text:`### Repository Overview\n\n📚 **${all.length}** total studies\n👁 **${views}** total views\n⬇ **${dls}** total downloads\n\n**By category:**\n${catList||'• No studies yet'}${gapNote}`, citations:[], source:'local' };
   }
 
-  // APA citations
+  // APA Citations
   if (/\b(cite|citation|apa|reference|bibliography|in.text|intext)\b/.test(q)) {
     if (relevant.length) {
-      const list=relevant.map((s,i)=>`**[${i+1}] ${s.title}**\n*Reference:* \`${generateAPA(s)}\`\n*In-text:* ${generateInText(s)}`).join('\n\n---\n\n');
-      const refList='\n\n### References\n'+relevant.map(s=>generateAPA(s)).join('\n');
+      const list = relevant.map((s,i)=>`**[${i+1}] ${s.title}**\n*Reference:* \`${generateAPA(s)}\`\n*In-text:* ${generateInText(s)}`).join('\n\n---\n\n');
+      const refList = '\n\n### References\n'+relevant.map(s=>generateAPA(s)).join('\n');
       return { text:`**APA 7th Edition Citations:**\n\n${list}${refList}`, citations:relevant, source:'local' };
     }
-    return { text:`I can generate **APA 7th edition citations** for any study in the repository.\n\nTry:\n• *"APA citation for the biology study"*\n• *"Cite all studies by [author name]"*\n• *"What is APA format for a journal article?"*`, citations:[], source:'local' };
+    return { text:`I can generate **APA 7th edition citations** for any study in the repository.\n\nTry:\n• *"APA citation for the biology study"*\n• *"Cite all studies by [author name]"*\n• *"Generate a full reference list"*`, citations:[], source:'local' };
   }
 
   // List all
   if (/list all|show all|all studies|every study/.test(q)) {
     if (!all.length) return { text:'The repository is currently empty. Be the first to upload a study!', citations:[], source:'local' };
-    const list=all.map((s,i)=>`**${i+1}.** ${s.title}\n   — *${(s.authors||[]).join(', ')}* (${s.year}) · ${(s.categories||[]).join(', ')}`).join('\n');
-    return { text:`### All Studies (${all.length})\n\n${list}`, citations:all.slice(0,3), source:'local' };
+    const list = all.map((s,i)=>`**${i+1}.** ${s.title}\n   — *${(s.authors||[]).join(', ')}* (${s.year}) · ${(s.categories||[]).join(', ')}`).join('\n');
+    return { text:`### All Studies (${all.length})\n\n${list}`, citations:all.slice(0,4), source:'local' };
   }
 
   // Compare
-  if (/compar|versus|vs\b|difference between|contrast/.test(q)&&relevant.length>=2) {
-    const [a,b]=relevant;
-    return { text:`### Comparing Studies\n\n**Study 1:** ${a.title} ${generateInText(a)}\n**Study 2:** ${b.title} ${generateInText(b)}\n\n| Aspect | Study 1 | Study 2 |\n|--------|---------|---------|\n| **Year** | ${a.year} | ${b.year} |\n| **Category** | ${(a.categories||[]).join(', ')} | ${(b.categories||[]).join(', ')} |\n| **Authors** | ${(a.authors||[]).join(', ')} | ${(b.authors||[]).join(', ')} |\n\n*For a detailed AI comparison, the Claude connection is needed.*`, citations:relevant, source:'local' };
+  if (/compar|versus|vs\b|difference between|contrast/.test(q) && relevant.length>=2) {
+    const [a,b] = relevant;
+    return { text:`### Comparing Studies\n\n**Study 1:** ${a.title} ${generateInText(a)}\n**Study 2:** ${b.title} ${generateInText(b)}\n\n| Aspect | Study 1 | Study 2 |\n|--------|---------|---------|\n| **Year** | ${a.year} | ${b.year} |\n| **Category** | ${(a.categories||[]).join(', ')} | ${(b.categories||[]).join(', ')} |\n| **Authors** | ${(a.authors||[]).join(', ')} | ${(b.authors||[]).join(', ')} |\n\n*For a full AI analysis with methodology comparison, reconnect to Claude AI.*`, citations:relevant, source:'local' };
   }
 
-  // Relevant results found
+  // Definition requests — smarter
+  if (/^(what is|what are|define|definition of|meaning of|explain|describe|ano ang|ibig sabihin)/i.test(q)) {
+    const topic = query.replace(/^(what is|what are|define|definition of|meaning of|explain|describe|ano ang|ibig sabihin)\s*/i,'').trim();
+    const repoNote = relevant.length
+      ? `\n\n**Related studies in the repository:**\n${relevant.map(s=>`• **${s.title}** ${generateInText(s)}`).join('\n')}`
+      : `\n\n*No repository studies specifically cover "${topic}" yet — this could be a research gap worth exploring.*`;
+    return { text:`**Definition: "${topic}"**\n\nFor a full academic definition with examples, applications, and related concepts, the Claude AI connection is needed.\n\n*(Tip: Use **Define Topic** mode for a structured definition with real-world examples and STEM applications.)*${repoNote}`, citations:relevant, source:'local' };
+  }
+
+  // Suggest / Gap mode
+  if (mode==='suggest' || /suggest|gap|missing|what topics|ideas for|research direction/.test(q)) {
+    const gaps = detectResearchGaps(all);
+    const gapText = gaps.length
+      ? `**🔭 Detected Research Gaps:**\n${gaps.map(g=>`• **${g}** — no studies in the repository cover this yet`).join('\n')}`
+      : '• The repository has decent coverage across core STEM areas.';
+    return { text:`### Research Direction Suggestions\n\n${gapText}\n\n**💡 Ideas for Novel Studies:**\n• Interdisciplinary studies combining ${Object.keys(clusterStudies(all)).slice(0,2).join(' + ')}\n• Longitudinal follow-ups to existing studies\n• Comparative studies across different years\n\n*For detailed, context-specific suggestions with full research questions, use Claude AI mode.*`, citations:[], source:'local' };
+  }
+
+  // Relevant results found — intelligent response
   if (relevant.length) {
-    const list=relevant.map((s,i)=>`**${i+1}. ${s.title}** ${generateInText(s)}\n👤 *${(s.authors||[]).join(', ')}* · 📅 ${s.year} · 🏷 ${(s.categories||[]).join(', ')}\n${(s.abstract||'').slice(0,200)}${(s.abstract||'').length>200?'...':''}`).join('\n\n');
-    const refs='\n\n---\n### References\n'+relevant.map(s=>generateAPA(s)).join('\n');
-    return { text:`Found **${relevant.length}** relevant ${relevant.length===1?'study':'studies'}:\n\n${list}${refs}`, citations:relevant, source:'local' };
+    const list = relevant.map((s,i)=>`**${i+1}. ${s.title}** ${generateInText(s)}\n👤 *${(s.authors||[]).join(', ')}* · 📅 ${s.year} · 🏷 ${(s.categories||[]).join(', ')}\n${(s.abstract||'').slice(0,200)}${(s.abstract||'').length>200?'...':''}`).join('\n\n');
+    const refs = '\n\n---\n### References\n'+relevant.map(s=>generateAPA(s)).join('\n');
+    
+    // Smart connection detection
+    const yearRange = relevant.length > 1 ? `${Math.min(...relevant.map(s=>s.year))}–${Math.max(...relevant.map(s=>s.year))}` : null;
+    const categories = [...new Set(relevant.flatMap(s=>s.categories||[]))];
+    const connectionNote = relevant.length >= 2
+      ? `\n\n💡 *These studies span ${yearRange ? `${yearRange}` : 'multiple years'} and cover ${categories.slice(0,3).join(', ')}. You might ask me to compare them or summarize their findings.*`
+      : '';
+    
+    const gaps = detectResearchGaps(all);
+    const gapNote = gaps.length ? `\n\n📌 *Research gap spotted: No studies in the repository cover **${gaps[0]}** yet.*` : '';
+    
+    return { text:`Found **${relevant.length}** relevant ${relevant.length===1?'study':'studies'}:\n\n${list}${connectionNote}${gapNote}${refs}`, citations:relevant, source:'local' };
   }
 
-  // Off-topic detection (basic)
-  const stemKeywords = ['science','biology','chemistry','physics','math','engineering','technology','research','study','data','experiment','hypothesis','theory','algorithm','robotics','environment','health','genetics','ecology','climate','energy','computer','programming','statistics'];
+  // Off-topic detection
+  const stemKeywords = ['science','biology','chemistry','physics','math','engineering','technology','research','study','data','experiment','hypothesis','theory','algorithm','robotics','environment','health','genetics','ecology','climate','energy','computer','programming','statistics','quantum','genomics','nanotechnology'];
   const hasStemContext = stemKeywords.some(k => q.includes(k));
   if (!hasStemContext && q.length > 10 && !/repository|upload|portal|study|studies/.test(q)) {
-    return { text:`I'm focused on academic and STEM topics. I can help you with:\n• **Definitions** of scientific concepts\n• **APA citations** for studies\n• **Finding** studies in the repository\n• **Explaining** research methodologies\n\nWhat STEM topic or study can I help you with?`, citations:[], source:'local' };
+    return { text:`I'm focused on academic and STEM topics. I can help you with:\n• **Definitions** of scientific concepts\n• **APA citations** for studies\n• **Finding** studies in the repository\n• **Research gaps** and topic suggestions\n\nWhat STEM topic can I help you with?`, citations:[], source:'local' };
   }
 
-  // No results
-  return { text:`No studies matched **"${query}"** in the repository.\n\n**I can still help:**\n• Ask *"Define ${query}"* for an academic definition\n• Try broader keywords\n• Ask *"List all studies"* to browse everything\n• Use the **Repository** tab to filter by category`, citations:[], source:'local' };
+  // No results — intelligent fallback
+  const gaps = detectResearchGaps(all);
+  const gapNote = gaps.includes(query.split(' ')[0]) ? `\n\n📌 *"${query}" appears to be an unexplored area in this repository — a potential research opportunity!*` : '';
+  return { text:`No studies matched **"${query}"** in the repository.${gapNote}\n\n**I can still help:**\n• Ask *"Define ${query}"* for an academic definition\n• Try broader keywords or a different phrasing\n• Ask *"List all studies"* to browse everything\n• Use the **Repository** tab to filter by category\n• Ask *"Suggest topics related to ${query}"* for research ideas`, citations:[], source:'local' };
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -773,15 +1768,17 @@ const fmtBytes = b=>!b?'—':b<1048576?`${(b/1024).toFixed(1)} KB`:`${(b/1048576
 const initials = n=>n?.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()||'??';
 const now      = ()=>new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
 
-// Markdown renderer
-function MD({ text }) {
+// ══════════════════════════════════════════════════════════════════
+//  MARKDOWN RENDERER
+// ══════════════════════════════════════════════════════════════════
+const MD = memo(function MD({ text }) {
   const lines = (text||'').split('\n');
   return (
     <div className="md">
       {lines.map((line,i) => {
         if (!line.trim()) return <div key={i} style={{height:5}}/>;
         if (line.startsWith('---')) return <hr key={i} style={{border:'none',borderTop:'1px solid var(--border)',margin:'8px 0'}}/>;
-        if (/^###\s/.test(line)) return <div key={i} className="md" style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:'0.97rem',color:'var(--ink)',margin:'8px 0 4px'}}>{line.replace(/^###\s/,'')}</div>;
+        if (/^#{1,3}\s/.test(line)) return <div key={i} className="md" style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:'0.97rem',color:'var(--ink)',margin:'8px 0 4px'}}>{line.replace(/^#{1,3}\s/,'')}</div>;
         const html = line
           .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
           .replace(/\*(.+?)\*/g,'<em>$1</em>')
@@ -795,7 +1792,7 @@ function MD({ text }) {
       })}
     </div>
   );
-}
+});
 
 // ══════════════════════════════════════════════════════════════════
 //  TOAST
@@ -837,9 +1834,11 @@ const Ico = {
   file:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="28" height="28"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
   cal:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
   edit:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
-  send:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
+  send:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="17" height="17"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
   copy:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
-  spark:  ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>,
+  spark:  ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>,
+  bulb:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 1 7 7 7 7 0 0 1-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26A7 7 0 0 1 5 9a7 7 0 0 1 7-7z"/></svg>,
+  menu:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="22" height="22"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
 };
 
 // ══════════════════════════════════════════════════════════════════
@@ -847,14 +1846,18 @@ const Ico = {
 // ══════════════════════════════════════════════════════════════════
 function Modal({ title, onClose, children, wide }) {
   useEffect(()=>{
-    const esc=e=>e.key==='Escape'&&onClose?.();
+    const esc = e=>e.key==='Escape'&&onClose?.();
     document.addEventListener('keydown',esc);
-    return ()=>document.removeEventListener('keydown',esc);
+    document.body.style.overflow = 'hidden';
+    return ()=>{ document.removeEventListener('keydown',esc); document.body.style.overflow=''; };
   },[onClose]);
   return (
     <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose?.()}>
-      <div className="modal" style={wide?{maxWidth:740}:{}}>
-        <div className="modal-hd"><h2 className="modal-title">{title}</h2><button className="modal-x" onClick={onClose}><Ico.X/></button></div>
+      <div className="modal" style={wide?{maxWidth:740}:{}} role="dialog" aria-modal="true" aria-label={title}>
+        <div className="modal-hd">
+          <h2 className="modal-title">{title}</h2>
+          <button className="modal-x" onClick={onClose} aria-label="Close dialog"><Ico.X/></button>
+        </div>
         <div className="modal-bd">{children}</div>
       </div>
     </div>
@@ -875,11 +1878,14 @@ function CatPicker({ selected, onChange, max=2, cats=[] }) {
     onChange([...selected,cat]);
   };
   return (
-    <div className="cat-picker">
+    <div className="cat-picker" role="group" aria-label="Category selection">
       {cats.map(cat=>{
         const isSel=selected.includes(cat),isDis=!isSel&&selected.length>=max;
         return (
-          <div key={cat} className={`cat-opt${isSel?' sel':''}${isDis?' dis':''}`} onClick={()=>!isDis&&toggle(cat)}>
+          <div key={cat} className={`cat-opt${isSel?' sel':''}${isDis?' dis':''}`}
+            onClick={()=>!isDis&&toggle(cat)}
+            role="checkbox" aria-checked={isSel} tabIndex={isDis?-1:0}
+            onKeyDown={e=>(e.key==='Enter'||e.key===' ')&&!isDis&&toggle(cat)}>
             <div className="cat-cb">{isSel&&<span style={{color:'var(--ink)',fontSize:'0.63rem',fontWeight:900}}>✓</span>}</div>
             <span style={{fontSize:'0.875rem',fontWeight:500,color:'var(--ink-3)'}}>{cat}</span>
           </div>
@@ -909,7 +1915,7 @@ function ForgotModal({ onClose }) {
       {err&&<div className="al al-err">{err}</div>}
       {step==='email'&&(<>
         <p className="muted" style={{marginBottom:14}}>Enter your email and we'll send a reset link.</p>
-        <div className="fg"><label>Email Address</label><input type="email" placeholder="your@email.com" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} autoFocus/></div>
+        <div className="fg"><label htmlFor="reset-email">Email Address</label><input id="reset-email" type="email" placeholder="your@email.com" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} autoFocus/></div>
         <div style={{display:'flex',gap:9,justifyContent:'flex-end'}}>
           <button className="btn btn-ol" onClick={onClose}>Cancel</button>
           <button className="btn btn-gold" onClick={submit} disabled={loading||!email.trim()}>{loading?<><span className="spin spin-dark"/>Sending…</>:'Send Reset Link'}</button>
@@ -948,14 +1954,10 @@ function AuthPage({ onLogin }) {
 
   const register=async()=>{
     setErr('');
-    if(!form.secA?.trim()){setErr('Security answer is required.');return;}
     if(form.password!==form.confirm){setErr('Passwords do not match.');return;}
     setLoading(true);
-    try{
-      await API.register({name:form.name,email:form.email,password:form.password,institution:form.institution,department:form.department,secQ:form.secQ,secA:form.secA});
-      setOk('Registration submitted! Wait for admin approval before signing in.');
-      setTab('login');setForm({name:'',email:'',password:'',confirm:'',institution:'',department:'',secQ:SEC_QS[0],secA:''});
-    }catch(e){setErr(e.message);}
+    try{await API.register(form);setOk('Registration submitted! Wait for admin approval before logging in.');setTab('login');setForm(f=>({...f,password:'',confirm:''}));}
+    catch(e){setErr(e.message);}
     setLoading(false);
   };
 
@@ -964,41 +1966,36 @@ function AuthPage({ onLogin }) {
       <div className="auth-bg"/>
       <div className="auth-inner">
         <div className="auth-brand">
-          <h1>SABNAHIS STE <span>Research Portal</span></h1>
-          <p>Institutional Research Study Repository</p>
+          <h1>SABNAHIS<span>STE Research Portal</span></h1>
+          <p>Institutional Research Repository for Filipino STEM Students</p>
         </div>
         <div className="auth-card">
-          <div className="auth-tabs">
-            <button className={`auth-tab ${tab==='login'?'active':''}`} onClick={()=>{setTab('login');setErr('');setOk('');}}>Sign In</button>
-            <button className={`auth-tab ${tab==='register'?'active':''}`} onClick={()=>{setTab('register');setErr('');setOk('');}}>Register</button>
+          {err&&<div className="al al-err" role="alert">{err}</div>}
+          {ok&&<div className="al al-ok" role="status">{ok}</div>}
+          <div className="auth-tabs" role="tablist">
+            <button role="tab" aria-selected={tab==='login'} className={`auth-tab${tab==='login'?' active':''}`} onClick={()=>setTab('login')}>Sign In</button>
+            <button role="tab" aria-selected={tab==='register'} className={`auth-tab${tab==='register'?' active':''}`} onClick={()=>setTab('register')}>Register</button>
           </div>
-          {err&&<div className="al al-err">{err}</div>}
-          {ok&&<div className="al al-ok">{ok}</div>}
+
           {tab==='login'?(<>
-            <div className="fg"><label>Email Address</label><input type="email" placeholder="your@email.com" value={form.email} onChange={e=>sf('email',e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()}/></div>
-            <div className="fg">
-              <label>Password</label>
-              <input type="password" placeholder="••••••••" value={form.password} onChange={e=>sf('password',e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()}/>
-              <div style={{textAlign:'right',marginTop:5}}><button style={{background:'none',border:'none',color:'var(--gold)',fontSize:'0.78rem',cursor:'pointer',padding:0,textDecoration:'underline'}} onClick={()=>setShowForgot(true)}>Forgot password?</button></div>
-            </div>
-            <button className="btn btn-gold btn-full" onClick={login} disabled={loading}>{loading?<><span className="spin spin-dark"/>Signing in…</>:'Sign In'}</button>
+            <div className="fg"><label htmlFor="login-email">Email</label><input id="login-email" type="email" placeholder="your@email.com" value={form.email} onChange={e=>sf('email',e.target.value)} autoComplete="email"/></div>
+            <div className="fg"><label htmlFor="login-pw">Password</label><input id="login-pw" type="password" placeholder="••••••••" value={form.password} onChange={e=>sf('password',e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()} autoComplete="current-password"/></div>
+            <button className="btn btn-gold btn-full" style={{marginBottom:12,height:46}} onClick={login} disabled={loading}>{loading?<><span className="spin spin-dark"/>Signing in…</>:'Sign In'}</button>
+            <button style={{width:'100%',textAlign:'center',background:'none',border:'none',color:'var(--muted)',fontSize:'0.82rem',cursor:'pointer',padding:'6px'}} onClick={()=>setShowForgot(true)}>Forgot your password?</button>
           </>):(<>
-            <div className="fg"><label>Full Name *</label><input placeholder="Your full name" value={form.name} onChange={e=>sf('name',e.target.value)}/></div>
-            <div className="fg"><label>Email Address *</label><input type="email" placeholder="yourname@email.com" value={form.email} onChange={e=>sf('email',e.target.value)}/></div>
+            <div className="fg"><label htmlFor="reg-name">Full Name *</label><input id="reg-name" placeholder="Juan dela Cruz" value={form.name} onChange={e=>sf('name',e.target.value)} autoComplete="name"/></div>
             <div className="fr">
-              <div className="fg"><label>School / Institution</label><input placeholder="e.g. SABNAHIS" value={form.institution} onChange={e=>sf('institution',e.target.value)}/></div>
-              <div className="fg"><label>Grade / Section</label><input placeholder="e.g. Grade 10 – STE A" value={form.department} onChange={e=>sf('department',e.target.value)}/></div>
+              <div className="fg"><label htmlFor="reg-inst">School / Institution</label><input id="reg-inst" placeholder="SABNAHIS" value={form.institution} onChange={e=>sf('institution',e.target.value)}/></div>
+              <div className="fg"><label htmlFor="reg-dept">Department / Grade</label><input id="reg-dept" placeholder="Grade 12 STEM" value={form.department} onChange={e=>sf('department',e.target.value)}/></div>
             </div>
+            <div className="fg"><label htmlFor="reg-email">Email *</label><input id="reg-email" type="email" placeholder="your@email.com" value={form.email} onChange={e=>sf('email',e.target.value)} autoComplete="email"/></div>
             <div className="fr">
-              <div className="fg"><label>Password *</label><input type="password" placeholder="Min. 8 characters" value={form.password} onChange={e=>sf('password',e.target.value)}/></div>
-              <div className="fg"><label>Confirm Password *</label><input type="password" placeholder="Repeat password" value={form.confirm} onChange={e=>sf('confirm',e.target.value)}/></div>
+              <div className="fg"><label htmlFor="reg-pw">Password *</label><input id="reg-pw" type="password" placeholder="Min. 8 characters" value={form.password} onChange={e=>sf('password',e.target.value)} autoComplete="new-password"/></div>
+              <div className="fg"><label htmlFor="reg-pw2">Confirm Password *</label><input id="reg-pw2" type="password" placeholder="Repeat password" value={form.confirm} onChange={e=>sf('confirm',e.target.value)} autoComplete="new-password"/></div>
             </div>
-            <div className="divider"/>
-            <p style={{fontSize:'0.71rem',fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:11}}>🔒 Password Recovery</p>
-            <div className="fg"><label>Security Question *</label><select value={form.secQ} onChange={e=>sf('secQ',e.target.value)}>{SEC_QS.map(q=><option key={q} value={q}>{q}</option>)}</select></div>
-            <div className="fg"><label>Your Answer *</label><input placeholder="Your answer" value={form.secA} onChange={e=>sf('secA',e.target.value)}/><p className="hint">Not case-sensitive when used for recovery.</p></div>
-            <button className="btn btn-ink btn-full" onClick={register} disabled={loading}>{loading?<><span className="spin"/>Submitting…</>:'Submit Registration'}</button>
-            <p className="hint mt12" style={{textAlign:'center'}}>Requires admin approval before sign-in.</p>
+            <div className="fg"><label htmlFor="reg-sq">Security Question</label><select id="reg-sq" value={form.secQ} onChange={e=>sf('secQ',e.target.value)}>{SEC_QS.map(q=><option key={q}>{q}</option>)}</select></div>
+            <div className="fg"><label htmlFor="reg-sa">Security Answer *</label><input id="reg-sa" placeholder="Your answer" value={form.secA} onChange={e=>sf('secA',e.target.value)}/></div>
+            <button className="btn btn-gold btn-full" style={{height:46}} onClick={register} disabled={loading}>{loading?<><span className="spin spin-dark"/>Registering…</>:'Register Account'}</button>
           </>)}
         </div>
       </div>
@@ -1011,43 +2008,47 @@ function AuthPage({ onLogin }) {
 //  STUDY DETAIL MODAL
 // ══════════════════════════════════════════════════════════════════
 function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
-  const canDel = currentUser.role==='admin'||study.uploadedBy===currentUser.id;
+  const canDel = currentUser.role==='admin';
+  const handleDL = () => { API.trackStudy(study.id,'downloadCount'); toast.ok('Download tracked!'); };
   return (
-    <Modal title="" onClose={onClose} wide>
-      <div style={{marginBottom:22}}>
-        <div className="sc-cats" style={{marginBottom:10}}>{(study.categories||[]).map(c=><span key={c} className="sc-cat">{c}</span>)}</div>
-        <h2 className="sd-title">{study.title}</h2>
-        <p className="sd-auth">By: {(study.authors||[]).join(', ')}</p>
-        <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',marginBottom:14}}>
-          <span style={{display:'flex',alignItems:'center',gap:4,fontSize:'0.8rem',color:'var(--muted)'}}><Ico.eye/> {study.viewCount||0} views</span>
-          <span style={{display:'flex',alignItems:'center',gap:4,fontSize:'0.8rem',color:'var(--muted)'}}><Ico.dl/> {study.downloadCount||0} downloads</span>
-          <span style={{display:'flex',alignItems:'center',gap:4,fontSize:'0.8rem',color:'var(--muted)'}}><Ico.cal/> {fmtDate(study.createdAt)}</span>
-          <span style={{fontSize:'0.8rem',color:'var(--muted)'}}>📅 Year: {study.year}</span>
-        </div>
-        {study.keywords?.length>0&&<div style={{marginBottom:8}}>{study.keywords.map(k=><span key={k} className="kw">{k}</span>)}</div>}
+    <Modal title="Study Details" onClose={onClose} wide>
+      <div className="sc-cats" style={{marginBottom:12}}>{(study.categories||[]).map(c=><span key={c} className="sc-cat">{c}</span>)}</div>
+      <h2 className="sd-title">{study.title}</h2>
+      <p className="sd-auth">By: {(study.authors||[]).join(', ')}</p>
+      <div style={{display:'flex',gap:18,flexWrap:'wrap',marginBottom:16}}>
+        <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.eye/>{study.viewCount||0} views</span>
+        <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.dl/>{study.downloadCount||0} downloads</span>
+        <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.cal/>{study.year}</span>
       </div>
-      <div className="ds" style={{marginBottom:20}}><h4>Abstract</h4><p>{study.abstract}</p></div>
-      <div className="ds" style={{marginBottom:20}}>
-        <h4>APA Citation (7th Edition)</h4>
+      <div className="ds" style={{marginBottom:16}}>
+        <h4>Abstract</h4>
+        <p>{study.abstract}</p>
+      </div>
+      {(study.keywords||[]).length>0&&(
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:'0.72rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.8px',color:'var(--muted)',marginBottom:7}}>Keywords</div>
+          {(study.keywords||[]).map(k=><span key={k} className="kw">{k}</span>)}
+        </div>
+      )}
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:'0.72rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.8px',color:'var(--muted)',marginBottom:7}}>APA Citation</div>
         <APABox study={study}/>
-        <p style={{fontSize:'0.73rem',color:'var(--muted)',marginTop:6}}>
-          In-text: <code style={{fontFamily:'var(--font-mono)',fontSize:'0.73rem'}}>{generateInText(study)}</code>
-        </p>
       </div>
       {study.file&&(
-        <div className="ds" style={{marginBottom:20}}>
-          <h4>Attached File</h4>
-          <div style={{display:'flex',alignItems:'center',gap:11,background:'var(--surface)',padding:'11px 14px',borderRadius:'var(--radius)'}}>
-            <Ico.file/>
-            <div><div style={{fontWeight:500,fontSize:'0.875rem'}}>{study.file.originalName}</div><div style={{fontSize:'0.73rem',color:'var(--muted)'}}>{fmtBytes(study.file.size)}</div></div>
+        <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--surface)',borderRadius:'var(--radius)',marginBottom:16}}>
+          <Ico.file/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:500,fontSize:'0.875rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{study.file.originalName}</div>
+            <div style={{fontSize:'0.73rem',color:'var(--muted)'}}>{fmtBytes(study.file.size)}</div>
           </div>
+          <button className="btn btn-teal btn-sm" onClick={handleDL}><Ico.dl/> Download</button>
         </div>
       )}
       {study.uploadedByName&&(
-        <div className="ds" style={{marginBottom:20}}>
-          <h4>Uploaded By</h4>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <div className="avatar" style={{width:34,height:34,fontSize:'0.82rem'}}>{initials(study.uploadedByName)}</div>
+        <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--surface)',borderRadius:'var(--radius)',marginBottom:16}}>
+          <div className="avatar" style={{width:32,height:32,fontSize:'0.78rem'}}>{initials(study.uploadedByName)}</div>
+          <div>
+            <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>Uploaded by</div>
             <div style={{fontWeight:500,fontSize:'0.875rem'}}>{study.uploadedByName}</div>
           </div>
         </div>
@@ -1077,6 +2078,10 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
   };
 
   const submit=async()=>{
+    if(!form.title.trim()){toast.err('Title is required.');return;}
+    if(!form.authors.trim()){toast.err('At least one author is required.');return;}
+    if(!form.abstract.trim()){toast.err('Abstract is required.');return;}
+    if(!selCats.length){toast.err('Select at least one category.');return;}
     setLoading(true);
     try{
       const authors=form.authors.split(',').map(a=>a.trim()).filter(Boolean);
@@ -1099,12 +2104,18 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
       </div>
       <div className="fg">
         <label>File Upload <span style={{fontWeight:300,color:'var(--muted)'}}>(PDF, DOC, DOCX — max 10 MB)</span></label>
-        <div className={`uz ${drag?'drag':''} ${file?'has':''}`} onClick={()=>fRef.current?.click()} onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);handleFile(e.dataTransfer.files[0]);}}>
+        <div className={`uz ${drag?'drag':''} ${file?'has':''}`}
+          onClick={()=>fRef.current?.click()}
+          onDragOver={e=>{e.preventDefault();setDrag(true);}}
+          onDragLeave={()=>setDrag(false)}
+          onDrop={e=>{e.preventDefault();setDrag(false);handleFile(e.dataTransfer.files[0]);}}
+          role="button" tabIndex={0} aria-label="Upload file"
+          onKeyDown={e=>(e.key==='Enter'||e.key===' ')&&fRef.current?.click()}>
           <input ref={fRef} type="file" accept=".pdf,.doc,.docx" onChange={e=>handleFile(e.target.files[0])}/>
-          {file?(<><div style={{color:'var(--green)',fontSize:'1.5rem',marginBottom:3}}>✓</div><strong style={{color:'var(--green)'}}>{file.name}</strong><p style={{fontFamily:'var(--font-mono)',fontSize:'0.73rem',color:'var(--teal)',marginTop:6}}>{fmtBytes(file.size)}</p></>):(<><div style={{marginBottom:7,color:'var(--muted)',fontSize:'1.5rem'}}>📄</div><strong>Drag & drop or click to browse</strong><p>PDF, DOC, or DOCX · Max 10 MB</p></>)}
+          {file?(<><div style={{color:'var(--green)',fontSize:'1.5rem',marginBottom:3}}>✓</div><strong style={{color:'var(--green)'}}>{file.name}</strong><p style={{fontFamily:'var(--font-mono)',fontSize:'0.73rem',color:'var(--teal)',marginTop:6}}>{fmtBytes(file.size)}</p></>):(<><div style={{marginBottom:7,color:'var(--muted)',fontSize:'1.5rem'}}>📄</div><strong>Drag & drop or tap to browse</strong><p>PDF, DOC, or DOCX · Max 10 MB</p></>)}
         </div>
       </div>
-      <div style={{display:'flex',gap:9,justifyContent:'flex-end'}}>
+      <div style={{display:'flex',gap:9,justifyContent:'flex-end',flexWrap:'wrap'}}>
         <button className="btn btn-ol" onClick={onClose}>Cancel</button>
         <button className="btn btn-gold" onClick={submit} disabled={loading}>{loading?<><span className="spin spin-dark"/>Uploading…</>:<><Ico.up/> Upload Study</>}</button>
       </div>
@@ -1126,17 +2137,24 @@ function StudiesPage({ currentUser }) {
   const [selected,setSelected]=useState(null);
   const [showUpload,setShowUpload]=useState(false);
   const [loading,setLoading]=useState(true);
+  const searchTimeout = useRef(null);
 
-  const load=async()=>{
+  const load=useCallback(async()=>{
     setLoading(true);
     try{
       const [res,catsArr]=await Promise.all([API.getStudies({search,category:filterCat,page,perPage:6}),API.getCategories()]);
       setStudies(res.data);setTotal(res.total);setTotalPages(res.totalPages);setCats(catsArr);
     }catch(e){toast.err('Failed to load studies.');}
     setLoading(false);
-  };
+  },[search,filterCat,page]);
 
-  useEffect(()=>{load();},[search,filterCat,page]);
+  useEffect(()=>{load();},[load]);
+
+  const handleSearch = e => {
+    clearTimeout(searchTimeout.current);
+    const val = e.target.value;
+    searchTimeout.current = setTimeout(()=>{ setSearch(val); setPage(1); }, 300);
+  };
 
   const handleDelete=async id=>{await API.deleteStudy(id);toast.ok('Study deleted.');load();};
 
@@ -1147,33 +2165,56 @@ function StudiesPage({ currentUser }) {
         <button className="btn btn-gold" onClick={()=>setShowUpload(true)}><Ico.up/> Upload Study</button>
       </div>
       <div className="fb" style={{marginBottom:18}}>
-        <div className="sb" style={{flex:1,minWidth:230}}><Ico.search/><input placeholder="Search by title, author, or keywords…" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}}/></div>
-        <select value={filterCat} onChange={e=>{setFilterCat(e.target.value);setPage(1);}} style={{width:'auto',padding:'9px 13px'}}>
+        <div className="sb" style={{flex:1,minWidth:200}}><Ico.search/><input placeholder="Search by title, author, or keyword…" defaultValue={search} onChange={handleSearch} aria-label="Search studies"/></div>
+        <select value={filterCat} onChange={e=>{setFilterCat(e.target.value);setPage(1);}} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by category">
           <option value="">All Categories</option>
           {cats.map(c=><option key={c}>{c}</option>)}
         </select>
       </div>
-      {loading?<div style={{textAlign:'center',padding:'50px',color:'var(--muted)'}}><span className="spin spin-gold" style={{width:28,height:28,border:'3px solid rgba(201,162,39,0.25)',borderTopColor:'var(--gold)'}}/><p style={{marginTop:12}}>Loading studies…</p></div>
-      :studies.length===0?<div className="empty"><div className="empty-ico">📚</div><h3>No studies found</h3><p>{search||filterCat?'Try adjusting your search.':'Be the first to upload a research study!'}</p></div>
-      :<div className="grid">{studies.map(study=>(
-        <div key={study.id} className="sc" onClick={async()=>{await API.trackStudy(study.id,'viewCount');setSelected({...study,viewCount:(study.viewCount||0)+1});}}>
-          <div className="sc-cats">{(study.categories||[]).map(c=><span key={c} className="sc-cat">{c}</span>)}</div>
-          <h3 className="sc-title">{study.title}</h3>
-          <p className="sc-authors">By: {(study.authors||[]).join(', ')}</p>
-          <p className="sc-abs">{study.abstract}</p>
-          <div className="sc-meta">
-            <span><Ico.eye/>{study.viewCount||0}</span>
-            <span><Ico.dl/>{study.downloadCount||0}</span>
-            <span><Ico.cal/>{study.year}</span>
-            <span style={{marginLeft:'auto'}}>{fmtDate(study.createdAt)}</span>
-          </div>
+
+      {loading?(
+        <div style={{textAlign:'center',padding:'50px',color:'var(--muted)'}}>
+          <span className="spin spin-gold" style={{width:28,height:28,border:'3px solid rgba(201,162,39,0.25)',borderTopColor:'var(--gold)',display:'inline-block',marginBottom:12}}/>
+          <p>Loading studies…</p>
         </div>
-      ))}</div>}
-      {totalPages>1&&<div className="pages">
-        <button className="pg" disabled={page===1} onClick={()=>setPage(p=>p-1)}>‹</button>
-        {Array.from({length:totalPages},(_,i)=>i+1).map(n=><button key={n} className={`pg ${page===n?'active':''}`} onClick={()=>setPage(n)}>{n}</button>)}
-        <button className="pg" disabled={page===totalPages} onClick={()=>setPage(p=>p+1)}>›</button>
-      </div>}
+      ):studies.length===0?(
+        <div className="empty"><div className="empty-ico">📚</div><h3>No studies found</h3><p>{search||filterCat?'Try adjusting your search or filter.':'Be the first to upload a research study!'}</p></div>
+      ):(
+        <div className="grid">
+          {studies.map(study=>(
+            <div key={study.id} className="sc"
+              onClick={async()=>{await API.trackStudy(study.id,'viewCount');setSelected({...study,viewCount:(study.viewCount||0)+1});}}
+              role="article" tabIndex={0}
+              onKeyDown={e=>e.key==='Enter'&&e.currentTarget.click()}
+              aria-label={`Study: ${study.title}`}>
+              <div className="sc-cats">{(study.categories||[]).map(c=><span key={c} className="sc-cat">{c}</span>)}</div>
+              <h3 className="sc-title">{study.title}</h3>
+              <p className="sc-authors">By: {(study.authors||[]).join(', ')}</p>
+              <p className="sc-abs">{study.abstract}</p>
+              <div className="sc-meta">
+                <span><Ico.eye/>{study.viewCount||0}</span>
+                <span><Ico.dl/>{study.downloadCount||0}</span>
+                <span><Ico.cal/>{study.year}</span>
+                <span style={{marginLeft:'auto'}}>{fmtDate(study.createdAt)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {totalPages>1&&(
+        <div className="pages" role="navigation" aria-label="Pagination">
+          <button className="pg" disabled={page===1} onClick={()=>setPage(p=>p-1)} aria-label="Previous page">‹</button>
+          {Array.from({length:totalPages},(_,i)=>i+1).filter(n=>Math.abs(n-page)<=2||n===1||n===totalPages).map((n,idx,arr)=>(
+            <React.Fragment key={n}>
+              {idx>0&&arr[idx-1]!==n-1&&<span style={{color:'var(--muted)',padding:'0 4px'}}>…</span>}
+              <button className={`pg${page===n?' active':''}`} onClick={()=>setPage(n)} aria-current={page===n?'page':undefined}>{n}</button>
+            </React.Fragment>
+          ))}
+          <button className="pg" disabled={page===totalPages} onClick={()=>setPage(p=>p+1)} aria-label="Next page">›</button>
+        </div>
+      )}
+
       {selected&&<StudyDetailModal study={selected} onClose={()=>setSelected(null)} currentUser={currentUser} onDelete={handleDelete}/>}
       {showUpload&&<UploadModal onClose={()=>setShowUpload(false)} currentUser={currentUser} cats={cats} onUpload={()=>{load();setShowUpload(false);}}/>}
     </div>
@@ -1181,18 +2222,21 @@ function StudiesPage({ currentUser }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  ADVANCED AI CHAT PAGE
+//  QUICK PROMPTS — context-aware
 // ══════════════════════════════════════════════════════════════════
 const QUICK_PROMPTS = {
-  general:   ['What is photosynthesis?','Define the scientific method','What is a hypothesis?','Show me all studies in the repository'],
-  find:      ['Find studies about robotics','Show all Life Science studies','Studies from 2025','Research about algorithms or AI'],
+  general:   ['What is the scientific method?','Define hypothesis vs theory','Show me all studies in the repository','What research gaps exist?'],
+  find:      ['Find studies about robotics','Show all Environmental Science studies','Studies from the most recent year','Research about algorithms or AI'],
   cite:      ['APA citation for all studies','Cite the most recent study','Generate a full reference list','How do I cite a journal article in APA?'],
-  define:    ['Define algorithm','What is natural selection?','Explain the water cycle','What is a control variable in an experiment?'],
+  define:    ['Define algorithm','What is natural selection?','Explain the water cycle','What is a control variable?'],
   compare:   ['Compare the two most recent studies','Difference between hypothesis and theory','Compare Biology and Chemistry studies'],
-  summarize: ['Summarize all studies in one paragraph','Key findings from the repository','What are the main research themes?'],
-  suggest:   ['Suggest new research topics based on gaps','What topics are underrepresented?','Ideas for follow-up studies'],
+  summarize: ['Summarize all studies','Key findings from the repository','What are the main research themes?'],
+  suggest:   ['What topics are missing from the repository?','Suggest interdisciplinary research ideas','Ideas for follow-up studies','Novel research directions'],
 };
 
+// ══════════════════════════════════════════════════════════════════
+//  CHAT PAGE — Upgraded Research Copilot
+// ══════════════════════════════════════════════════════════════════
 function ChatPage({ currentUser }) {
   const [studies,setStudies]=useState([]);
   const [msgs,setMsgs]=useState([]);
@@ -1202,32 +2246,64 @@ function ChatPage({ currentUser }) {
   const [mode,setMode]=useState('general');
   const [studiesLoaded,setStudiesLoaded]=useState(false);
   const [repoStats,setRepoStats]=useState(null);
+  const [savedCites,setSavedCites]=useState([]);
+  const [showSaved,setShowSaved]=useState(false);
   const bottomRef=useRef();
   const inputRef=useRef();
+  const msgsRef=useRef();
 
   useEffect(()=>{
     API.getAllStudies().then(s=>{
       setStudies(s);
       setStudiesLoaded(true);
-      // Compute quick repo stats
       const byCat={};
       s.forEach(st=>(st.categories||['Uncategorized']).forEach(c=>{byCat[c]=(byCat[c]||0)+1;}));
+      const gaps = detectResearchGaps(s);
       setRepoStats({
         total:s.length,
         categories:Object.entries(byCat).sort((a,b)=>b[1]-a[1]),
         views:s.reduce((a,x)=>a+(x.viewCount||0),0),
-        recent:s[0]?.title||'—'
+        recent:s[0]?.title||'—',
+        gaps
       });
+      const gapHint = gaps.length > 0 ? `\n\n🔭 *Quick insight: I've spotted **${gaps.length} research gap${gaps.length>1?'s':''}** in the repository — topics with no studies yet. Ask me "What research gaps exist?" to learn more.*` : '';
       setMsgs([{
-        id:1,role:'bot',citations:[],time:now(),
-        text:`Hello! 👋 I'm your **SABNAHIS STE Research Assistant** — powered by Claude AI.\n\nI can help you with **two types of questions**:\n\n**📚 Repository Questions:**\n• Find, summarize, or compare studies\n• Generate APA 7th edition citations\n• Suggest research topics\n\n**📖 Academic Knowledge Questions:**\n• *"What is photosynthesis?"*\n• *"Define algorithm"*\n• *"Explain the scientific method"*\n• *"What is APA format for a book?"*\n\nI have **${s.length}** ${s.length===1?'study':'studies'} in the repository. Use the **mode buttons** below to focus, or just ask me anything STEM-related!`
+        id:1,role:'bot',citations:[],time:now(),source:'local',
+        text:`Hello! 👋 I'm your **SABNAHIS STE Research Assistant** — powered by Claude AI.
+
+I function as a **smart research copilot**, not just a keyword search. I can:
+
+**🔍 Repository Intelligence:**
+• Find studies and explain *why* they're relevant
+• Detect research gaps and unexplored topics
+• Make connections between studies you might miss
+
+**📚 Academic Knowledge:**
+• Define any STEM concept with examples
+• Generate APA 7th edition citations
+• Compare, summarize, and analyze research
+
+**💡 Research Guidance:**
+• Suggest novel research directions
+• Identify interdisciplinary opportunities
+• Generate follow-up research questions
+
+I have **${s.length}** ${s.length===1?'study':'studies'} loaded. Use the **mode buttons** to focus, or just ask me anything!${gapHint}`
       }]);
     });
   },[]);
 
-  useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[msgs]);
+  useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:'smooth'}); },[msgs]);
 
-  const send=async(text)=>{
+  // Auto-resize textarea
+  useEffect(()=>{
+    const ta = inputRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 130)+'px';
+  },[input]);
+
+  const send=useCallback(async(text)=>{
     const q=(text||input).trim();
     if(!q||loading)return;
     setInput('');
@@ -1243,20 +2319,17 @@ function ChatPage({ currentUser }) {
     }
     setLoading(false);
     setTimeout(()=>inputRef.current?.focus(),80);
-  };
+  },[input,loading,history,studies,mode]);
 
   const copyMsg=text=>navigator.clipboard?.writeText(text).then(()=>toast.ok('Copied to clipboard!'));
 
-  const [savedCites,setSavedCites]=useState([]);
-  const [showSaved,setShowSaved]=useState(false);
-
   const clearChat=()=>{
-    setMsgs([{id:Date.now(),role:'bot',citations:[],time:now(),text:`Chat cleared. ${studies.length} studies loaded. Mode: **${AI_MODES[mode]?.label}**. Ask me anything!`}]);
+    setMsgs([{id:Date.now(),role:'bot',citations:[],time:now(),source:'local',text:`Chat cleared. **${studies.length}** studies loaded. Mode: **${AI_MODES[mode]?.label}**.\n\nWhat would you like to explore?`}]);
     setHistory([]);
   };
 
   const exportChat=()=>{
-    const text=msgs.map(m=>`[${m.time}] ${m.role==='bot'?'AI':'You'}: ${m.text}`).join('\n\n');
+    const text=msgs.map(m=>`[${m.time}] ${m.role==='bot'?'AI':'You'}:\n${m.text}`).join('\n\n---\n\n');
     const blob=new Blob([text],{type:'text/plain'});
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
@@ -1265,7 +2338,7 @@ function ChatPage({ currentUser }) {
     toast.ok('Chat exported!');
   };
 
-  const saveCitation=(study)=>{
+  const saveCitation=study=>{
     const apa=generateAPA(study);
     if(savedCites.includes(apa)){toast.info('Already saved!');return;}
     setSavedCites(c=>[...c,apa]);
@@ -1283,20 +2356,32 @@ function ChatPage({ currentUser }) {
     toast.ok('Citations exported!');
   };
 
+  const handleKeyDown = e => {
+    if (e.key==='Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  };
+
   return (
     <div>
+      {/* Header */}
       <div className="page-hd">
         <div className="page-hd-left">
-          <h2 style={{fontFamily:'var(--font-display)',fontSize:'1.25rem',fontWeight:600}}>AI Research Assistant</h2>
-          <p className="muted" style={{fontSize:'0.78rem'}}>Claude AI · {studies.length} studies · APA citations</p>
+          <h2 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-2xl)',fontWeight:600}}>AI Research Assistant</h2>
+          <p className="muted" style={{fontSize:'var(--text-xs)'}}>Claude AI · {studies.length} studies loaded · APA citations</p>
         </div>
         <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
-          <span style={{background:'var(--green-light)',color:'var(--green)',fontSize:'0.7rem',fontWeight:500,padding:'3px 8px',borderRadius:99,display:'flex',alignItems:'center',gap:4}}>● Claude AI</span>
+          <span style={{background:'var(--green-light)',color:'var(--green)',fontSize:'0.7rem',fontWeight:500,padding:'4px 9px',borderRadius:99,display:'flex',alignItems:'center',gap:4}}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:'currentColor',flexShrink:0}}/>Claude AI
+          </span>
           {savedCites.length>0&&<button className="chat-export-btn" onClick={()=>setShowSaved(s=>!s)}>📝 {savedCites.length} saved</button>}
-          <button className="chat-export-btn" onClick={exportChat}>⬇ Export chat</button>
+          <button className="chat-export-btn" onClick={exportChat}>⬇ Export</button>
           <button className="btn btn-ol btn-sm" onClick={clearChat}>Clear</button>
         </div>
       </div>
+
+      {/* Saved citations panel */}
       {showSaved&&savedCites.length>0&&(
         <div className="card" style={{marginBottom:14,borderLeft:'3px solid var(--gold)'}}>
           <div className="card-hd" style={{marginBottom:10}}>
@@ -1309,32 +2394,49 @@ function ChatPage({ currentUser }) {
           {savedCites.map((c,i)=>(
             <div key={i} style={{fontFamily:'var(--font-mono)',fontSize:'0.73rem',color:'var(--ink-3)',padding:'6px 10px',background:'var(--surface)',borderRadius:6,marginBottom:5,borderLeft:'2px solid var(--gold)',display:'flex',alignItems:'flex-start',gap:8}}>
               <span style={{flex:1,lineHeight:1.5}}>{c}</span>
-              <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',flexShrink:0,fontSize:'0.75rem'}} onClick={()=>{navigator.clipboard?.writeText(c);toast.ok('Copied!');}}>Copy</button>
+              <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',flexShrink:0,fontSize:'0.75rem',minWidth:36,minHeight:28,padding:'2px 6px'}} onClick={()=>{navigator.clipboard?.writeText(c);toast.ok('Copied!');}}>Copy</button>
             </div>
           ))}
         </div>
       )}
 
+      {/* Research gap alert */}
+      {repoStats?.gaps?.length>0&&msgs.length<=1&&(
+        <div className="gap-alert" style={{marginBottom:14}}>
+          <span style={{fontSize:'1rem',flexShrink:0}}>📌</span>
+          <div>
+            <strong>Research Gap Detected:</strong> No studies cover <strong>{repoStats.gaps[0]}</strong>{repoStats.gaps[1]?` or <strong>${repoStats.gaps[1]}</strong>`:''} yet.
+            <button style={{background:'none',border:'none',color:'var(--gold)',cursor:'pointer',fontSize:'0.73rem',fontWeight:600,marginLeft:6,textDecoration:'underline'}} onClick={()=>send('What research topics are missing from the repository?')}>Explore →</button>
+          </div>
+        </div>
+      )}
+
       <div className="chat-layout">
-        {/* Main chat */}
+        {/* Main chat column */}
         <div className="chat-main">
-          {/* Mode selector */}
-          <div className="mode-pills">
+          {/* Mode pills */}
+          <div className="mode-pills" role="tablist" aria-label="AI modes">
             {Object.entries(AI_MODES).map(([key,m])=>(
-              <button key={key} className={`mode-pill ${mode===key?'on':''}`} onClick={()=>setMode(key)}>{m.icon} {m.label}</button>
+              <button key={key} role="tab" aria-selected={mode===key}
+                className={`mode-pill${mode===key?' on':''}`}
+                onClick={()=>setMode(key)}>
+                {m.icon} {m.label}
+              </button>
             ))}
           </div>
 
           {/* Messages */}
-          <div className="chat-msgs">
+          <div className="chat-msgs" ref={msgsRef} role="log" aria-live="polite" aria-label="Chat messages">
             {!studiesLoaded?(
               <div style={{textAlign:'center',padding:'50px',color:'var(--muted)'}}>
                 <span className="spin spin-gold" style={{width:28,height:28,border:'3px solid rgba(201,162,39,0.25)',borderTopColor:'var(--gold)',display:'inline-block',marginBottom:12}}/>
                 <p>Loading AI assistant…</p>
               </div>
             ):msgs.map(msg=>(
-              <div key={msg.id} className={`cm ${msg.role}`}>
-                <div className={`cm-av ${msg.role}`}>{msg.role==='bot'?'🤖':initials(currentUser.name)}</div>
+              <div key={msg.id} className={`cm ${msg.role}`} role={msg.role==='bot'?'article':'none'}>
+                <div className={`cm-av ${msg.role}`} aria-hidden="true">
+                  {msg.role==='bot'?'🤖':initials(currentUser.name)}
+                </div>
                 <div className="cm-body">
                   <div className={`cm-bub ${msg.role}`}>
                     {msg.role==='bot'?<MD text={msg.text}/>:msg.text}
@@ -1342,9 +2444,11 @@ function ChatPage({ currentUser }) {
                       <div className="chat-refs">
                         <div className="chat-ref-lbl">📚 Referenced Studies ({msg.citations.length})</div>
                         {msg.citations.map((s,i)=>(
-                          <div key={i} className="chat-ref" style={{display:'flex',alignItems:'flex-start',gap:6}}>
-                            <span style={{flex:1,cursor:'pointer'}} title="Click to copy" onClick={()=>{navigator.clipboard?.writeText(generateAPA(s));toast.ok('APA citation copied!');}}>[{i+1}] {generateAPA(s)}</span>
-                            <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontSize:'0.65rem',fontWeight:600,flexShrink:0,whiteSpace:'nowrap'}} onClick={()=>saveCitation(s)}>Save</button>
+                          <div key={i} className="chat-ref">
+                            <span style={{flex:1,cursor:'pointer'}} title="Click to copy APA" onClick={()=>{navigator.clipboard?.writeText(generateAPA(s));toast.ok('APA citation copied!');}}>
+                              [{i+1}] {generateAPA(s)}
+                            </span>
+                            <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontSize:'0.65rem',fontWeight:600,flexShrink:0,whiteSpace:'nowrap',minWidth:36,minHeight:24,padding:'2px 4px'}} onClick={()=>saveCitation(s)}>Save</button>
                           </div>
                         ))}
                       </div>
@@ -1353,21 +2457,25 @@ function ChatPage({ currentUser }) {
                   <div className="cm-meta">
                     <span>{msg.time}</span>
                     {msg.source&&<span className={`cm-src ${msg.source}`}>{msg.source==='claude'?'⚡ Claude AI':'🔧 Local'}</span>}
-                    {msg.role==='bot'&&<button style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 3px',borderRadius:4}} onClick={()=>copyMsg(msg.text)} title="Copy response"><Ico.copy/></button>}
+                    {msg.role==='bot'&&(
+                      <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 4px',borderRadius:4,minWidth:28,minHeight:24,display:'flex',alignItems:'center'}} onClick={()=>copyMsg(msg.text)} title="Copy response" aria-label="Copy response">
+                        <Ico.copy/>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
             {loading&&(
-              <div className="cm bot">
-                <div className="cm-av bot">🤖</div>
+              <div className="cm bot" aria-label="AI is thinking">
+                <div className="cm-av bot" aria-hidden="true">🤖</div>
                 <div className="cm-body">
                   <div className="cm-bub bot"><div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div></div>
                   <div className="cm-meta"><span>Thinking…</span></div>
                 </div>
               </div>
             )}
-            <div ref={bottomRef}/>
+            <div ref={bottomRef} style={{height:1}}/>
           </div>
 
           {/* Input area */}
@@ -1379,21 +2487,29 @@ function ChatPage({ currentUser }) {
                 placeholder={`${AI_MODES[mode]?.icon} ${AI_MODES[mode]?.desc}…`}
                 value={input}
                 onChange={e=>setInput(e.target.value)}
-                onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}}
+                onKeyDown={handleKeyDown}
                 rows={1}
-                maxLength={1000}
+                maxLength={1200}
+                aria-label="Type your message"
+                aria-multiline="true"
               />
-              <button className="btn btn-pur" onClick={()=>send()} disabled={loading||!input.trim()} style={{alignSelf:'flex-end',padding:'9px 14px'}}>
-                {loading?<span className="spin"/>:<Ico.send/>}
+              <button
+                className="chat-send-btn"
+                onClick={()=>send()}
+                disabled={loading||!input.trim()}
+                aria-label="Send message">
+                {loading?<span className="spin" style={{width:16,height:16}}/>:<Ico.send/>}
               </button>
             </div>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:6}}>
-              <div className="chat-actions" style={{flex:1}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:6,gap:8}}>
+              <div className="chat-actions">
                 {(QUICK_PROMPTS[mode]||[]).slice(0,3).map(q=>(
-                  <button key={q} className="chat-action-btn" onClick={()=>send(q)}><Ico.spark/>{q}</button>
+                  <button key={q} className="chat-action-btn" onClick={()=>send(q)}>
+                    <Ico.spark/>{q}
+                  </button>
                 ))}
               </div>
-              {input.length>0&&<span style={{fontSize:'0.65rem',color:'var(--muted)',flexShrink:0,marginLeft:8}}>{input.length}/1000</span>}
+              {input.length>0&&<span style={{fontSize:'0.65rem',color:'var(--muted)',flexShrink:0}}>{input.length}/1200</span>}
             </div>
           </div>
         </div>
@@ -1402,7 +2518,7 @@ function ChatPage({ currentUser }) {
         <div className="chat-sidebar">
           {/* Mode info */}
           <div className="chat-panel">
-            <div className="chat-panel-hd">🎯 Current Mode</div>
+            <div className="chat-panel-hd">🎯 Mode</div>
             <div className="chat-panel-body" style={{padding:'12px 14px'}}>
               <div style={{fontSize:'1.2rem',marginBottom:4}}>{AI_MODES[mode]?.icon}</div>
               <div style={{fontWeight:600,fontSize:'0.875rem',marginBottom:4}}>{AI_MODES[mode]?.label}</div>
@@ -1418,19 +2534,24 @@ function ChatPage({ currentUser }) {
                 <div className="chat-stat-row"><span>Total Studies</span><span className="chat-stat-val">{repoStats.total}</span></div>
                 <div className="chat-stat-row"><span>Total Views</span><span className="chat-stat-val">{repoStats.views}</span></div>
                 <div className="chat-stat-row"><span>Categories</span><span className="chat-stat-val">{repoStats.categories.length}</span></div>
-                {repoStats.categories.slice(0,4).map(([c,n])=>(
-                  <div key={c} className="chat-stat-row" style={{fontSize:'0.73rem'}}>
-                    <span style={{color:'var(--slate)'}}>{c}</span>
-                    <span style={{color:'var(--muted)'}}>{n}</span>
+                {repoStats.categories.slice(0,5).map(([c,n])=>(
+                  <div key={c} className="chat-stat-row" style={{fontSize:'0.72rem'}}>
+                    <span style={{color:'var(--slate)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'60%'}}>{c}</span>
+                    <span style={{color:'var(--muted)',flexShrink:0}}>{n}</span>
                   </div>
                 ))}
+                {repoStats.gaps?.length>0&&(
+                  <div style={{marginTop:8,padding:'6px 8px',background:'#fff8e6',borderRadius:6,fontSize:'0.7rem',color:'#8a6a00',borderLeft:'2px solid var(--gold)'}}>
+                    📌 {repoStats.gaps.length} gap{repoStats.gaps.length>1?'s':''} detected
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* Suggestions */}
+          {/* Suggested questions */}
           <div className="chat-panel">
-            <div className="chat-panel-hd">💡 Suggested Questions</div>
+            <div className="chat-panel-hd"><Ico.bulb/> Suggested Questions</div>
             <div className="chat-panel-body" style={{padding:'8px'}}>
               {(QUICK_PROMPTS[mode]||[]).map(q=>(
                 <button key={q} className="sugg-chip" onClick={()=>send(q)}>{q}</button>
@@ -1463,13 +2584,12 @@ function StudentDash({ currentUser }) {
     setMyStudies(res.data);setCats(catsArr);setAllTotal(allRes.total);
     setLoading(false);
   };
-
   useEffect(()=>{load();},[]);
 
   return (
     <div>
       <div style={{marginBottom:22}}>
-        <h2 style={{fontFamily:'var(--font-display)',fontSize:'1.45rem',marginBottom:3}}>Welcome back, {currentUser.name.split(' ')[0]} 👋</h2>
+        <h2 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-2xl)',marginBottom:3}}>Welcome back, {currentUser.name.split(' ')[0]} 👋</h2>
         <p className="muted">{currentUser.institution}{currentUser.department?` · ${currentUser.department}`:''}</p>
       </div>
       <div className="stats">
@@ -1480,16 +2600,20 @@ function StudentDash({ currentUser }) {
       </div>
       <div className="card">
         <div className="card-hd"><span className="card-title">My Uploaded Studies</span><button className="btn btn-gold btn-sm" onClick={()=>setShowUpload(true)}><Ico.up/> Upload New</button></div>
-        {loading?<div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
-        :myStudies.length===0?<div className="empty" style={{padding:'36px 20px'}}><div className="empty-ico">📄</div><h3>No studies yet</h3><p>Upload your first research study.</p><button className="btn btn-ink mt12" onClick={()=>setShowUpload(true)}>Upload Study</button></div>
-        :<div className="tw"><table>
-          <thead><tr><th>Title</th><th>Categories</th><th>Year</th><th>Views</th><th>Downloads</th><th>Uploaded</th></tr></thead>
-          <tbody>{myStudies.map(s=><tr key={s.id}>
-            <td style={{maxWidth:230}}><div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></td>
-            <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{(s.categories||[]).map(c=><span key={c} className="badge" style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.66rem'}}>{c}</span>)}</div></td>
-            <td>{s.year}</td><td>{s.viewCount||0}</td><td>{s.downloadCount||0}</td><td>{fmtDate(s.createdAt)}</td>
-          </tr>)}</tbody>
-        </table></div>}
+        {loading?(
+          <div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
+        ):myStudies.length===0?(
+          <div className="empty" style={{padding:'36px 20px'}}><div className="empty-ico">📄</div><h3>No studies yet</h3><p>Upload your first research study.</p><button className="btn btn-ink mt12" onClick={()=>setShowUpload(true)}>Upload Study</button></div>
+        ):(
+          <div className="tw"><table>
+            <thead><tr><th>Title</th><th>Categories</th><th>Year</th><th>Views</th><th>Downloads</th><th>Uploaded</th></tr></thead>
+            <tbody>{myStudies.map(s=><tr key={s.id}>
+              <td style={{maxWidth:230}}><div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></td>
+              <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{(s.categories||[]).map(c=><span key={c} className="badge" style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.66rem'}}>{c}</span>)}</div></td>
+              <td>{s.year}</td><td>{s.viewCount||0}</td><td>{s.downloadCount||0}</td><td style={{whiteSpace:'nowrap'}}>{fmtDate(s.createdAt)}</td>
+            </tr>)}</tbody>
+          </table></div>
+        )}
       </div>
       {showUpload&&<UploadModal onClose={()=>setShowUpload(false)} currentUser={currentUser} cats={cats} onUpload={()=>{load();setShowUpload(false);}}/>}
     </div>
@@ -1516,7 +2640,7 @@ function AdminDash() {
 
   return (
     <div>
-      <div style={{marginBottom:22}}><h2 style={{fontFamily:'var(--font-display)',fontSize:'1.45rem',marginBottom:3}}>Admin Dashboard</h2><p className="muted">System overview and management</p></div>
+      <div style={{marginBottom:22}}><h2 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-2xl)',marginBottom:3}}>Admin Dashboard</h2><p className="muted">System overview and management</p></div>
       <div className="stats">
         <div className="stat gold"><div className="stat-lbl">Total Students</div><div className="stat-val">{stats.totalStudents}</div><div className="stat-sub">{stats.approvedStudents} approved</div></div>
         <div className="stat red"><div className="stat-lbl">Pending</div><div className="stat-val">{stats.pendingStudents}</div><div className="stat-sub">Awaiting review</div></div>
@@ -1530,8 +2654,13 @@ function AdminDash() {
           <thead><tr><th>Name</th><th>Email</th><th>School</th><th>Registered</th><th>Actions</th></tr></thead>
           <tbody>{pending.map(u=><tr key={u.id}>
             <td><div style={{fontWeight:500}}>{u.name}</div></td>
-            <td style={{fontSize:'0.8rem'}}>{u.email}</td><td>{u.institution||'—'}</td><td>{fmtDate(u.createdAt)}</td>
-            <td><div style={{display:'flex',gap:6}}><button className="btn btn-grn btn-sm" onClick={()=>upd(u.id,'approved')}><Ico.chk/> Approve</button><button className="btn btn-red btn-sm" onClick={()=>upd(u.id,'rejected')}><Ico.X/> Reject</button></div></td>
+            <td style={{fontSize:'0.8rem'}}>{u.email}</td>
+            <td>{u.institution||'—'}</td>
+            <td style={{whiteSpace:'nowrap'}}>{fmtDate(u.createdAt)}</td>
+            <td><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              <button className="btn btn-grn btn-sm" onClick={()=>upd(u.id,'approved')}><Ico.chk/> Approve</button>
+              <button className="btn btn-red btn-sm" onClick={()=>upd(u.id,'rejected')}><Ico.X/> Reject</button>
+            </div></td>
           </tr>)}</tbody>
         </table></div>
       </div>}
@@ -1544,7 +2673,7 @@ function AdminDash() {
             <td style={{maxWidth:200}}><div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></td>
             <td style={{fontSize:'0.8rem'}}>{(s.authors||[]).join(', ')}</td>
             <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{(s.categories||[]).map(c=><span key={c} className="badge" style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.65rem'}}>{c}</span>)}</div></td>
-            <td>{s.viewCount||0}</td><td>{fmtDate(s.createdAt)}</td>
+            <td>{s.viewCount||0}</td><td style={{whiteSpace:'nowrap'}}>{fmtDate(s.createdAt)}</td>
           </tr>)}</tbody>
         </table></div>}
       </div>
@@ -1571,9 +2700,12 @@ function AdminUsers() {
     <div>
       <div style={{marginBottom:18}}><h2 className="sec-title" style={{marginBottom:1}}>User Management</h2><p className="muted">{students.length} students</p></div>
       <div className="fb" style={{marginBottom:18}}>
-        <div className="sb" style={{flex:1,minWidth:200}}><Ico.search/><input placeholder="Search by name, email, or school…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
-        <select value={filter} onChange={e=>setFilter(e.target.value)} style={{width:'auto',padding:'9px 13px'}}>
-          <option value="all">All Status</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option>
+        <div className="sb" style={{flex:1,minWidth:180}}><Ico.search/><input placeholder="Search by name, email, or school…" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search users"/></div>
+        <select value={filter} onChange={e=>setFilter(e.target.value)} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by status">
+          <option value="all">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
         </select>
       </div>
       <div className="card">
@@ -1582,14 +2714,18 @@ function AdminUsers() {
         :<div className="tw"><table>
           <thead><tr><th>Student</th><th>School / Section</th><th>Status</th><th>Uploads</th><th>Registered</th><th>Actions</th></tr></thead>
           <tbody>{students.map(u=><tr key={u.id}>
-            <td><div style={{display:'flex',alignItems:'center',gap:9}}><div className="avatar" style={{width:30,height:30,fontSize:'0.72rem',background:'var(--ink-3)'}}>{initials(u.name)}</div><div><div style={{fontWeight:500}}>{u.name}</div><div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{u.email}</div></div></div></td>
+            <td><div style={{display:'flex',alignItems:'center',gap:9}}>
+              <div className="avatar" style={{width:32,height:32,fontSize:'0.72rem',background:'var(--ink-3)',flexShrink:0}}>{initials(u.name)}</div>
+              <div><div style={{fontWeight:500}}>{u.name}</div><div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{u.email}</div></div>
+            </div></td>
             <td>{u.institution||'—'}<br/><span style={{fontSize:'0.72rem',color:'var(--muted)'}}>{u.department}</span></td>
             <td><span className={`badge badge-${u.status==='approved'?'appr':u.status==='rejected'?'rej':'pend'}`}>{u.status}</span></td>
-            <td>{u.uploadCount||0}</td><td>{fmtDate(u.createdAt)}</td>
+            <td>{u.uploadCount||0}</td>
+            <td style={{whiteSpace:'nowrap'}}>{fmtDate(u.createdAt)}</td>
             <td><div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-              {u.status!=='approved'&&<button className="btn btn-grn btn-sm" onClick={()=>upd(u.id,'approved')}><Ico.chk/></button>}
+              {u.status!=='approved'&&<button className="btn btn-grn btn-sm" onClick={()=>upd(u.id,'approved')} title="Approve"><Ico.chk/></button>}
               {u.status!=='rejected'&&<button className="btn btn-ol btn-sm" onClick={()=>upd(u.id,'rejected')}>Reject</button>}
-              <button className="btn btn-red btn-sm" onClick={()=>del(u.id)}><Ico.trash/></button>
+              <button className="btn btn-red btn-sm" onClick={()=>del(u.id)} title="Delete user"><Ico.trash/></button>
             </div></td>
           </tr>)}</tbody>
         </table></div>}
@@ -1614,7 +2750,7 @@ function AdminStudies() {
   return (
     <div>
       <div style={{marginBottom:18}}><h2 className="sec-title" style={{marginBottom:1}}>Manage Studies</h2><p className="muted">{studies.length} studies</p></div>
-      <div className="sb" style={{marginBottom:18}}><Ico.search/><input placeholder="Search studies…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
+      <div className="sb" style={{marginBottom:18}}><Ico.search/><input placeholder="Search studies…" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search studies"/></div>
       <div className="card">
         {loading?<div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
         :studies.length===0?<div className="empty" style={{padding:'36px 0'}}><div className="empty-ico">📚</div><h3>No studies yet</h3></div>
@@ -1625,8 +2761,9 @@ function AdminStudies() {
             <td style={{fontSize:'0.78rem'}}>{(s.authors||[]).join(', ')}</td>
             <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{(s.categories||[]).map(c=><span key={c} className="badge" style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.63rem'}}>{c}</span>)}</div></td>
             <td style={{fontSize:'0.82rem'}}>{s.uploadedByName}</td>
-            <td>{s.viewCount||0}</td><td>{s.downloadCount||0}</td><td>{fmtDate(s.createdAt)}</td>
-            <td><button className="btn btn-red btn-sm" onClick={()=>del(s.id)}><Ico.trash/></button></td>
+            <td>{s.viewCount||0}</td><td>{s.downloadCount||0}</td>
+            <td style={{whiteSpace:'nowrap'}}>{fmtDate(s.createdAt)}</td>
+            <td><button className="btn btn-red btn-sm" onClick={()=>del(s.id)} title="Delete study"><Ico.trash/></button></td>
           </tr>)}</tbody>
         </table></div>}
       </div>
@@ -1661,11 +2798,21 @@ function AdminCats() {
         <div className="card-hd"><span className="card-title">Current Categories ({cats.length})</span></div>
         {cats.map((cat,idx)=>(
           <div key={idx} className="cm-item">
-            {editIdx===idx?(<><input className="cm-in" value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>e.key==='Enter'&&saveEdit()} autoFocus/><button className="btn btn-grn btn-sm" onClick={saveEdit}><Ico.chk/> Save</button><button className="btn btn-ol btn-sm" onClick={()=>setEditIdx(null)}>Cancel</button></>)
-            :(<><span className="cm-name">{cat}</span><button className="btn btn-ol btn-sm" onClick={()=>startEdit(idx)}><Ico.edit/> Edit</button><button className="btn btn-red btn-sm" onClick={()=>rem(idx)}><Ico.trash/></button></>)}
+            {editIdx===idx?(
+              <><input className="cm-in" value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>e.key==='Enter'&&saveEdit()} autoFocus aria-label="Edit category name"/>
+              <button className="btn btn-grn btn-sm" onClick={saveEdit}><Ico.chk/> Save</button>
+              <button className="btn btn-ol btn-sm" onClick={()=>setEditIdx(null)}>Cancel</button></>
+            ):(
+              <><span className="cm-name">{cat}</span>
+              <button className="btn btn-ol btn-sm" onClick={()=>startEdit(idx)} aria-label={`Edit ${cat}`}><Ico.edit/> Edit</button>
+              <button className="btn btn-red btn-sm" onClick={()=>rem(idx)} aria-label={`Delete ${cat}`}><Ico.trash/></button></>
+            )}
           </div>
         ))}
-        <div style={{display:'flex',gap:9,marginTop:14}}><input placeholder="Add new category…" value={newCat} onChange={e=>setNewCat(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} style={{flex:1}}/><button className="btn btn-ink" onClick={add}><Ico.plus/> Add</button></div>
+        <div style={{display:'flex',gap:9,marginTop:14,flexWrap:'wrap'}}>
+          <input placeholder="Add new category…" value={newCat} onChange={e=>setNewCat(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} style={{flex:1,minWidth:160}} aria-label="New category name"/>
+          <button className="btn btn-ink" onClick={add}><Ico.plus/> Add</button>
+        </div>
       </div>
       <div style={{display:'flex',justifyContent:'flex-end'}}><button className="btn btn-gold" onClick={save}>Save All Changes</button></div>
     </div>
@@ -1675,7 +2822,7 @@ function AdminCats() {
 // ══════════════════════════════════════════════════════════════════
 //  SIDEBAR
 // ══════════════════════════════════════════════════════════════════
-function Sidebar({ currentUser, activeTab, setActiveTab, onLogout, pendingCount=0, isOpen, onClose }) {
+const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, onLogout, pendingCount=0, isOpen, onClose }) {
   const isAdmin=currentUser.role==='admin';
   const adminNav=[
     {id:'dashboard',label:'Dashboard',icon:<Ico.home/>},
@@ -1691,40 +2838,53 @@ function Sidebar({ currentUser, activeTab, setActiveTab, onLogout, pendingCount=
     {id:'chatbot',label:'AI Assistant',icon:<Ico.bot/>},
   ];
   const nav = isAdmin ? adminNav : studentNav;
-  const handleNav = id => { setActiveTab(id); onClose?.(); };
+
   return (
     <>
-      <div className={`mob-overlay ${isOpen?'show':''}`} onClick={onClose}/>
-      <nav className={`sidebar ${isOpen?'open':''}`}>
-        <div className="sidebar-logo" style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
+      <div className={`mob-overlay${isOpen?' show':''}`} onClick={onClose} aria-hidden="true"/>
+      <nav className={`sidebar${isOpen?' open':''}`} aria-label="Main navigation">
+        <div className="sidebar-logo">
           <div>
             <h1>SABNAHIS <span>STE Research Portal</span></h1>
             <p>Institutional Research Repository</p>
           </div>
-          <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,0.4)',cursor:'pointer',padding:'4px',marginTop:2,display:'none'}} className="sidebar-close-btn"><Ico.X/></button>
+          <button className="sidebar-close-btn" onClick={onClose} aria-label="Close menu"><Ico.X/></button>
         </div>
         <div className="sidebar-nav">
-          <div className="nav-label">{isAdmin?'Administration':'Navigation'}</div>
+          <div className="nav-label" role="heading" aria-level="3">{isAdmin?'Administration':'Navigation'}</div>
           {nav.map(item=>(
-            <button key={item.id} className={`nav-item ${activeTab===item.id?'active':''}`} onClick={()=>handleNav(item.id)}>
-              {item.icon}{item.label}{item.badge&&<span className="nav-badge">{item.badge}</span>}
+            <button key={item.id}
+              className={`nav-item${activeTab===item.id?' active':''}`}
+              onClick={()=>{setActiveTab(item.id);onClose?.();}}
+              aria-current={activeTab===item.id?'page':undefined}>
+              {item.icon}{item.label}
+              {item.badge&&<span className="nav-badge" aria-label={`${item.badge} pending`}>{item.badge}</span>}
             </button>
           ))}
         </div>
         <div className="sidebar-footer">
           <div className="user-chip">
-            <div className="avatar">{initials(currentUser.name)}</div>
-            <div className="user-info"><strong>{currentUser.name}</strong><span>{currentUser.role}</span></div>
+            <div className="avatar" aria-hidden="true">{initials(currentUser.name)}</div>
+            <div className="user-info">
+              <strong title={currentUser.name}>{currentUser.name}</strong>
+              <span>{currentUser.role}</span>
+            </div>
           </div>
-          <button style={{width:'100%',textAlign:'center',marginTop:8,padding:'7px',borderRadius:6,background:'none',border:'none',color:'rgba(255,255,255,0.38)',cursor:'pointer',fontSize:'0.78rem',transition:'color .2s'}} onMouseEnter={e=>e.target.style.color='rgba(255,255,255,0.7)'} onMouseLeave={e=>e.target.style.color='rgba(255,255,255,0.38)'} onClick={onLogout}>Sign Out</button>
+          <button
+            style={{width:'100%',textAlign:'center',marginTop:8,padding:'9px',borderRadius:6,background:'none',border:'none',color:'rgba(255,255,255,0.38)',cursor:'pointer',fontSize:'0.78rem',transition:'color .2s',minHeight:36}}
+            onMouseEnter={e=>e.target.style.color='rgba(255,255,255,0.7)'}
+            onMouseLeave={e=>e.target.style.color='rgba(255,255,255,0.38)'}
+            onClick={onLogout}>
+            Sign Out
+          </button>
         </div>
       </nav>
     </>
   );
-}
+});
 
 // ══════════════════════════════════════════════════════════════════
-//  ROOT APP  — hooks are NEVER called conditionally
+//  ROOT APP
 // ══════════════════════════════════════════════════════════════════
 function App() {
   const [currentUser,setCurrentUser]=useState(null);
@@ -1734,7 +2894,6 @@ function App() {
   const [initError,setInitError]=useState('');
   const [sidebarOpen,setSidebarOpen]=useState(false);
 
-  // Auth listener — runs unconditionally, always
   useEffect(()=>{
     let unsub=()=>{};
     try{
@@ -1751,18 +2910,15 @@ function App() {
               await auth.signOut().catch(()=>{});
             }
           }catch(e){
-            console.error('Profile load error:',e);
             await auth.signOut().catch(()=>{});
           }
         }
         setAuthChecked(true);
       },err=>{
-        console.error('Auth error:',err);
         setInitError(err.message);
         setAuthChecked(true);
       });
     }catch(e){
-      console.error('Firebase init error:',e);
       setInitError(e.message);
       setAuthChecked(true);
     }
@@ -1771,7 +2927,6 @@ function App() {
 
   const titles={dashboard:'Dashboard',users:'User Management','studies-admin':'Manage Studies',categories:'Manage Categories',repository:'Research Repository',chatbot:'AI Research Assistant'};
 
-  // Loading screen
   if(!authChecked){
     return (
       <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'var(--ink)',gap:16}}>
@@ -1782,7 +2937,6 @@ function App() {
     );
   }
 
-  // Error screen
   if(initError){
     return (
       <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'var(--ink)',gap:14,padding:24}}>
@@ -1795,7 +2949,6 @@ function App() {
     );
   }
 
-  // Auth screen
   if(!currentUser){
     return (
       <ToastProvider>
@@ -1828,35 +2981,61 @@ function App() {
   return (
     <ToastProvider>
       <div className="app-shell">
-        <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={id=>{setActiveTab(id);setSidebarOpen(false);}} pendingCount={pendingCount} isOpen={sidebarOpen} onClose={()=>setSidebarOpen(false)}
-          onLogout={async()=>{await API.logout();setCurrentUser(null);setActiveTab('dashboard');}}/>
+        <Sidebar
+          currentUser={currentUser}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          pendingCount={pendingCount}
+          isOpen={sidebarOpen}
+          onClose={()=>setSidebarOpen(false)}
+          onLogout={async()=>{await API.logout();setCurrentUser(null);setActiveTab('dashboard');}}
+        />
         <div className="main-content">
           {/* Desktop topbar */}
           <div className="topbar">
             <span className="topbar-title">{titles[activeTab]||'Dashboard'}</span>
-            <span className={`badge ${isAdmin?'badge-admin':'badge-appr'}`}>{isAdmin?'⚙ Admin':'🎓 Student'}</span>
+            <span className={`badge${isAdmin?' badge-admin':' badge-appr'}`}>{isAdmin?'⚙ Admin':'🎓 Student'}</span>
           </div>
+
           {/* Mobile header */}
-          <div className="mob-header">
-            <button className="mob-menu-btn" onClick={()=>setSidebarOpen(o=>!o)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="22" height="22"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <div className="mob-header" role="banner">
+            <button className="mob-menu-btn" onClick={()=>setSidebarOpen(o=>!o)} aria-label="Open menu" aria-expanded={sidebarOpen}>
+              <Ico.menu/>
             </button>
             <span className="mob-header-title">SABNAHIS STE</span>
-            <span className={`badge ${isAdmin?'badge-admin':'badge-appr'}`} style={{fontSize:'0.65rem'}}>{isAdmin?'⚙ Admin':'🎓 Student'}</span>
+            <span className={`badge${isAdmin?' badge-admin':' badge-appr'}`} style={{fontSize:'0.65rem'}}>{isAdmin?'⚙ Admin':'🎓'}</span>
           </div>
-          <div className="page">{renderPage()}</div>
+
+          <main className="page">{renderPage()}</main>
         </div>
+
         {/* Mobile bottom navigation */}
-        <nav className="mob-nav">
+        <nav className="mob-nav" aria-label="Mobile navigation">
           <div className="mob-nav-inner">
             {mobNav.map(item=>(
-              <button key={item.id} className={`mob-nav-btn ${activeTab===item.id?'active':''}`} onClick={()=>setActiveTab(item.id)}>
+              <button key={item.id}
+                className={`mob-nav-btn${activeTab===item.id?' active':''}`}
+                onClick={()=>setActiveTab(item.id)}
+                aria-current={activeTab===item.id?'page':undefined}
+                aria-label={item.label}>
                 {item.icon}<span>{item.label}</span>
               </button>
             ))}
-            {isAdmin&&<button className={`mob-nav-btn ${activeTab==='studies-admin'?'active':''}`} onClick={()=>setActiveTab('studies-admin')}><Ico.book/><span>Manage</span></button>}
-            <button className="mob-nav-btn" onClick={()=>setSidebarOpen(o=>!o)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+            {isAdmin&&(
+              <button
+                className={`mob-nav-btn${activeTab==='studies-admin'?' active':''}`}
+                onClick={()=>setActiveTab('studies-admin')}
+                aria-current={activeTab==='studies-admin'?'page':undefined}
+                aria-label="Manage studies">
+                <Ico.book/><span>Manage</span>
+              </button>
+            )}
+            <button
+              className="mob-nav-btn"
+              onClick={()=>setSidebarOpen(o=>!o)}
+              aria-label="More options"
+              aria-expanded={sidebarOpen}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20"><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/></svg>
               <span>More</span>
             </button>
           </div>
@@ -1870,3 +3049,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
+
