@@ -2,10 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="theme-color" content="#0d0f14"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <title>SABNAHIS STE Research Portal</title>
+<link rel="manifest" href="data:application/json,{%22name%22:%22SABNAHIS%20STE%20Research%20Portal%22,%22short_name%22:%22SABNAHIS%22,%22display%22:%22standalone%22,%22background_color%22:%22%230d0f14%22,%22theme_color%22:%22%230d0f14%22}"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
+<noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/></noscript>
 <style>
 :root{
   --ink:#0d0f14;--ink-2:#1e2130;--ink-3:#2e3250;--slate:#4a5174;--muted:#7c85a8;
@@ -85,7 +90,7 @@ textarea{resize:vertical;min-height:90px}
 .btn-teal{background:var(--teal);color:#fff}.btn-teal:hover{background:#156b5c}
 .btn-sm{padding:5px 11px;font-size:0.78rem}
 .btn-full{width:100%}
-.btn:disabled{opacity:0.48;cursor:not-allowed;transform:none!important}
+.btn:disabled{opacity:0.48;cursor:not-allowed;transform:none!important}.btn:active:not(:disabled){transform:scale(0.97)!important}
 /* CARDS */
 .card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;box-shadow:var(--shadow)}
 .card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:9px}
@@ -108,7 +113,7 @@ textarea{resize:vertical;min-height:90px}
 .sc-authors{font-size:0.78rem;color:var(--muted)}
 .sc-abs{font-size:0.8rem;color:var(--slate);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .sc-meta{display:flex;align-items:center;gap:10px;font-size:0.71rem;color:var(--muted);flex-wrap:wrap;margin-top:auto}
-.sc-meta span{display:flex;align-items:center;gap:3px}
+.sc-meta span{display:flex;align-items:center;gap:3px}.sc:active{transform:scale(0.98)}
 /* TABLE */
 .tw{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
@@ -120,7 +125,7 @@ tr:hover td{background:var(--surface)}
 .badge{display:inline-flex;align-items:center;gap:3px;padding:2px 9px;border-radius:99px;font-size:0.7rem;font-weight:600}
 .badge-pend{background:#fff8e6;color:#b7860b}.badge-appr{background:var(--green-light);color:var(--green)}.badge-rej{background:var(--red-light);color:var(--red)}.badge-admin{background:var(--blue-light);color:var(--blue)}
 /* SEARCH / FILTER */
-.sb{display:flex;align-items:center;gap:9px;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);padding:0 13px;transition:border-color var(--transition)}.sb svg{width:16px;height:16px;flex-shrink:0;color:var(--muted)}
+.sb{display:flex;align-items:center;gap:9px;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);padding:0 13px;transition:border-color var(--transition)}
 .sb:focus-within{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,162,39,0.1)}
 .sb input{border:none;background:none;padding:9px 0;flex:1;outline:none;font-size:0.875rem}
 .fb{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
@@ -218,7 +223,7 @@ tr:hover td{background:var(--surface)}
 .chat-stat-row:last-child{border-bottom:none}
 .chat-stat-val{font-weight:600;color:var(--ink)}
 /* mode pills */
-.mode-pills{display:flex;gap:5px;flex-wrap:wrap;padding:8px 14px;background:var(--surface);border-left:1px solid var(--border);border-right:1px solid var(--border)}
+.mode-pills{display:flex;gap:5px;flex-wrap:wrap;padding:8px 14px;background:var(--surface);border-left:1px solid var(--border);border-right:1px solid var(--border)}.mode-pill:active{transform:scale(0.96)}
 .mode-pill{font-size:0.71rem;padding:3px 10px;border-radius:99px;border:1.5px solid var(--border);background:var(--white);color:var(--muted);cursor:pointer;transition:all var(--transition);font-weight:500}
 .mode-pill.on{border-color:var(--purple);background:var(--purple-light);color:var(--purple);font-weight:600}
 /* MARKDOWN */
@@ -242,9 +247,56 @@ tr:hover td{background:var(--surface)}
 @keyframes spinning{to{transform:rotate(360deg)}}
 @keyframes pulse{0%,80%,100%{transform:scale(1);opacity:.4}40%{transform:scale(1.3);opacity:1}}
 @keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* MOBILE NAV BAR */
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;background:var(--ink);border-top:1px solid rgba(255,255,255,0.1);padding:6px 0 env(safe-area-inset-bottom,6px)}
+.mob-nav-inner{display:flex;justify-content:space-around;align-items:center}
+.mob-nav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 10px;border:none;background:none;color:rgba(255,255,255,0.5);cursor:pointer;border-radius:8px;transition:all .2s;min-width:56px;font-family:var(--font-body)}
+.mob-nav-btn.active{color:var(--gold-light)}
+.mob-nav-btn svg{width:20px;height:20px}
+.mob-nav-btn span{font-size:0.6rem;font-weight:500;white-space:nowrap}
+.mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:149;backdrop-filter:blur(2px)}
+.mob-overlay.show{display:block}
+.mob-header{display:none;position:fixed;top:0;left:0;right:0;z-index:99;background:var(--ink);height:54px;align-items:center;padding:0 16px;gap:10px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.mob-header-title{font-family:var(--font-display);font-size:1rem;color:var(--gold);flex:1}
+.mob-menu-btn{background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;padding:6px;border-radius:8px}
+/* CHAT EXPORT BUTTON */
+.chat-export-btn{font-size:0.72rem;padding:4px 10px;border-radius:99px;border:1.5px solid var(--border);background:var(--surface);color:var(--ink-3);cursor:pointer;transition:all var(--transition);display:flex;align-items:center;gap:4px}
+.chat-export-btn:hover{border-color:var(--teal);background:var(--teal-light);color:var(--teal)}
+/* CITATION SAVE BADGE */
+.saved-cite{font-size:0.63rem;padding:1px 6px;border-radius:4px;background:var(--green-light);color:var(--green);font-weight:600;margin-left:4px}
+/* SCROLL TO TOP */
+.scroll-top{position:fixed;bottom:80px;right:16px;width:40px;height:40px;border-radius:50%;background:var(--ink);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-lg);z-index:50;transition:all .2s;opacity:0;pointer-events:none}
+.scroll-top.show{opacity:1;pointer-events:all}
+@media(max-width:768px){.sidebar-close-btn{display:block!important}}
 /* RESPONSIVE */
 @media(max-width:900px){.chat-layout{flex-direction:column}.chat-sidebar{width:100%;flex-direction:row;overflow-x:auto}.chat-panel{min-width:220px;flex-shrink:0}}
-@media(max-width:768px){.sidebar{transform:translateX(-100%)}.main-content{margin-left:0}.grid{grid-template-columns:1fr}.fr{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.page{padding:14px}.chat-sidebar{display:none}}
+@media(max-width:768px){
+  .sidebar{transform:translateX(-260px);transition:transform .3s ease;z-index:150}
+  .sidebar.open{transform:translateX(0)}
+  .main-content{margin-left:0}
+  .grid{grid-template-columns:1fr}
+  .fr{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .page{padding:12px;padding-top:66px;padding-bottom:80px}
+  .topbar{display:none}
+  .mob-nav{display:block}
+  .mob-header{display:flex}
+  .chat-sidebar{display:none}
+  .chat-layout{height:calc(100vh - 190px)}
+  .chat-msgs{padding:10px}
+  .cm-bub{max-width:88%}
+  .mode-pills{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding:8px 12px;gap:6px}
+  .mode-pill{white-space:nowrap;flex-shrink:0}
+  .chat-actions{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+  .chat-action-btn{flex-shrink:0}
+  .modal{max-height:95vh;border-radius:var(--radius-lg) var(--radius-lg) 0 0;position:fixed;bottom:0;left:0;right:0;width:100%;max-width:100%}
+  .overlay{align-items:flex-end;padding:0}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .page-hd{flex-direction:column;gap:8px}
+  .auth-inner{padding:20px}
+  .auth-card{padding:22px}
+}
+@media(max-width:400px){.stats{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -272,14 +324,8 @@ const firebaseConfig = {
 
 // Safe init — avoid "already initialized" error on hot reload
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-const auth    = firebase.auth();
-const db      = firebase.firestore();
-// Enable offline persistence — data loads from cache instantly on repeat visits
-db.enablePersistence({ synchronizeTabs: true }).catch(()=>{});
-
-// Module-level flag: login() sets this true BEFORE signInWithEmailAndPassword
-// so the onAuthStateChanged listener knows not to interfere.
-let _loginInProgress = false;
+const auth = firebase.auth();
+const db   = firebase.firestore();
 
 // ══════════════════════════════════════════════════════════════════
 //  CONSTANTS
@@ -292,11 +338,8 @@ const SEC_QS = [
   "What is your favorite book?"
 ];
 const DEFAULT_CATS = [
-  "Life Science",
-  "Physical Science",
-  "Mathematical and Computational Science",
-  "Robotics and Intelligent Machines",
-  "STE Innovation Expo"
+  "Biology","Chemistry","Physics","Mathematics","Computer Science",
+  "Environmental Science","Engineering","Health Science","Earth Science","Social Science"
 ];
 
 // ══════════════════════════════════════════════════════════════════
@@ -308,31 +351,27 @@ const API = {
     if (!name||!email||!password) throw new Error('Name, email and password are required.');
     if (password.length < 8)       throw new Error('Password must be at least 8 characters.');
     if (!secA?.trim())             throw new Error('Security answer is required.');
-    // Firebase Auth itself prevents duplicate emails — no need for a slow Firestore pre-check
+    const dup = await db.collection('users').where('email','==',email.toLowerCase()).get();
+    if (!dup.empty)                throw new Error('Email already registered.');
     const cred = await auth.createUserWithEmailAndPassword(email, password);
-    const uid  = cred.user.uid;
-    // Sign out FIRST so onAuthStateChanged doesn't fire with a pending user
-    await auth.signOut();
-    // Then write the profile (no active auth session = no listener conflict)
-    await db.collection('users').doc(uid).set({
+    await db.collection('users').doc(cred.user.uid).set({
       name: name.trim(), email: email.toLowerCase(),
       role: 'student', status: 'pending',
       institution: institution?.trim()||'', department: department?.trim()||'',
       secQ: secQ||SEC_QS[0], secA: secA.trim().toLowerCase(),
       uploadCount: 0, createdAt: new Date().toISOString()
     });
+    await auth.signOut();
   },
 
   async login(email, password) {
-    _loginInProgress = true;   // tell listener: we own this sign-in
     const cred = await auth.signInWithEmailAndPassword(email, password);
     const snap = await db.collection('users').doc(cred.user.uid).get();
-    if (!snap.exists) { _loginInProgress=false; await auth.signOut(); throw new Error('User profile not found. Contact your administrator.'); }
+    if (!snap.exists) { await auth.signOut(); throw new Error('User profile not found.'); }
     const data = snap.data();
-    if (data.status==='pending')  { _loginInProgress=false; await auth.signOut(); throw new Error('Your account is awaiting admin approval.'); }
-    if (data.status==='rejected') { _loginInProgress=false; await auth.signOut(); throw new Error('Your registration was rejected.'); }
-    // Fire-and-forget the lastLogin update — don't block login on it
-    db.collection('users').doc(cred.user.uid).update({ lastLogin: new Date().toISOString() }).catch(()=>{});
+    if (data.status==='pending')  { await auth.signOut(); throw new Error('Your account is awaiting admin approval.'); }
+    if (data.status==='rejected') { await auth.signOut(); throw new Error('Your registration was rejected.'); }
+    await db.collection('users').doc(cred.user.uid).update({ lastLogin: new Date().toISOString() });
     return { id: cred.user.uid, ...data };
   },
 
@@ -346,33 +385,22 @@ const API = {
     } catch { return null; }
   },
 
-  /* STUDIES */
+  /* STUDIES — fetch all then filter client-side to avoid index requirements */
   async getStudies({ search='', category='', uploadedBy='', status='active', page=1, perPage=6 }={}) {
     try {
-      // Build the most specific query possible to minimise reads
-      let q = db.collection('studies').orderBy('createdAt','desc');
-      if (status)     q = q.where('status','==',status);
-      if (uploadedBy) q = q.where('uploadedBy','==',uploadedBy);
-      const snap = await q.get();
+      const snap = await db.collection('studies').orderBy('createdAt','desc').get();
       let items = snap.docs.map(d=>({id:d.id,...d.data()}));
-      // Client-side filters for fields that can't be compound-indexed without setup
-      if (category) items = items.filter(s=>(s.categories||[]).includes(category));
+      if (status)     items = items.filter(s=>s.status===status);
+      if (uploadedBy) items = items.filter(s=>s.uploadedBy===uploadedBy);
+      if (category)   items = items.filter(s=>(s.categories||[]).includes(category));
       if (search) {
-        const ql = search.toLowerCase();
-        items = items.filter(s=>[s.title,...(s.authors||[]),s.abstract||'',...(s.keywords||[])].join(' ').toLowerCase().includes(ql));
+        const q = search.toLowerCase();
+        items = items.filter(s=>[s.title,...(s.authors||[]),s.abstract||'',...(s.keywords||[])].join(' ').toLowerCase().includes(q));
       }
       const total = items.length;
       const totalPages = Math.ceil(total/perPage)||1;
       return { data: items.slice((page-1)*perPage, page*perPage), total, totalPages, page };
     } catch(e) { console.error('getStudies',e); return {data:[],total:0,totalPages:1,page:1}; }
-  },
-
-  /* Fast total count without fetching all docs */
-  async countStudies() {
-    try {
-      const snap = await db.collection('studies').where('status','==','active').get();
-      return snap.size;
-    } catch { return 0; }
   },
 
   async getAllStudies() {
@@ -445,20 +473,19 @@ const API = {
     await db.collection('config').doc('categories').set({ list: cats });
   },
 
-  /* STATS — parallel targeted queries, no full-collection dumps */
+  /* STATS */
   async getStats() {
     try {
-      const [allStudents, approvedStudents, pendingStudents, allStudies] = await Promise.all([
+      const [uSnap, sSnap] = await Promise.all([
         db.collection('users').where('role','==','student').get(),
-        db.collection('users').where('role','==','student').where('status','==','approved').get(),
-        db.collection('users').where('role','==','student').where('status','==','pending').get(),
         db.collection('studies').get()
       ]);
-      const studies = allStudies.docs.map(d=>d.data());
+      const users   = uSnap.docs.map(d=>d.data());
+      const studies = sSnap.docs.map(d=>d.data());
       return {
-        totalStudents:    allStudents.size,
-        approvedStudents: approvedStudents.size,
-        pendingStudents:  pendingStudents.size,
+        totalStudents:    users.length,
+        approvedStudents: users.filter(u=>u.status==='approved').length,
+        pendingStudents:  users.filter(u=>u.status==='pending').length,
         totalStudies:     studies.length,
         totalViews:       studies.reduce((a,s)=>a+(s.viewCount||0),0),
         totalDownloads:   studies.reduce((a,s)=>a+(s.downloadCount||0),0),
@@ -521,96 +548,126 @@ function findRelevant(query, studies, limit=4) {
 //  ADVANCED AI ENGINE
 // ══════════════════════════════════════════════════════════════════
 const AI_MODES = {
-  general:   { label:'General Q&A',   icon:'💬', desc:'Answer research questions' },
-  find:      { label:'Find Studies',  icon:'🔍', desc:'Search the repository' },
-  cite:      { label:'APA Citations', icon:'📝', desc:'Generate citations' },
-  compare:   { label:'Compare',       icon:'⚖️',  desc:'Compare multiple studies' },
-  summarize: { label:'Summarize',     icon:'📋', desc:'Summarize abstracts' },
-  suggest:   { label:'Suggest Topics',icon:'💡', desc:'Research topic ideas' },
+  general:   { label:'Ask Anything',   icon:'💬', desc:'Definitions, concepts, research Q&A' },
+  find:      { label:'Find Studies',   icon:'🔍', desc:'Search the repository' },
+  cite:      { label:'APA Citations',  icon:'📝', desc:'Generate citations' },
+  define:    { label:'Define Topic',   icon:'📖', desc:'Define any STEM concept' },
+  compare:   { label:'Compare',        icon:'⚖️',  desc:'Compare studies or concepts' },
+  summarize: { label:'Summarize',      icon:'📋', desc:'Summarize abstracts' },
+  suggest:   { label:'Suggest Topics', icon:'💡', desc:'Research topic ideas' },
 };
 
 function buildSystemPrompt(studies, mode) {
-  const repoSummary = studies.length>0
-    ? studies.slice(0,25).map((s,i)=>
-        `[${i+1}] ID:${s.id}\n  Title: "${s.title}"\n  Authors: ${(s.authors||[]).join(', ')}\n  Year: ${s.year}\n  Categories: ${(s.categories||[]).join(', ')}\n  Keywords: ${(s.keywords||[]).join(', ')}\n  Abstract: ${(s.abstract||'').slice(0,250)}`
-      ).join('\n\n')
-    : '(Repository is currently empty)';
+  const repoSummary = studies.length > 0
+    ? studies.slice(0, 25).map((s, i) =>
+        `[${i+1}] Title: "${s.title}" | Authors: ${(s.authors||[]).join(', ')} | Year: ${s.year} | Categories: ${(s.categories||[]).join(', ')} | Keywords: ${(s.keywords||[]).join(', ')} | Abstract: ${(s.abstract||'').slice(0,200)}`
+      ).join('\n')
+    : '(Repository is currently empty — no studies uploaded yet)';
 
   const modeInstructions = {
-    general:   'Answer research questions thoughtfully. Reference studies when relevant using in-text citations.',
-    find:      'Search the repository thoroughly. When the user describes a topic, find ALL matching studies and explain why each is relevant.',
-    cite:      'Generate precise APA 7th edition citations. Always provide both the full reference list entry AND the in-text citation format.',
-    compare:   'Compare studies side-by-side. Use structured format with categories like Methodology, Findings, Scope, Year.',
-    summarize: 'Provide clear, structured summaries. Include: Purpose, Methods, Key Findings, Significance.',
-    suggest:   'Suggest specific research topics or questions based on gaps you notice in the repository. Be creative and academic.',
+    general:   `You can answer ANY question the user asks. If it's about a STEM concept, definition, or topic — answer it fully and academically. If it's related to the repository, reference studies using APA in-text citations. Always stay academic and educational in tone.`,
+    find:      `Search the repository for matching studies. Explain WHY each result is relevant. If nothing matches, say so and suggest related topics.`,
+    cite:      `Generate precise APA 7th edition citations. Always provide BOTH the full reference entry AND the in-text citation. If the user asks about a topic not in the repo, explain what an APA citation would look like for that type of source.`,
+    define:    `Define the requested STEM concept or term clearly and academically. Structure your response as: 1) Definition, 2) Key characteristics, 3) Examples or applications, 4) Related concepts. If a study in the repository touches this topic, reference it. If not, define it from your general knowledge.`,
+    compare:   `Compare studies or concepts side-by-side using structured format. For studies: compare methodology, findings, scope, year. For general concepts: compare definitions, applications, similarities, differences.`,
+    summarize: `Summarize requested studies. Structure: Purpose, Methods, Key Findings, Significance. Keep it concise but complete.`,
+    suggest:   `Suggest specific research topics based on gaps in the repository. Be creative and grounded in what STEM topics are underrepresented. Propose concrete research questions.`,
   };
 
-  return `You are an advanced academic research assistant for the SABNAHIS STE Research Portal — an institutional repository for Science, Technology, and Engineering student research.
+  return `You are an academic research assistant for the SABNAHIS STE Research Portal — a Science, Technology, and Engineering institutional repository for student research in the Philippines.
 
-CURRENT MODE: ${AI_MODES[mode]?.label || 'General Q&A'}
-MODE INSTRUCTIONS: ${modeInstructions[mode] || modeInstructions.general}
+CURRENT MODE: ${AI_MODES[mode]?.label || 'General'}
+INSTRUCTIONS: ${modeInstructions[mode] || modeInstructions.general}
 
-══════════════════════════════
-REPOSITORY (${studies.length} active studies):
-══════════════════════════════
+════════════════════════════
+REPOSITORY (${studies.length} studies):
+════════════════════════════
 ${repoSummary}
 
-══════════════════════════════
-YOUR CAPABILITIES:
-══════════════════════════════
-1. Find and retrieve studies from the repository by topic, author, year, or category
-2. Generate accurate APA 7th edition citations (both reference list and in-text)
-3. Summarize research abstracts in clear, accessible language
-4. Compare multiple studies across methodology, findings, scope
-5. Identify research gaps and suggest new study topics
-6. Answer STEM research questions with repository context
-7. Generate full reference lists for multiple studies at once
+════════════════════════════
+STRICT RULES — FOLLOW ALWAYS:
+════════════════════════════
+1. SCOPE: You ONLY answer questions about:
+   a) Studies in this repository (finding, citing, summarizing, comparing)
+   b) Definitions and explanations of STEM/academic concepts and topics
+   c) APA 7th edition citation formatting
+   d) Academic writing and research guidance
+   e) Science, Technology, Engineering, Mathematics topics
 
-══════════════════════════════
-APA 7TH EDITION FORMAT RULES:
-══════════════════════════════
-- Reference: LastName, F. M., & LastName, F. M. (Year). Title of work. [Category].
-- In-text (1 author): (LastName, Year)
-- In-text (2 authors): (LastName & LastName, Year)
-- In-text (3+ authors): (FirstLastName et al., Year)
-- For student research without publisher: use [Category] in place of journal/publisher
+2. OFF-TOPIC: If the user asks about something completely unrelated to academics, STEM, or research (e.g., jokes, movies, personal advice, cooking, sports), politely decline and redirect:
+   "I'm focused on academic and research topics. I can help you with STEM definitions, APA citations, or finding studies in the repository. What would you like to explore?"
 
-══════════════════════════════
-RESPONSE FORMATTING:
-══════════════════════════════
-- Use **bold** for study titles and important terms
-- Use bullet lists (•) for multiple items
-- Use numbered lists (1. 2. 3.) for steps or rankings
-- Use ### for section headers when structuring long responses
-- Keep responses focused and academic but accessible
-- Always cite studies you mention using in-text format
-- When listing references, use the full APA format
+3. LANGUAGE & TONE:
+   - Be warm, helpful, and encouraging — this is a student research portal
+   - Use simple, clear language but maintain academic accuracy
+   - When a student seems confused, offer to explain in simpler terms
+   - For Filipino students: it's okay to understand Tagalog questions, but respond in English for academic consistency unless the user prefers Tagalog
 
-If a topic is not in the repository, say so clearly, then offer to help with related topics or suggest what kind of study could address the gap.`;
+4. APA CITATIONS — Always use this format:
+   - Reference list: LastName, F. M. (Year). Title of work. [Category].
+   - In-text 1 author: (LastName, Year)
+   - In-text 2 authors: (LastName & LastName, Year)
+   - In-text 3+ authors: (LastName et al., Year)
+
+4. DEFINITIONS — When defining a concept, always:
+   - Give a clear, precise academic definition
+   - Mention real-world applications in STEM
+   - Mention if any repository study relates to it
+   - Use **bold** for key terms
+
+5. OUTSIDE KNOWLEDGE — You CAN and SHOULD use your knowledge to:
+   - Define scientific terms (e.g., "What is photosynthesis?", "Define algorithm")
+   - Explain research methodologies (e.g., "What is a control group?")
+   - Explain APA rules for source types not in the repo
+   - Answer general STEM questions academically
+   But always check if a repository study is relevant and cite it if so.
+
+6. FORMATTING:
+   - Use **bold** for terms and titles
+   - Use ### for section headers in long responses
+   - Use bullet points for lists
+   - Keep responses academic but clear and accessible
+   - Cite repository studies with in-text format when mentioning them
+
+7. LANGUAGE: Respond in the same language the user uses. Filipino/Tagalog questions get Tagalog-friendly responses.
+
+8. RESPONSE LENGTH:
+   - Simple definitions: 2-4 sentences + key bullet points
+   - APA citations: Full format, no shortcuts
+   - Study searches: Title + authors + brief excerpt per result
+   - Comparisons: Use structured table or side-by-side bullets
+   - Complex STEM topics: Use ### headers to organize
+   - Always end with a helpful follow-up offer
+
+9. WHEN NO MATCH IN REPOSITORY:
+   - Still answer from general STEM knowledge
+   - Note that no repository study covers this specific topic
+   - Suggest uploading a study on this topic
+   - Offer related topics that might be in the repository`;
 }
 
 async function callAI(query, history, studies, mode='general') {
   const relevant = findRelevant(query, studies, 4);
   const system   = buildSystemPrompt(studies, mode);
-  const messages = [...history.slice(-12), { role:'user', content:query }];
+  const messages = [...history.slice(-14), { role:'user', content: query }];
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1200,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1400,
         system,
         messages
       })
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error.message);
-    const text = data.content?.[0]?.text||'No response generated.';
-    return { text, citations:relevant, source:'claude' };
+    const text = data.content?.[0]?.text || 'No response generated.';
+    return { text, citations: relevant, source: 'claude' };
   } catch(err) {
-    console.error('AI error:',err);
+    console.error('AI error:', err);
     return buildLocalResponse(query, studies, relevant, mode);
   }
 }
@@ -619,8 +676,42 @@ function buildLocalResponse(query, all, relevant, mode) {
   const q = query.toLowerCase().trim();
 
   // Greeting
-  if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|kumusta)/.test(q)) {
-    return { text:`Hello! 👋 I'm your **SABNAHIS STE Research Portal** AI assistant.\n\nI can help you with:\n• **Finding studies** by topic, author, keyword, or category\n• **APA 7th edition citations** — both reference list and in-text\n• **Summarizing** research abstracts\n• **Comparing** multiple studies side-by-side\n• **Suggesting** research topics and identifying gaps\n\nThe repository currently has **${all.length}** ${all.length===1?'study':'studies'}. What would you like to explore?`, citations:[], source:'local' };
+  if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|kumusta|magandang)/.test(q)) {
+    return { text:`Hello! 👋 I'm your **SABNAHIS STE Research Assistant**.
+
+I can help you with:
+• 📖 **Define any STEM concept** — photosynthesis, algorithms, DNA replication, etc.
+• 🔍 **Find studies** in the repository by topic or author
+• 📝 **Generate APA 7th edition citations** — both reference list and in-text
+• 📋 **Summarize** research abstracts
+• ⚖️ **Compare** studies or concepts side-by-side
+• 💡 **Suggest** new research topics
+
+The repository has **${all.length}** ${all.length===1?'study':'studies'}. What would you like to explore?`, citations:[], source:'local' };
+  }
+
+  // Definition requests
+  if (/^(what is|what are|define|definition of|meaning of|explain|ano ang|ibig sabihin)/i.test(q)) {
+    const topic = query.replace(/^(what is|what are|define|definition of|meaning of|explain|ano ang|ibig sabihin)\s*/i,'').trim();
+    if (relevant.length) {
+      return { text:`I'll answer from both general knowledge and the repository.
+
+**Definition of "${topic}":**
+This is a STEM concept I can explain. The repository also has relevant studies — see the references below.
+
+*(Switch to Claude AI mode for a full academic definition with examples and applications.)*
+
+**Related studies in repository:**
+${relevant.map((s,i)=>`• **${s.title}** ${generateInText(s)}`).join('\n')}`, citations:relevant, source:'local' };
+    }
+    return { text:`**Definition request: "${topic}"**
+
+I can provide academic definitions for STEM concepts. For the best answer with full explanation and examples, the Claude AI connection is needed.
+
+**In the meantime:**
+• No studies about this specific topic were found in the repository
+• Try the **Define Topic** mode for a structured definition
+• Or ask: *"Define [topic] with examples"*`, citations:[], source:'local' };
   }
 
   // Stats
@@ -630,41 +721,48 @@ function buildLocalResponse(query, all, relevant, mode) {
     const catList=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`• **${c}:** ${n} ${n===1?'study':'studies'}`).join('\n');
     const views=all.reduce((a,s)=>a+(s.viewCount||0),0);
     const dls=all.reduce((a,s)=>a+(s.downloadCount||0),0);
-    return { text:`### Repository Statistics\n\n📚 **${all.length}** total studies\n👁 **${views}** total views\n⬇ **${dls}** total downloads\n\n**Breakdown by category:**\n${catList||'• No studies yet'}`, citations:[], source:'local' };
+    return { text:`### Repository Statistics\n\n📚 **${all.length}** total studies\n👁 **${views}** total views\n⬇ **${dls}** total downloads\n\n**By category:**\n${catList||'• No studies yet'}`, citations:[], source:'local' };
   }
 
   // APA citations
   if (/\b(cite|citation|apa|reference|bibliography|in.text|intext)\b/.test(q)) {
     if (relevant.length) {
-      const list=relevant.map((s,i)=>`**[${i+1}] ${s.title}**\n\n*Full APA Reference:*\n\`${generateAPA(s)}\`\n\n*In-text citation:* ${generateInText(s)}`).join('\n\n---\n\n');
-      const refList='\n\n### References\n'+relevant.map(s=>`${generateAPA(s)}`).join('\n');
-      return { text:`Here are the **APA 7th edition citations** for the most relevant studies:\n\n${list}${refList}`, citations:relevant, source:'local' };
+      const list=relevant.map((s,i)=>`**[${i+1}] ${s.title}**\n*Reference:* \`${generateAPA(s)}\`\n*In-text:* ${generateInText(s)}`).join('\n\n---\n\n');
+      const refList='\n\n### References\n'+relevant.map(s=>generateAPA(s)).join('\n');
+      return { text:`**APA 7th Edition Citations:**\n\n${list}${refList}`, citations:relevant, source:'local' };
     }
-    return { text:`I can generate **APA 7th edition citations** for any study in the repository.\n\nTry:\n• *"APA citation for the biology study"*\n• *"Cite all studies by Juan dela Cruz"*\n• *"References for all chemistry studies"*`, citations:[], source:'local' };
+    return { text:`I can generate **APA 7th edition citations** for any study in the repository.\n\nTry:\n• *"APA citation for the biology study"*\n• *"Cite all studies by [author name]"*\n• *"What is APA format for a journal article?"*`, citations:[], source:'local' };
   }
 
   // List all
   if (/list all|show all|all studies|every study/.test(q)) {
-    if (!all.length) return { text:'The repository is currently empty. Upload the first study using the **Upload Study** button!', citations:[], source:'local' };
+    if (!all.length) return { text:'The repository is currently empty. Be the first to upload a study!', citations:[], source:'local' };
     const list=all.map((s,i)=>`**${i+1}.** ${s.title}\n   — *${(s.authors||[]).join(', ')}* (${s.year}) · ${(s.categories||[]).join(', ')}`).join('\n');
-    return { text:`### All Studies in the Repository (${all.length})\n\n${list}\n\nClick any study card in the **Repository** tab to view full details and citations.`, citations:all.slice(0,3), source:'local' };
+    return { text:`### All Studies (${all.length})\n\n${list}`, citations:all.slice(0,3), source:'local' };
   }
 
   // Compare
   if (/compar|versus|vs\b|difference between|contrast/.test(q)&&relevant.length>=2) {
     const [a,b]=relevant;
-    return { text:`### Comparing Studies\n\n**Study 1:** ${a.title} ${generateInText(a)}\n**Study 2:** ${b.title} ${generateInText(b)}\n\n| Aspect | Study 1 | Study 2 |\n|--------|---------|----------|\n| **Year** | ${a.year} | ${b.year} |\n| **Category** | ${(a.categories||[]).join(', ')} | ${(b.categories||[]).join(', ')} |\n| **Authors** | ${(a.authors||[]).join(', ')} | ${(b.authors||[]).join(', ')} |\n\n*For a more detailed AI-powered comparison, set your Anthropic API key in the settings above.*`, citations:relevant, source:'local' };
+    return { text:`### Comparing Studies\n\n**Study 1:** ${a.title} ${generateInText(a)}\n**Study 2:** ${b.title} ${generateInText(b)}\n\n| Aspect | Study 1 | Study 2 |\n|--------|---------|---------|\n| **Year** | ${a.year} | ${b.year} |\n| **Category** | ${(a.categories||[]).join(', ')} | ${(b.categories||[]).join(', ')} |\n| **Authors** | ${(a.authors||[]).join(', ')} | ${(b.authors||[]).join(', ')} |\n\n*For a detailed AI comparison, the Claude connection is needed.*`, citations:relevant, source:'local' };
   }
 
-  // Relevant results
+  // Relevant results found
   if (relevant.length) {
     const list=relevant.map((s,i)=>`**${i+1}. ${s.title}** ${generateInText(s)}\n👤 *${(s.authors||[]).join(', ')}* · 📅 ${s.year} · 🏷 ${(s.categories||[]).join(', ')}\n${(s.abstract||'').slice(0,200)}${(s.abstract||'').length>200?'...':''}`).join('\n\n');
     const refs='\n\n---\n### References\n'+relevant.map(s=>generateAPA(s)).join('\n');
-    return { text:`Found **${relevant.length}** relevant ${relevant.length===1?'study':'studies'} for "*${query}*":\n\n${list}${refs}`, citations:relevant, source:'local' };
+    return { text:`Found **${relevant.length}** relevant ${relevant.length===1?'study':'studies'}:\n\n${list}${refs}`, citations:relevant, source:'local' };
+  }
+
+  // Off-topic detection (basic)
+  const stemKeywords = ['science','biology','chemistry','physics','math','engineering','technology','research','study','data','experiment','hypothesis','theory','algorithm','robotics','environment','health','genetics','ecology','climate','energy','computer','programming','statistics'];
+  const hasStemContext = stemKeywords.some(k => q.includes(k));
+  if (!hasStemContext && q.length > 10 && !/repository|upload|portal|study|studies/.test(q)) {
+    return { text:`I'm focused on academic and STEM topics. I can help you with:\n• **Definitions** of scientific concepts\n• **APA citations** for studies\n• **Finding** studies in the repository\n• **Explaining** research methodologies\n\nWhat STEM topic or study can I help you with?`, citations:[], source:'local' };
   }
 
   // No results
-  return { text:`I searched the repository for **"${query}"** but found no matching studies.\n\n**Try:**\n• Broader keywords (e.g., "biology" instead of a specific species)\n• Ask *"List all studies"* to browse everything\n• Check the **Repository** tab and filter by category\n• Upload a relevant study if it doesn't exist yet`, citations:[], source:'local' };
+  return { text:`No studies matched **"${query}"** in the repository.\n\n**I can still help:**\n• Ask *"Define ${query}"* for an academic definition\n• Try broader keywords\n• Ask *"List all studies"* to browse everything\n• Use the **Repository** tab to filter by category`, citations:[], source:'local' };
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -936,20 +1034,12 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
           In-text: <code style={{fontFamily:'var(--font-mono)',fontSize:'0.73rem'}}>{generateInText(study)}</code>
         </p>
       </div>
-      {study.file?.driveLink&&(
+      {study.file&&(
         <div className="ds" style={{marginBottom:20}}>
-          <h4>Research File</h4>
+          <h4>Attached File</h4>
           <div style={{display:'flex',alignItems:'center',gap:11,background:'var(--surface)',padding:'11px 14px',borderRadius:'var(--radius)'}}>
-            <span style={{fontSize:'1.6rem'}}>📄</span>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:500,fontSize:'0.875rem'}}>Google Drive Document</div>
-              <div style={{fontSize:'0.73rem',color:'var(--muted)',fontFamily:'var(--font-mono)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:300}}>{study.file.driveLink}</div>
-            </div>
-            <a href={study.file.driveLink} target="_blank" rel="noreferrer"
-              style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 14px',background:'#1a73e8',color:'#fff',borderRadius:'var(--radius)',fontSize:'0.8rem',fontWeight:500,textDecoration:'none',whiteSpace:'nowrap',flexShrink:0}}
-              onClick={()=>API.trackStudy(study.id,'downloadCount')}>
-              <Ico.dl/> Open in Drive
-            </a>
+            <Ico.file/>
+            <div><div style={{fontWeight:500,fontSize:'0.875rem'}}>{study.file.originalName}</div><div style={{fontSize:'0.73rem',color:'var(--muted)'}}>{fmtBytes(study.file.size)}</div></div>
           </div>
         </div>
       )}
@@ -968,42 +1058,32 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  UPLOAD MODAL — uses Google Drive link instead of file upload
+//  UPLOAD MODAL
 // ══════════════════════════════════════════════════════════════════
 function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
-  const [form,setForm]=useState({title:'',authors:'',abstract:'',keywords:'',year:String(new Date().getFullYear()),driveLink:''});
+  const [form,setForm]=useState({title:'',authors:'',abstract:'',keywords:'',year:String(new Date().getFullYear())});
   const [selCats,setSelCats]=useState([]);
+  const [file,setFile]=useState(null);
   const [loading,setLoading]=useState(false);
+  const [drag,setDrag]=useState(false);
+  const fRef=useRef();
   const sf=(k,v)=>setForm(f=>({...f,[k]:v}));
 
-  // Validate and normalise a Google Drive link
-  const parseDriveLink=url=>{
-    if(!url.trim()) return null;
-    // Accept any google drive / docs URL
-    if(url.includes('drive.google.com')||url.includes('docs.google.com')) return url.trim();
-    return null;
+  const handleFile=f=>{
+    if(!f)return;
+    if(!['pdf','doc','docx'].includes(f.name.split('.').pop().toLowerCase())){toast.err('Only PDF, DOC, DOCX allowed');return;}
+    if(f.size>10*1024*1024){toast.err('Max file size is 10 MB');return;}
+    setFile(f);
   };
 
   const submit=async()=>{
-    if(!form.title.trim()){toast.err('Title is required.');return;}
-    if(!form.authors.trim()){toast.err('At least one author is required.');return;}
-    if(!form.abstract.trim()){toast.err('Abstract is required.');return;}
-    if(!selCats.length){toast.err('Please select at least one category.');return;}
-
-    let driveUrl=null;
-    if(form.driveLink.trim()){
-      driveUrl=parseDriveLink(form.driveLink);
-      if(!driveUrl){toast.err('Please enter a valid Google Drive link.');return;}
-    }
-
     setLoading(true);
     try{
       const authors=form.authors.split(',').map(a=>a.trim()).filter(Boolean);
       const keywords=form.keywords.split(',').map(k=>k.trim()).filter(Boolean);
-      const fileData=driveUrl?{driveLink:driveUrl}:null;
-      await API.createStudy({title:form.title,authors,abstract:form.abstract,keywords,categories:selCats,year:form.year,file:fileData,uploadedBy:currentUser.id,uploadedByName:currentUser.name});
-      toast.ok('Study submitted successfully!');onUpload();onClose();
-    }catch(e){toast.err(e.message||'Failed to save. Please try again.');}
+      await API.createStudy({title:form.title,authors,abstract:form.abstract,keywords,categories:selCats,year:form.year,file:file?{originalName:file.name,size:file.size}:null,uploadedBy:currentUser.id,uploadedByName:currentUser.name});
+      toast.ok('Study uploaded successfully!');onUpload();onClose();
+    }catch(e){toast.err(e.message);}
     setLoading(false);
   };
 
@@ -1018,24 +1098,15 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
         <div className="fg"><label>Keywords <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></label><input placeholder="e.g. robotics, AI, biology" value={form.keywords} onChange={e=>sf('keywords',e.target.value)}/></div>
       </div>
       <div className="fg">
-        <label>Google Drive Link <span style={{fontWeight:300,color:'var(--muted)'}}>(optional)</span></label>
-        <input
-          placeholder="https://drive.google.com/file/d/..."
-          value={form.driveLink}
-          onChange={e=>sf('driveLink',e.target.value)}
-          style={{fontFamily:'var(--font-mono)',fontSize:'0.82rem'}}
-        />
-        <div style={{marginTop:7,background:'var(--blue-light)',borderRadius:'var(--radius)',padding:'9px 12px',fontSize:'0.78rem',color:'var(--blue)'}}>
-          <strong>How to get a Google Drive link:</strong><br/>
-          1. Upload your PDF to Google Drive<br/>
-          2. Right-click the file → <strong>Share</strong> → <strong>Copy link</strong><br/>
-          3. Make sure access is set to <strong>"Anyone with the link"</strong><br/>
-          4. Paste the link above
+        <label>File Upload <span style={{fontWeight:300,color:'var(--muted)'}}>(PDF, DOC, DOCX — max 10 MB)</span></label>
+        <div className={`uz ${drag?'drag':''} ${file?'has':''}`} onClick={()=>fRef.current?.click()} onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);handleFile(e.dataTransfer.files[0]);}}>
+          <input ref={fRef} type="file" accept=".pdf,.doc,.docx" onChange={e=>handleFile(e.target.files[0])}/>
+          {file?(<><div style={{color:'var(--green)',fontSize:'1.5rem',marginBottom:3}}>✓</div><strong style={{color:'var(--green)'}}>{file.name}</strong><p style={{fontFamily:'var(--font-mono)',fontSize:'0.73rem',color:'var(--teal)',marginTop:6}}>{fmtBytes(file.size)}</p></>):(<><div style={{marginBottom:7,color:'var(--muted)',fontSize:'1.5rem'}}>📄</div><strong>Drag & drop or click to browse</strong><p>PDF, DOC, or DOCX · Max 10 MB</p></>)}
         </div>
       </div>
-      <div style={{display:'flex',gap:9,justifyContent:'flex-end',marginTop:6}}>
-        <button className="btn btn-ol" onClick={onClose} disabled={loading}>Cancel</button>
-        <button className="btn btn-gold" onClick={submit} disabled={loading}>{loading?<><span className="spin spin-dark"/>Saving…</>:<><Ico.up/> Submit Study</>}</button>
+      <div style={{display:'flex',gap:9,justifyContent:'flex-end'}}>
+        <button className="btn btn-ol" onClick={onClose}>Cancel</button>
+        <button className="btn btn-gold" onClick={submit} disabled={loading}>{loading?<><span className="spin spin-dark"/>Uploading…</>:<><Ico.up/> Upload Study</>}</button>
       </div>
     </Modal>
   );
@@ -1113,12 +1184,13 @@ function StudiesPage({ currentUser }) {
 //  ADVANCED AI CHAT PAGE
 // ══════════════════════════════════════════════════════════════════
 const QUICK_PROMPTS = {
-  general:   ['What is this repository about?','Show me recent studies','What STEM topics are covered?','Which studies have the most views?'],
-  find:      ['Find studies about climate change','Show all Biology studies','Studies from 2024','Research about AI or machine learning'],
-  cite:      ['APA citation for all studies','Cite the most recent study','Generate a full reference list','In-text citation format examples'],
-  compare:   ['Compare the two most recent studies','What are differences between Biology and Chemistry studies?','Which study is most comprehensive?'],
+  general:   ['What is photosynthesis?','Define the scientific method','What is a hypothesis?','Show me all studies in the repository'],
+  find:      ['Find studies about robotics','Show all Life Science studies','Studies from 2025','Research about algorithms or AI'],
+  cite:      ['APA citation for all studies','Cite the most recent study','Generate a full reference list','How do I cite a journal article in APA?'],
+  define:    ['Define algorithm','What is natural selection?','Explain the water cycle','What is a control variable in an experiment?'],
+  compare:   ['Compare the two most recent studies','Difference between hypothesis and theory','Compare Biology and Chemistry studies'],
   summarize: ['Summarize all studies in one paragraph','Key findings from the repository','What are the main research themes?'],
-  suggest:   ['Suggest new research topics based on gaps','What topics are underrepresented?','Ideas for follow-up studies','Research questions based on existing studies'],
+  suggest:   ['Suggest new research topics based on gaps','What topics are underrepresented?','Ideas for follow-up studies'],
 };
 
 function ChatPage({ currentUser }) {
@@ -1148,7 +1220,7 @@ function ChatPage({ currentUser }) {
       });
       setMsgs([{
         id:1,role:'bot',citations:[],time:now(),
-        text:`Hello! 👋 I'm your **SABNAHIS STE Research Portal** AI assistant.\n\nI have **${s.length}** ${s.length===1?'study':'studies'} loaded and ready to search. Use the **mode buttons** below to focus my capabilities:\n\n• 💬 **General Q&A** — Ask anything about the research\n• 🔍 **Find Studies** — Search by topic, author, keyword\n• 📝 **APA Citations** — Generate properly formatted citations\n• ⚖️ **Compare** — Side-by-side study comparisons\n• 📋 **Summarize** — Get concise summaries\n• 💡 **Suggest Topics** — Discover research gaps\n\nWhat would you like to explore?`
+        text:`Hello! 👋 I'm your **SABNAHIS STE Research Assistant** — powered by Claude AI.\n\nI can help you with **two types of questions**:\n\n**📚 Repository Questions:**\n• Find, summarize, or compare studies\n• Generate APA 7th edition citations\n• Suggest research topics\n\n**📖 Academic Knowledge Questions:**\n• *"What is photosynthesis?"*\n• *"Define algorithm"*\n• *"Explain the scientific method"*\n• *"What is APA format for a book?"*\n\nI have **${s.length}** ${s.length===1?'study':'studies'} in the repository. Use the **mode buttons** below to focus, or just ask me anything STEM-related!`
       }]);
     });
   },[]);
@@ -1175,9 +1247,40 @@ function ChatPage({ currentUser }) {
 
   const copyMsg=text=>navigator.clipboard?.writeText(text).then(()=>toast.ok('Copied to clipboard!'));
 
+  const [savedCites,setSavedCites]=useState([]);
+  const [showSaved,setShowSaved]=useState(false);
+
   const clearChat=()=>{
     setMsgs([{id:Date.now(),role:'bot',citations:[],time:now(),text:`Chat cleared. ${studies.length} studies loaded. Mode: **${AI_MODES[mode]?.label}**. Ask me anything!`}]);
     setHistory([]);
+  };
+
+  const exportChat=()=>{
+    const text=msgs.map(m=>`[${m.time}] ${m.role==='bot'?'AI':'You'}: ${m.text}`).join('\n\n');
+    const blob=new Blob([text],{type:'text/plain'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`sabnahis-chat-${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    toast.ok('Chat exported!');
+  };
+
+  const saveCitation=(study)=>{
+    const apa=generateAPA(study);
+    if(savedCites.includes(apa)){toast.info('Already saved!');return;}
+    setSavedCites(c=>[...c,apa]);
+    toast.ok('Citation saved!');
+  };
+
+  const exportCitations=()=>{
+    if(!savedCites.length){toast.err('No saved citations yet.');return;}
+    const text='References\n\n'+savedCites.join('\n');
+    const blob=new Blob([text],{type:'text/plain'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`references-${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    toast.ok('Citations exported!');
   };
 
   return (
@@ -1185,13 +1288,32 @@ function ChatPage({ currentUser }) {
       <div className="page-hd">
         <div className="page-hd-left">
           <h2 style={{fontFamily:'var(--font-display)',fontSize:'1.25rem',fontWeight:600}}>AI Research Assistant</h2>
-          <p className="muted">Claude-powered · {studies.length} studies loaded · APA citations · Multi-mode</p>
+          <p className="muted" style={{fontSize:'0.78rem'}}>Claude AI · {studies.length} studies · APA citations</p>
         </div>
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <span style={{background:'var(--green-light)',color:'var(--green)',fontSize:'0.73rem',fontWeight:500,padding:'4px 10px',borderRadius:99,display:'flex',alignItems:'center',gap:4}}>● Claude AI</span>
+        <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+          <span style={{background:'var(--green-light)',color:'var(--green)',fontSize:'0.7rem',fontWeight:500,padding:'3px 8px',borderRadius:99,display:'flex',alignItems:'center',gap:4}}>● Claude AI</span>
+          {savedCites.length>0&&<button className="chat-export-btn" onClick={()=>setShowSaved(s=>!s)}>📝 {savedCites.length} saved</button>}
+          <button className="chat-export-btn" onClick={exportChat}>⬇ Export chat</button>
           <button className="btn btn-ol btn-sm" onClick={clearChat}>Clear</button>
         </div>
       </div>
+      {showSaved&&savedCites.length>0&&(
+        <div className="card" style={{marginBottom:14,borderLeft:'3px solid var(--gold)'}}>
+          <div className="card-hd" style={{marginBottom:10}}>
+            <span className="card-title" style={{fontSize:'0.875rem'}}>📝 Saved Citations ({savedCites.length})</span>
+            <div style={{display:'flex',gap:6}}>
+              <button className="btn btn-grn btn-sm" onClick={exportCitations}>⬇ Export .txt</button>
+              <button className="btn btn-ol btn-sm" onClick={()=>{setSavedCites([]);setShowSaved(false);}}>Clear all</button>
+            </div>
+          </div>
+          {savedCites.map((c,i)=>(
+            <div key={i} style={{fontFamily:'var(--font-mono)',fontSize:'0.73rem',color:'var(--ink-3)',padding:'6px 10px',background:'var(--surface)',borderRadius:6,marginBottom:5,borderLeft:'2px solid var(--gold)',display:'flex',alignItems:'flex-start',gap:8}}>
+              <span style={{flex:1,lineHeight:1.5}}>{c}</span>
+              <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',flexShrink:0,fontSize:'0.75rem'}} onClick={()=>{navigator.clipboard?.writeText(c);toast.ok('Copied!');}}>Copy</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="chat-layout">
         {/* Main chat */}
@@ -1220,8 +1342,9 @@ function ChatPage({ currentUser }) {
                       <div className="chat-refs">
                         <div className="chat-ref-lbl">📚 Referenced Studies ({msg.citations.length})</div>
                         {msg.citations.map((s,i)=>(
-                          <div key={i} className="chat-ref" title="Click to copy APA citation" onClick={()=>{navigator.clipboard?.writeText(generateAPA(s));toast.ok('APA citation copied!');}}>
-                            [{i+1}] {generateAPA(s)}
+                          <div key={i} className="chat-ref" style={{display:'flex',alignItems:'flex-start',gap:6}}>
+                            <span style={{flex:1,cursor:'pointer'}} title="Click to copy" onClick={()=>{navigator.clipboard?.writeText(generateAPA(s));toast.ok('APA citation copied!');}}>[{i+1}] {generateAPA(s)}</span>
+                            <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontSize:'0.65rem',fontWeight:600,flexShrink:0,whiteSpace:'nowrap'}} onClick={()=>saveCitation(s)}>Save</button>
                           </div>
                         ))}
                       </div>
@@ -1253,22 +1376,24 @@ function ChatPage({ currentUser }) {
               <textarea
                 ref={inputRef}
                 className="chat-in"
-                placeholder={`${AI_MODES[mode]?.icon} ${AI_MODES[mode]?.desc}… (Enter to send, Shift+Enter for new line)`}
+                placeholder={`${AI_MODES[mode]?.icon} ${AI_MODES[mode]?.desc}…`}
                 value={input}
                 onChange={e=>setInput(e.target.value)}
                 onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}}
                 rows={1}
+                maxLength={1000}
               />
-              <button className="btn btn-pur" onClick={()=>send()} disabled={loading||!input.trim()} style={{alignSelf:'flex-end',gap:6}}>
-                {loading?<span className="spin"/>:<Ico.send/>} Send
+              <button className="btn btn-pur" onClick={()=>send()} disabled={loading||!input.trim()} style={{alignSelf:'flex-end',padding:'9px 14px'}}>
+                {loading?<span className="spin"/>:<Ico.send/>}
               </button>
             </div>
-            {/* Quick action buttons */}
-            <div className="chat-actions">
-              <span style={{fontSize:'0.7rem',color:'var(--muted)',marginRight:2}}>Quick:</span>
-              {(QUICK_PROMPTS[mode]||[]).map(q=>(
-                <button key={q} className="chat-action-btn" onClick={()=>send(q)}><Ico.spark/>{q}</button>
-              ))}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:6}}>
+              <div className="chat-actions" style={{flex:1}}>
+                {(QUICK_PROMPTS[mode]||[]).slice(0,3).map(q=>(
+                  <button key={q} className="chat-action-btn" onClick={()=>send(q)}><Ico.spark/>{q}</button>
+                ))}
+              </div>
+              {input.length>0&&<span style={{fontSize:'0.65rem',color:'var(--muted)',flexShrink:0,marginLeft:8}}>{input.length}/1000</span>}
             </div>
           </div>
         </div>
@@ -1330,12 +1455,12 @@ function StudentDash({ currentUser }) {
 
   const load=async()=>{
     setLoading(true);
-    const [res, catsArr, total]=await Promise.all([
-      API.getStudies({uploadedBy:currentUser.id, status:'active', perPage:100}),
+    const [res,catsArr,allRes]=await Promise.all([
+      API.getStudies({uploadedBy:currentUser.id,status:'active',perPage:100}),
       API.getCategories(),
-      API.countStudies()
+      API.getStudies({perPage:1})
     ]);
-    setMyStudies(res.data); setCats(catsArr); setAllTotal(total);
+    setMyStudies(res.data);setCats(catsArr);setAllTotal(allRes.total);
     setLoading(false);
   };
 
@@ -1550,7 +1675,7 @@ function AdminCats() {
 // ══════════════════════════════════════════════════════════════════
 //  SIDEBAR
 // ══════════════════════════════════════════════════════════════════
-function Sidebar({ currentUser, activeTab, setActiveTab, onLogout, pendingCount=0 }) {
+function Sidebar({ currentUser, activeTab, setActiveTab, onLogout, pendingCount=0, isOpen, onClose }) {
   const isAdmin=currentUser.role==='admin';
   const adminNav=[
     {id:'dashboard',label:'Dashboard',icon:<Ico.home/>},
@@ -1565,33 +1690,41 @@ function Sidebar({ currentUser, activeTab, setActiveTab, onLogout, pendingCount=
     {id:'repository',label:'Browse Studies',icon:<Ico.book/>},
     {id:'chatbot',label:'AI Assistant',icon:<Ico.bot/>},
   ];
+  const nav = isAdmin ? adminNav : studentNav;
+  const handleNav = id => { setActiveTab(id); onClose?.(); };
   return (
-    <nav className="sidebar">
-      <div className="sidebar-logo">
-        <h1>SABNAHIS <span>STE Research Portal</span></h1>
-        <p>Institutional Research Repository</p>
-      </div>
-      <div className="sidebar-nav">
-        <div className="nav-label">{isAdmin?'Administration':'Navigation'}</div>
-        {(isAdmin?adminNav:studentNav).map(item=>(
-          <button key={item.id} className={`nav-item ${activeTab===item.id?'active':''}`} onClick={()=>setActiveTab(item.id)}>
-            {item.icon}{item.label}{item.badge&&<span className="nav-badge">{item.badge}</span>}
-          </button>
-        ))}
-      </div>
-      <div className="sidebar-footer">
-        <div className="user-chip">
-          <div className="avatar">{initials(currentUser.name)}</div>
-          <div className="user-info"><strong>{currentUser.name}</strong><span>{currentUser.role}</span></div>
+    <>
+      <div className={`mob-overlay ${isOpen?'show':''}`} onClick={onClose}/>
+      <nav className={`sidebar ${isOpen?'open':''}`}>
+        <div className="sidebar-logo" style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
+          <div>
+            <h1>SABNAHIS <span>STE Research Portal</span></h1>
+            <p>Institutional Research Repository</p>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,0.4)',cursor:'pointer',padding:'4px',marginTop:2,display:'none'}} className="sidebar-close-btn"><Ico.X/></button>
         </div>
-        <button style={{width:'100%',textAlign:'center',marginTop:8,padding:'7px',borderRadius:6,background:'none',border:'none',color:'rgba(255,255,255,0.38)',cursor:'pointer',fontSize:'0.78rem',transition:'color .2s'}} onMouseEnter={e=>e.target.style.color='rgba(255,255,255,0.7)'} onMouseLeave={e=>e.target.style.color='rgba(255,255,255,0.38)'} onClick={onLogout}>Sign Out</button>
-      </div>
-    </nav>
+        <div className="sidebar-nav">
+          <div className="nav-label">{isAdmin?'Administration':'Navigation'}</div>
+          {nav.map(item=>(
+            <button key={item.id} className={`nav-item ${activeTab===item.id?'active':''}`} onClick={()=>handleNav(item.id)}>
+              {item.icon}{item.label}{item.badge&&<span className="nav-badge">{item.badge}</span>}
+            </button>
+          ))}
+        </div>
+        <div className="sidebar-footer">
+          <div className="user-chip">
+            <div className="avatar">{initials(currentUser.name)}</div>
+            <div className="user-info"><strong>{currentUser.name}</strong><span>{currentUser.role}</span></div>
+          </div>
+          <button style={{width:'100%',textAlign:'center',marginTop:8,padding:'7px',borderRadius:6,background:'none',border:'none',color:'rgba(255,255,255,0.38)',cursor:'pointer',fontSize:'0.78rem',transition:'color .2s'}} onMouseEnter={e=>e.target.style.color='rgba(255,255,255,0.7)'} onMouseLeave={e=>e.target.style.color='rgba(255,255,255,0.38)'} onClick={onLogout}>Sign Out</button>
+        </div>
+      </nav>
+    </>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  ROOT APP
+//  ROOT APP  — hooks are NEVER called conditionally
 // ══════════════════════════════════════════════════════════════════
 function App() {
   const [currentUser,setCurrentUser]=useState(null);
@@ -1599,13 +1732,13 @@ function App() {
   const [activeTab,setActiveTab]=useState('dashboard');
   const [pendingCount,setPendingCount]=useState(0);
   const [initError,setInitError]=useState('');
+  const [sidebarOpen,setSidebarOpen]=useState(false);
 
+  // Auth listener — runs unconditionally, always
   useEffect(()=>{
     let unsub=()=>{};
     try{
       unsub=auth.onAuthStateChanged(async fbUser=>{
-        // If login() is handling this sign-in, skip — it will call onLogin directly.
-        if(_loginInProgress){ return; }
         if(fbUser){
           try{
             const profile=await API.getProfile(fbUser.uid);
@@ -1615,17 +1748,12 @@ function App() {
                 API.getUsers({role:'student',status:'pending'}).then(p=>setPendingCount(p.length)).catch(()=>{});
               }
             } else {
-              // Pending/rejected user is still Firebase-authed — sign them out silently
               await auth.signOut().catch(()=>{});
-              setCurrentUser(null);
             }
           }catch(e){
             console.error('Profile load error:',e);
             await auth.signOut().catch(()=>{});
-            setCurrentUser(null);
           }
-        } else {
-          setCurrentUser(null);
         }
         setAuthChecked(true);
       },err=>{
@@ -1672,9 +1800,7 @@ function App() {
     return (
       <ToastProvider>
         <AuthPage onLogin={user=>{
-          _loginInProgress=false;   // login complete, reset flag
           setCurrentUser(user);
-          setAuthChecked(true);
           if(user.role==='admin') API.getUsers({role:'student',status:'pending'}).then(p=>setPendingCount(p.length)).catch(()=>{});
         }}/>
       </ToastProvider>
@@ -1695,18 +1821,46 @@ function App() {
     }
   };
 
+  const mobNav = isAdmin
+    ? [{id:'dashboard',label:'Home',icon:<Ico.home/>},{id:'repository',label:'Studies',icon:<Ico.book/>},{id:'chatbot',label:'AI Chat',icon:<Ico.bot/>},{id:'users',label:'Users',icon:<Ico.users/>}]
+    : [{id:'dashboard',label:'Home',icon:<Ico.home/>},{id:'repository',label:'Studies',icon:<Ico.book/>},{id:'chatbot',label:'AI Chat',icon:<Ico.bot/>}];
+
   return (
     <ToastProvider>
       <div className="app-shell">
-        <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} pendingCount={pendingCount}
+        <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={id=>{setActiveTab(id);setSidebarOpen(false);}} pendingCount={pendingCount} isOpen={sidebarOpen} onClose={()=>setSidebarOpen(false)}
           onLogout={async()=>{await API.logout();setCurrentUser(null);setActiveTab('dashboard');}}/>
         <div className="main-content">
+          {/* Desktop topbar */}
           <div className="topbar">
             <span className="topbar-title">{titles[activeTab]||'Dashboard'}</span>
             <span className={`badge ${isAdmin?'badge-admin':'badge-appr'}`}>{isAdmin?'⚙ Admin':'🎓 Student'}</span>
           </div>
+          {/* Mobile header */}
+          <div className="mob-header">
+            <button className="mob-menu-btn" onClick={()=>setSidebarOpen(o=>!o)}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="22" height="22"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <span className="mob-header-title">SABNAHIS STE</span>
+            <span className={`badge ${isAdmin?'badge-admin':'badge-appr'}`} style={{fontSize:'0.65rem'}}>{isAdmin?'⚙ Admin':'🎓 Student'}</span>
+          </div>
           <div className="page">{renderPage()}</div>
         </div>
+        {/* Mobile bottom navigation */}
+        <nav className="mob-nav">
+          <div className="mob-nav-inner">
+            {mobNav.map(item=>(
+              <button key={item.id} className={`mob-nav-btn ${activeTab===item.id?'active':''}`} onClick={()=>setActiveTab(item.id)}>
+                {item.icon}<span>{item.label}</span>
+              </button>
+            ))}
+            {isAdmin&&<button className={`mob-nav-btn ${activeTab==='studies-admin'?'active':''}`} onClick={()=>setActiveTab('studies-admin')}><Ico.book/><span>Manage</span></button>}
+            <button className="mob-nav-btn" onClick={()=>setSidebarOpen(o=>!o)}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+              <span>More</span>
+            </button>
+          </div>
+        </nav>
       </div>
     </ToastProvider>
   );
