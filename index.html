@@ -1510,11 +1510,11 @@ const API = {
     } catch { return []; }
   },
 
-  async createStudy({ title, authors, abstract, keywords, categories, year, gdrive, uploadedBy, uploadedByName }) {
+  async createStudy({ title, authors, abstract, keywords, categories, year, gdrive, file, uploadedBy, uploadedByName }) {
     if (!title||!abstract)   throw new Error('Title and abstract are required.');
     if (!authors?.length)    throw new Error('At least one author is required.');
     if (!categories?.length) throw new Error('At least one category is required.');
-    await db.collection('studies').add({
+    await db.collection('studies').add({   
       title:title.trim(), authors, abstract:abstract.trim(),
       keywords:keywords||[], categories,
       year:parseInt(year)||new Date().getFullYear(),
@@ -2309,16 +2309,15 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
         <div style={{fontSize:'0.72rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.8px',color:'var(--muted)',marginBottom:7}}>APA Citation</div>
         <APABox study={study}/>
       </div>
-      {study.file&&study.file.driveUrl&&(
+      {study.gdrive && study.gdrive.driveUrl && (
         <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--teal-light)',border:'1.5px solid var(--teal)',borderRadius:'var(--radius)',marginBottom:16}}>
-          <svg viewBox="0 0 87.3 78" width="22" height="22" xmlns="http://www.w3.org/2000/svg" style={{flexShrink:0}}><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.6c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00ac47"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 11.5z" fill="#ea4335"/><path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.1.45-4.5 1.2z" fill="#00832d"/><path d="M59.8 53.1H27.5L13.75 76.9c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.1-.45 4.5-1.2z" fill="#2684fc"/><path d="M73.4 26.6l-12.6-21.9C59.9 3.2 58.75 2.1 57.4 1.3L43.65 25l16.15 28.1h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontWeight:600,fontSize:'0.875rem',color:'var(--teal)'}}>Google Drive File</div>
-            <div style={{fontSize:'0.73rem',color:'var(--teal)',opacity:0.8,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{study.file.driveUrl}</div>
-          </div>
-          <a href={study.file.driveUrl} target="_blank" rel="noopener noreferrer" onClick={handleDL} className="btn btn-teal btn-sm" style={{textDecoration:'none'}}><Ico.eye/> Open</a>
-          {study.file.downloadUrl&&<a href={study.file.downloadUrl} target="_blank" rel="noopener noreferrer" onClick={handleDL} className="btn btn-ol btn-sm" style={{textDecoration:'none'}}><Ico.dl/> Download</a>}
+           {/* Google Drive SVG icon here */}
+           <div style={{fontWeight:600,fontSize:'0.875rem',color:'var(--teal)'}}>Google Drive File</div>
+           <div style={{fontSize:'0.73rem',color:'var(--teal)',opacity:0.8,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{study.gdrive.driveUrl}</div>
         </div>
+         <a href={study.gdrive.driveUrl} target="_blank" rel="noopener noreferrer" onClick={handleDL} className="btn btn-teal btn-sm" style={{textDecoration:'none'}}><Ico.eye/> Open</a>
+         {study.gdrive.downloadUrl && <a href={study.gdrive.downloadUrl} target="_blank" rel="noopener noreferrer" onClick={handleDL} className="btn btn-ol btn-sm" style={{textDecoration:'none'}}><Ico.dl/> Download</a>}
+         </div>
       )}
       {study.uploadedByName&&(
         <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--surface)',borderRadius:'var(--radius)',marginBottom:16}}>
