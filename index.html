@@ -488,10 +488,11 @@ a { color: inherit; }
 .auth-wrap {
   min-height: 100vh;
   display: flex;
-  background: var(--ink);
+  background: var(--sidebar-bg);
   position: relative;
   overflow: hidden;
   padding-top: var(--safe-top);
+  transition: background 0.25s ease;
 }
 .auth-bg {
   position: absolute; inset: 0;
@@ -514,11 +515,11 @@ a { color: inherit; }
 .auth-brand h1 {
   font-family: var(--font-display);
   font-size: clamp(1.6rem,5vw,2rem);
-  font-weight: 700; color: #fff;
+  font-weight: 700; color: var(--sidebar-text-strong);
   letter-spacing: -1px; line-height: 1.2;
 }
 .auth-brand h1 span { color: var(--gold); display: block; font-size: clamp(1rem,3vw,1.3rem); margin-top: 4px; }
-.auth-brand p { color: rgba(255,255,255,0.42); margin-top: 8px; font-size: var(--text-sm); }
+.auth-brand p { color: var(--sidebar-text-sub); margin-top: 8px; font-size: var(--text-sm); }
 
 .auth-card {
   background: var(--white);
@@ -2204,6 +2205,7 @@ function ForgotModal({ onClose }) {
 //  AUTH PAGE
 // ══════════════════════════════════════════════════════════════════
 function AuthPage({ onLogin }) {
+  const [theme,toggleTheme]=useTheme();
   const [tab,setTab]=useState('login');
   const [loading,setLoading]=useState(false);
   const [form,setForm]=useState({name:'',email:'',password:'',confirm:'',institution:'',department:'',secQ:SEC_QS[0],secA:''});
@@ -2231,6 +2233,10 @@ function AuthPage({ onLogin }) {
   return (
     <div className="auth-wrap">
       <div className="auth-bg"/>
+      <div style={{position:'absolute',top:16,right:16,display:'flex',gap:4,zIndex:10}}>
+        <button className="theme-toggle" onClick={()=>theme!=='light'&&toggleTheme()} style={theme==='light'?{background:'rgba(201,162,39,0.22)',color:'var(--gold-light)',border:'1px solid rgba(201,162,39,0.4)'}:{}} aria-pressed={theme==='light'}>☀ Light</button>
+        <button className="theme-toggle" onClick={()=>theme!=='dark'&&toggleTheme()} style={theme==='dark'?{background:'rgba(201,162,39,0.22)',color:'var(--gold-light)',border:'1px solid rgba(201,162,39,0.4)'}:{}} aria-pressed={theme==='dark'}>☾ Dark</button>
+      </div>
       <div className="auth-inner">
         <div className="auth-brand">
           <SchoolLogoZone context="login"/>
