@@ -1442,20 +1442,15 @@ const API = {
     if (!name||!email||!password) throw new Error('Name, email and password are required.');
     if (password.length < 8)       throw new Error('Password must be at least 8 characters.');
     if (!secA?.trim())             throw new Error('Security answer is required.');
-    window._registering = true;
-    try {
-      const cred = await auth.createUserWithEmailAndPassword(email.trim(), password);
-      await db.collection('users').doc(cred.user.uid).set({
-        name: name.trim(), email: email.toLowerCase(),
-        role: 'student', status: 'pending',
-        institution: institution?.trim()||'', department: department?.trim()||'',
-        secQ: secQ||SEC_QS[0], secA: secA.trim().toLowerCase(),
-        uploadCount: 0, createdAt: new Date().toISOString()
-      });
-      await auth.signOut();
-    } finally {
-      window._registering = false;
-    }
+    const cred = await auth.createUserWithEmailAndPassword(email.trim(), password);
+    await db.collection('users').doc(cred.user.uid).set({
+      name: name.trim(), email: email.toLowerCase(),
+      role: 'student', status: 'pending',
+      institution: institution?.trim()||'', department: department?.trim()||'',
+      secQ: secQ||SEC_QS[0], secA: secA.trim().toLowerCase(),
+      uploadCount: 0, createdAt: new Date().toISOString()
+    });
+    await auth.signOut();
   },
 
   async login(email, password) {
@@ -3242,7 +3237,6 @@ function App() {
     let unsub=()=>{};
     try{
       unsub=auth.onAuthStateChanged(async fbUser=>{
-        if(window._registering){setAuthChecked(true);return;}
         if(fbUser){
           try{
             const profile=await API.getProfile(fbUser.uid);
