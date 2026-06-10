@@ -8,8 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <title>SABNAHIS STE Research Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
-<noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/></noscript>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 /* ══════════════════════════════════════════
    DESIGN TOKENS
@@ -230,6 +229,22 @@
    RESET & BASE
 ══════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Block all text selection and copy-paste site-wide */
+html, body, * {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Allow selection ONLY in form inputs and the APA citation box */
+input, textarea, .apa-box {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
 
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 
@@ -1349,6 +1364,36 @@ tr:hover td { background: var(--surface); }
 </head>
 <body>
 <div id="root"></div>
+<script>
+// Block right-click context menu everywhere except inputs and APA citation box
+document.addEventListener('contextmenu', function(e) {
+  var t = e.target;
+  var allowed = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || (t.closest && t.closest('.apa-box'));
+  if (!allowed) e.preventDefault();
+});
+
+// Block copy event everywhere except inputs and APA citation box
+document.addEventListener('copy', function(e) {
+  var s = window.getSelection();
+  if (!s || s.rangeCount === 0) return;
+  var n = s.getRangeAt(0).commonAncestorContainer;
+  var el = n.nodeType === 3 ? n.parentElement : n;
+  if (el && el.closest && el.closest('.apa-box')) return;
+  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+  e.preventDefault();
+  if (e.clipboardData) e.clipboardData.setData('text/plain', '');
+});
+
+// Block Ctrl+C, Ctrl+A, Ctrl+P keyboard shortcuts except in inputs/apa-box
+document.addEventListener('keydown', function(e) {
+  var isShortcut = (e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'a' || e.key === 'p');
+  if (!isShortcut) return;
+  var t = document.activeElement;
+  var allowed = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || (t.closest && t.closest('.apa-box')));
+  if (!allowed) e.preventDefault();
+});
+</script>
+
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -1496,13 +1541,14 @@ const API = {
     } catch { return null; }
   },
 
-  async getStudies({ search='', category='', uploadedBy='', status='active', page=1, perPage=6 }={}) {
+  async getStudies({ search='', category='', year='', uploadedBy='', status='active', page=1, perPage=6 }={}) {
     try {
       const snap = await db.collection('studies').orderBy('createdAt','desc').get();
       let items = snap.docs.map(d=>({id:d.id,...d.data()}));
       if (status)     items = items.filter(s=>s.status===status);
       if (uploadedBy) items = items.filter(s=>s.uploadedBy===uploadedBy);
       if (category)   items = items.filter(s=>(s.categories||[]).includes(category));
+      if (year)       items = items.filter(s=>String(s.year)===String(year));
       if (search) {
         const q = search.toLowerCase();
         items = items.filter(s=>[s.title,...(s.authors||[]),s.abstract||'',...(s.keywords||[])].join(' ').toLowerCase().includes(q));
@@ -1538,8 +1584,34 @@ const API = {
 
   async deleteStudy(id) { await db.collection('studies').doc(id).delete(); },
 
-  async trackStudy(id, field) {
-    try { await db.collection('studies').doc(id).update({ [field]: firebase.firestore.FieldValue.increment(1) }); } catch {}
+  async trackStudy(id, field, user) {
+    try {
+      await db.collection('studies').doc(id).update({ [field]: firebase.firestore.FieldValue.increment(1) });
+      if (user) {
+        const logType = field === 'viewCount' ? 'views' : 'downloads';
+        await db.collection('studies').doc(id).collection(logType).add({
+          userId: user.id,
+          userName: user.name,
+          userEmail: user.email,
+          institution: user.institution || '',
+          department: user.department || '',
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch(e) { console.error('trackStudy error:', e); }
+  },
+
+  async getStudyLogs(id) {
+    try {
+      const [vSnap, dSnap] = await Promise.all([
+        db.collection('studies').doc(id).collection('views').orderBy('timestamp','desc').get(),
+        db.collection('studies').doc(id).collection('downloads').orderBy('timestamp','desc').get()
+      ]);
+      return {
+        views: vSnap.docs.map(d => d.data()),
+        downloads: dSnap.docs.map(d => d.data())
+      };
+    } catch { return { views: [], downloads: [] }; }
   },
 
   async getUsers({ role='student', status='', search='' }={}) {
@@ -2117,6 +2189,7 @@ const Ico = {
   spark:  ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>,
   bulb:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 1 7 7 7 7 0 0 1-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26A7 7 0 0 1 5 9a7 7 0 0 1 7-7z"/></svg>,
   menu:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="22" height="22"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
+  award:  ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>,
 };
 
 // ══════════════════════════════════════════════════════════════════
@@ -2217,6 +2290,7 @@ function ForgotModal({ onClose }) {
 function AuthPage({ onLogin }) {
   const [theme,toggleTheme]=useTheme();
   const [tab,setTab]=useState('login');
+  const [rememberMe,setRememberMe]=useState(true);
   const [loading,setLoading]=useState(false);
   const [form,setForm]=useState({name:'',email:'',password:'',confirm:'',institution:'',department:'',secQ:SEC_QS[0],secA:''});
   const [err,setErr]=useState('');
@@ -2293,7 +2367,7 @@ function AuthPage({ onLogin }) {
 // ══════════════════════════════════════════════════════════════════
 function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
   const canDel = currentUser.role==='admin';
-  const handleDL = () => { API.trackStudy(study.id,'downloadCount'); toast.ok('Download tracked!'); };
+  const handleDL = () => { API.trackStudy(study.id,'downloadCount',currentUser); toast.ok('Download tracked!'); };
   const gdriveData = study.gdrive || study.file || null;
   const gdriveUrl = gdriveData ? (gdriveData.driveUrl || gdriveData.viewUrl || null) : null;
   const gdriveDownload = gdriveData ? (gdriveData.downloadUrl || null) : null;
@@ -2403,11 +2477,23 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
     <Modal title="Upload Research Study" onClose={onClose} wide>
       <div className="fg"><label>Title *</label><input placeholder="Full title of your research study" value={form.title} onChange={e=>sf('title',e.target.value)}/></div>
       <div className="fg"><label>Author(s) * <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></label><input placeholder="Juan dela Cruz, Maria Santos" value={form.authors} onChange={e=>sf('authors',e.target.value)}/></div>
-      <div className="fg"><label>Abstract / Description *</label><textarea placeholder="Concise summary of your research…" value={form.abstract} onChange={e=>sf('abstract',e.target.value)} style={{minHeight:110}}/></div>
+      <div className="fg">
+        <label style={{display:'flex',justifyContent:'space-between'}}>
+          <span>Abstract / Description *</span>
+          <span style={{fontWeight:300,color:form.abstract.length>800?'var(--red)':(form.abstract.length>500?'var(--gold)':' var(--muted)'),fontSize:'0.75rem'}}>{form.abstract.length} chars</span>
+        </label>
+        <textarea placeholder="Concise summary of your research…" value={form.abstract} onChange={e=>sf('abstract',e.target.value)} style={{minHeight:110}}/>
+      </div>
       <div className="fg"><label>Category * <span style={{fontWeight:300,color:'var(--muted)'}}>(select 1–2)</span></label><CatPicker selected={selCats} onChange={setSelCats} max={2} cats={cats}/></div>
       <div className="fr">
         <div className="fg"><label>Year</label><input type="number" min="1900" max="2099" value={form.year} onChange={e=>sf('year',e.target.value)}/></div>
-        <div className="fg"><label>Keywords <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></label><input placeholder="e.g. robotics, AI, biology" value={form.keywords} onChange={e=>sf('keywords',e.target.value)}/></div>
+        <div className="fg">
+          <label>Keywords <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></label>
+          <input placeholder="e.g. robotics, AI, biology" value={form.keywords} onChange={e=>sf('keywords',e.target.value)}/>
+          {form.keywords.trim()&&<div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:5}}>
+            {form.keywords.split(',').map(k=>k.trim()).filter(Boolean).map(k=><span key={k} style={{background:'var(--gold-bg)',color:'var(--gold)',border:'1px solid var(--gold)',borderRadius:20,padding:'1px 8px',fontSize:'0.72rem'}}>{k}</span>)}
+          </div>}
+        </div>
       </div>
       <div className="fg">
         <label style={{display:'flex',alignItems:'center',gap:7}}>
@@ -2457,25 +2543,35 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
 function StudiesPage({ currentUser }) {
   const [studies,setStudies]=useState([]);
   const [cats,setCats]=useState([]);
+  const [availableYears,setAvailableYears]=useState([]);
   const [total,setTotal]=useState(0);
   const [totalPages,setTotalPages]=useState(1);
   const [search,setSearch]=useState('');
   const [searchInput,setSearchInput]=useState('');
   const [filterCat,setFilterCat]=useState('');
+  const [filterYear,setFilterYear]=useState('');
   const [page,setPage]=useState(1);
   const [selected,setSelected]=useState(null);
   const [showUpload,setShowUpload]=useState(false);
   const [loading,setLoading]=useState(true);
   const searchTimeout = useRef(null);
 
+  // Load available years once on mount
+  useEffect(()=>{
+    API.getAllStudies().then(all=>{
+      const yrs=[...new Set(all.map(s=>s.year).filter(Boolean))].sort((a,b)=>b-a);
+      setAvailableYears(yrs);
+    }).catch(()=>{});
+  },[]);
+
   const load=useCallback(async()=>{
     setLoading(true);
     try{
-      const [res,catsArr]=await Promise.all([API.getStudies({search,category:filterCat,page,perPage:6}),API.getCategories()]);
+      const [res,catsArr]=await Promise.all([API.getStudies({search,category:filterCat,year:filterYear,page,perPage:6}),API.getCategories()]);
       setStudies(res.data);setTotal(res.total);setTotalPages(res.totalPages);setCats(catsArr);
     }catch(e){toast.err('Failed to load studies.');}
     setLoading(false);
-  },[search,filterCat,page]);
+  },[search,filterCat,filterYear,page]);
 
   useEffect(()=>{load();},[load]);
 
@@ -2488,19 +2584,40 @@ function StudiesPage({ currentUser }) {
 
   const handleDelete=async id=>{await API.deleteStudy(id);toast.ok('Study deleted.');load();};
 
+  const hasFilters = search || filterCat || filterYear;
+
   return (
     <div>
       <div className="page-hd">
-        <div className="page-hd-left"><h2>Research Repository</h2><p className="muted">{total} {total===1?'study':'studies'} found</p></div>
+        <div className="page-hd-left"><h2>Research Repository</h2><p className="muted">{total} {total===1?'study':'studies'} found{filterYear?` in ${filterYear}`:''}</p></div>
         <button className="btn btn-gold" onClick={()=>setShowUpload(true)}><Ico.up/> Upload Study</button>
       </div>
       <div className="fb" style={{marginBottom:18}}>
-        <div className="sb" style={{flex:1,minWidth:200}}><Ico.search/><input placeholder="Search by title, author, or keyword…" value={searchInput} onChange={handleSearch} aria-label="Search studies"/></div>
+        <div className="sb" style={{flex:1,minWidth:200}}>
+          <Ico.search/>
+          <input placeholder="Search by title, author, or keyword…" value={searchInput} onChange={handleSearch} aria-label="Search studies"/>
+          {searchInput&&<button onClick={()=>{setSearchInput('');setSearch('');setPage(1);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem',lineHeight:1}} title="Clear search">✕</button>}
+        </div>
         <select value={filterCat} onChange={e=>{setFilterCat(e.target.value);setPage(1);}} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by category">
           <option value="">All Categories</option>
           {cats.map(c=><option key={c}>{c}</option>)}
         </select>
+        <select value={filterYear} onChange={e=>{setFilterYear(e.target.value);setPage(1);}} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by year">
+          <option value="">All Years</option>
+          {availableYears.map(yr=><option key={yr} value={yr}>{yr}</option>)}
+        </select>
+        {hasFilters&&(
+          <button className="btn btn-ol btn-sm" onClick={()=>{setFilterCat('');setFilterYear('');setSearchInput('');setSearch('');setPage(1);}} title="Clear all filters" style={{whiteSpace:'nowrap'}}>✕ Clear</button>
+        )}
       </div>
+
+      {/* Active filter pills */}
+      {(filterCat||filterYear)&&(
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
+          {filterCat&&<span style={{display:'flex',alignItems:'center',gap:5,background:'var(--gold-bg)',color:'var(--gold)',border:'1px solid var(--gold)',borderRadius:99,padding:'3px 10px',fontSize:'var(--text-xs)',fontWeight:600}}>🏷️ {filterCat}<button onClick={()=>{setFilterCat('');setPage(1);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--gold)',padding:'0 0 0 2px',lineHeight:1,fontSize:'0.8rem'}}>✕</button></span>}
+          {filterYear&&<span style={{display:'flex',alignItems:'center',gap:5,background:'var(--purple-light)',color:'var(--purple)',border:'1px solid var(--purple)',borderRadius:99,padding:'3px 10px',fontSize:'var(--text-xs)',fontWeight:600}}>📅 {filterYear}<button onClick={()=>{setFilterYear('');setPage(1);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--purple)',padding:'0 0 0 2px',lineHeight:1,fontSize:'0.8rem'}}>✕</button></span>}
+        </div>
+      )}
 
       {loading?(
         <div style={{textAlign:'center',padding:'50px',color:'var(--muted)'}}>
@@ -2508,12 +2625,12 @@ function StudiesPage({ currentUser }) {
           <p>Loading studies…</p>
         </div>
       ):studies.length===0?(
-        <div className="empty"><div className="empty-ico">📚</div><h3>No studies found</h3><p>{search||filterCat?'Try adjusting your search or filter.':'Be the first to upload a research study!'}</p></div>
+        <div className="empty"><div className="empty-ico">📚</div><h3>No studies found</h3><p>{hasFilters?'Try adjusting your search or filters.':'Be the first to upload a research study!'}</p></div>
       ):(
         <div className="grid">
           {studies.map(study=>(
             <div key={study.id} className="sc"
-              onClick={async()=>{await API.trackStudy(study.id,'viewCount');setSelected({...study,viewCount:(study.viewCount||0)+1});}}
+              onClick={async()=>{await API.trackStudy(study.id,'viewCount',currentUser);setSelected({...study,viewCount:(study.viewCount||0)+1});}}
               role="article" tabIndex={0}
               onKeyDown={e=>e.key==='Enter'&&e.currentTarget.click()}
               aria-label={`Study: ${study.title}`}>
@@ -2525,6 +2642,7 @@ function StudiesPage({ currentUser }) {
                 <span><Ico.eye/>{study.viewCount||0}</span>
                 <span><Ico.dl/>{study.downloadCount||0}</span>
                 <span><Ico.cal/>{study.year}</span>
+                {(study.gdrive||study.file)&&<span title="Google Drive file attached" style={{color:'var(--teal)'}}>🔗 Drive</span>}
                 <span style={{marginLeft:'auto'}}>{fmtDate(study.createdAt)}</span>
               </div>
             </div>
@@ -2894,6 +3012,242 @@ I have **${s.length}** ${s.length===1?'study':'studies'} loaded. Use the **mode 
   );
 }
 
+
+// ══════════════════════════════════════════════════════════════════
+//  STUDY HISTORY MODAL — shows viewer/downloader logs to uploader
+// ══════════════════════════════════════════════════════════════════
+function StudyHistoryModal({ study, onClose }) {
+  const [logs, setLogs] = useState(null);
+  const [tab, setTab] = useState('views');
+  const [selectedYear, setSelectedYear] = useState('all');
+
+  useEffect(() => {
+    API.getStudyLogs(study.id).then(setLogs);
+  }, [study.id]);
+
+  const fmtTs = ts => {
+    if (!ts) return '—';
+    const d = new Date(ts);
+    return d.toLocaleDateString('en-PH', { year:'numeric', month:'short', day:'numeric' })
+      + ' · ' + d.toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit' });
+  };
+
+  const getYear = ts => ts ? new Date(ts).getFullYear() : null;
+
+  // Get all unique years across both views and downloads
+  const allYears = useMemo(() => {
+    if (!logs) return [];
+    const yrs = new Set([
+      ...logs.views.map(l => getYear(l.timestamp)),
+      ...logs.downloads.map(l => getYear(l.timestamp))
+    ].filter(Boolean));
+    return [...yrs].sort((a,b) => b - a);
+  }, [logs]);
+
+  const currentList = useMemo(() => {
+    if (!logs) return [];
+    const list = logs[tab];
+    if (selectedYear === 'all') return list;
+    return list.filter(l => getYear(l.timestamp) === parseInt(selectedYear));
+  }, [logs, tab, selectedYear]);
+
+  // Group current list by year for display
+  const groupedByYear = useMemo(() => {
+    if (selectedYear !== 'all') return null; // flat view when year filter active
+    const groups = {};
+    currentList.forEach(log => {
+      const yr = getYear(log.timestamp) || 'Unknown';
+      if (!groups[yr]) groups[yr] = [];
+      groups[yr].push(log);
+    });
+    // Sort years descending
+    return Object.entries(groups).sort((a,b) => b[0] - a[0]);
+  }, [currentList, selectedYear]);
+
+  const uniqueStudents = logs
+    ? [...new Set([...logs.views.map(l=>l.userId),...logs.downloads.map(l=>l.userId)])].length
+    : null;
+
+  const LogRow = ({ log, i }) => (
+    <tr key={i}>
+      <td style={{color:'var(--muted)',fontSize:'var(--text-xs)'}}>{i+1}</td>
+      <td>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div className="avatar" style={{width:28,height:28,fontSize:'0.65rem',flexShrink:0}}>
+            {(log.userName||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}
+          </div>
+          <span style={{fontWeight:500}}>{log.userName||'Unknown'}</span>
+        </div>
+      </td>
+      <td style={{fontSize:'var(--text-xs)',color:'var(--muted)'}}>{log.userEmail||'—'}</td>
+      <td style={{fontSize:'var(--text-xs)'}}>
+        {log.institution||'—'}
+        {log.department?<span style={{color:'var(--muted)'}}> · {log.department}</span>:null}
+      </td>
+      <td style={{fontSize:'var(--text-xs)',color:'var(--muted)',whiteSpace:'nowrap'}}>{fmtTs(log.timestamp)}</td>
+    </tr>
+  );
+
+  const TableHead = () => (
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Student Name</th>
+        <th>Email</th>
+        <th>School / Section</th>
+        <th>Date & Time</th>
+      </tr>
+    </thead>
+  );
+
+  return (
+    <Modal title="Study Activity History" onClose={onClose} wide>
+      {/* Study info */}
+      <div style={{marginBottom:16}}>
+        <div style={{fontFamily:'var(--font-display)',fontSize:'0.97rem',fontWeight:600,color:'var(--ink)',marginBottom:4}}>{study.title}</div>
+        <div style={{fontSize:'var(--text-xs)',color:'var(--muted)'}}>By: {(study.authors||[]).join(', ')} · {study.year}</div>
+      </div>
+
+      {/* Summary stats */}
+      <div style={{display:'flex',gap:10,marginBottom:18,flexWrap:'wrap'}}>
+        <div style={{flex:1,minWidth:110,background:'var(--teal-light)',border:'1px solid var(--teal)',borderRadius:'var(--radius)',padding:'12px 16px',textAlign:'center'}}>
+          <div style={{fontFamily:'var(--font-display)',fontSize:'1.5rem',fontWeight:700,color:'var(--teal)'}}>{study.viewCount||0}</div>
+          <div style={{fontSize:'var(--text-xs)',color:'var(--teal)',fontWeight:500}}>Total Views</div>
+        </div>
+        <div style={{flex:1,minWidth:110,background:'var(--blue-light)',border:'1px solid var(--blue)',borderRadius:'var(--radius)',padding:'12px 16px',textAlign:'center'}}>
+          <div style={{fontFamily:'var(--font-display)',fontSize:'1.5rem',fontWeight:700,color:'var(--blue)'}}>{study.downloadCount||0}</div>
+          <div style={{fontSize:'var(--text-xs)',color:'var(--blue)',fontWeight:500}}>Total Downloads</div>
+        </div>
+        <div style={{flex:1,minWidth:110,background:'var(--gold-bg)',border:'1px solid var(--gold)',borderRadius:'var(--radius)',padding:'12px 16px',textAlign:'center'}}>
+          <div style={{fontFamily:'var(--font-display)',fontSize:'1.5rem',fontWeight:700,color:'var(--gold)'}}>{uniqueStudents ?? '—'}</div>
+          <div style={{fontSize:'var(--text-xs)',color:'var(--gold)',fontWeight:500}}>Unique Students</div>
+        </div>
+        <div style={{flex:1,minWidth:110,background:'var(--purple-light)',border:'1px solid var(--purple)',borderRadius:'var(--radius)',padding:'12px 16px',textAlign:'center'}}>
+          <div style={{fontFamily:'var(--font-display)',fontSize:'1.5rem',fontWeight:700,color:'var(--purple)'}}>{allYears.length||0}</div>
+          <div style={{fontSize:'var(--text-xs)',color:'var(--purple)',fontWeight:500}}>Active Years</div>
+        </div>
+      </div>
+
+      {/* Controls row: tabs + year filter */}
+      <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+        {/* Tab switcher */}
+        <div style={{display:'flex',gap:4,background:'var(--surface)',borderRadius:8,padding:4,flex:1,minWidth:220}}>
+          <button
+            style={{flex:1,padding:'8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'var(--text-sm)',fontWeight:500,transition:'all var(--transition)',background:tab==='views'?'var(--white)':'transparent',color:tab==='views'?'var(--ink)':'var(--muted)',boxShadow:tab==='views'?'0 1px 4px rgba(0,0,0,0.08)':'none'}}
+            onClick={()=>setTab('views')}>
+            👁 Viewers {logs?`(${logs.views.length})`:''}
+          </button>
+          <button
+            style={{flex:1,padding:'8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'var(--text-sm)',fontWeight:500,transition:'all var(--transition)',background:tab==='downloads'?'var(--white)':'transparent',color:tab==='downloads'?'var(--ink)':'var(--muted)',boxShadow:tab==='downloads'?'0 1px 4px rgba(0,0,0,0.08)':'none'}}
+            onClick={()=>setTab('downloads')}>
+            ⬇ Downloaders {logs?`(${logs.downloads.length})`:''}
+          </button>
+        </div>
+
+        {/* Year filter */}
+        <div style={{display:'flex',alignItems:'center',gap:7,flexShrink:0}}>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" style={{color:'var(--muted)',flexShrink:0}}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <select
+            value={selectedYear}
+            onChange={e=>setSelectedYear(e.target.value)}
+            style={{padding:'7px 10px',borderRadius:'var(--radius)',border:'1.5px solid var(--border)',background:'var(--white)',color:'var(--ink)',fontSize:'var(--text-xs)',fontFamily:'var(--font-body)',cursor:'pointer',minWidth:110}}>
+            <option value="all">All Years</option>
+            {allYears.map(yr=>(
+              <option key={yr} value={yr}>{yr}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Year summary pills (only when showing all) */}
+      {logs && selectedYear === 'all' && allYears.length > 0 && (
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
+          {allYears.map(yr => {
+            const vCount = logs.views.filter(l=>getYear(l.timestamp)===yr).length;
+            const dCount = logs.downloads.filter(l=>getYear(l.timestamp)===yr).length;
+            return (
+              <button
+                key={yr}
+                onClick={()=>setSelectedYear(String(yr))}
+                style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderRadius:99,border:'1.5px solid var(--border)',background:'var(--surface)',cursor:'pointer',fontSize:'var(--text-xs)',fontFamily:'var(--font-body)',transition:'all var(--transition)',color:'var(--ink-3)'}}>
+                <span style={{fontWeight:700,color:'var(--purple)'}}>{yr}</span>
+                <span style={{color:'var(--teal)'}}>👁 {vCount}</span>
+                <span style={{color:'var(--blue)'}}>⬇ {dCount}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Active year badge */}
+      {selectedYear !== 'all' && (
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+          <span style={{background:'var(--purple-light)',color:'var(--purple)',fontSize:'var(--text-xs)',fontWeight:600,padding:'3px 10px',borderRadius:99,border:'1px solid var(--purple)'}}>
+            📅 {selectedYear}
+          </span>
+          <span style={{fontSize:'var(--text-xs)',color:'var(--muted)'}}>{currentList.length} record{currentList.length!==1?'s':''}</span>
+          <button onClick={()=>setSelectedYear('all')} style={{background:'none',border:'none',color:'var(--muted)',cursor:'pointer',fontSize:'var(--text-xs)',textDecoration:'underline',padding:0}}>Clear filter</button>
+        </div>
+      )}
+
+      {/* Log list */}
+      {!logs ? (
+        <div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>
+          <span className="spin spin-gold" style={{width:24,height:24,border:'2px solid rgba(201,162,39,0.25)',borderTopColor:'var(--gold)',display:'inline-block',marginBottom:10}}/>
+          <p>Loading activity…</p>
+        </div>
+      ) : currentList.length === 0 ? (
+        <div className="empty" style={{padding:'28px 20px'}}>
+          <div className="empty-ico">{tab==='views'?'👁':'⬇'}</div>
+          <h3>No {tab==='views'?'views':'downloads'}{selectedYear!=='all'?` in ${selectedYear}`:''}</h3>
+          <p>{selectedYear!=='all'?`Try selecting a different year or "All Years".`:`No one has ${tab==='views'?'viewed':'downloaded'} this study yet.`}</p>
+        </div>
+      ) : selectedYear !== 'all' ? (
+        /* Flat table when a specific year is selected */
+        <div className="tw">
+          <table>
+            <TableHead/>
+            <tbody>
+              {currentList.map((log,i) => <LogRow key={i} log={log} i={i}/>)}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        /* Grouped by year tables */
+        <div style={{display:'flex',flexDirection:'column',gap:18}}>
+          {groupedByYear.map(([yr, entries]) => (
+            <div key={yr}>
+              {/* Year header */}
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                <div style={{background:'var(--purple)',color:'#fff',borderRadius:6,padding:'3px 12px',fontSize:'var(--text-xs)',fontWeight:700,flexShrink:0}}>
+                  📅 {yr}
+                </div>
+                <div style={{height:1,flex:1,background:'var(--border)'}}/>
+                <span style={{fontSize:'var(--text-xs)',color:'var(--muted)',flexShrink:0}}>{entries.length} record{entries.length!==1?'s':''}</span>
+              </div>
+              {/* Table for this year */}
+              <div className="tw">
+                <table>
+                  <TableHead/>
+                  <tbody>
+                    {entries.map((log,i) => <LogRow key={i} log={log} i={i}/>)}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{marginTop:16,padding:'10px 14px',background:'var(--surface)',borderRadius:'var(--radius)',fontSize:'var(--text-xs)',color:'var(--muted)',display:'flex',alignItems:'center',gap:6}}>
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Only activity recorded after this feature was enabled is shown. Earlier counts are totals only.
+      </div>
+    </Modal>
+  );
+}
+
+
 // ══════════════════════════════════════════════════════════════════
 //  STUDENT DASHBOARD
 // ══════════════════════════════════════════════════════════════════
@@ -2903,6 +3257,7 @@ function StudentDash({ currentUser }) {
   const [showUpload,setShowUpload]=useState(false);
   const [loading,setLoading]=useState(true);
   const [allTotal,setAllTotal]=useState(0);
+  const [historyStudy,setHistoryStudy]=useState(null);
 
   const load=async()=>{
     setLoading(true);
@@ -2933,19 +3288,43 @@ function StudentDash({ currentUser }) {
         {loading?(
           <div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
         ):myStudies.length===0?(
-          <div className="empty" style={{padding:'36px 20px'}}><div className="empty-ico">📄</div><h3>No studies yet</h3><p>Upload your first research study.</p><button className="btn btn-ink mt12" onClick={()=>setShowUpload(true)}>Upload Study</button></div>
+          <div className="empty" style={{padding:'36px 20px'}}><div className="empty-ico">📄</div><h3>No studies yet</h3><p>Upload your first research study to get started.</p><button className="btn btn-gold mt12" onClick={()=>setShowUpload(true)}><Ico.up/> Upload Your First Study</button></div>
         ):(
           <div className="tw"><table>
-            <thead><tr><th>Title</th><th>Categories</th><th>Year</th><th>Views</th><th>Downloads</th><th>Uploaded</th></tr></thead>
-            <tbody>{myStudies.map(s=><tr key={s.id}>
+            <thead><tr><th>Title</th><th>Categories</th><th>Year</th><th>Views</th><th>Downloads</th><th>Uploaded</th><th>Activity</th></tr></thead>
+            <tbody>{myStudies.map(s=><tr key={s.id} style={{cursor:'default'}}>
               <td style={{maxWidth:230}}><div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></td>
               <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{(s.categories||[]).map(c=><span key={c} className="badge" style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.66rem'}}>{c}</span>)}</div></td>
-              <td>{s.year}</td><td>{s.viewCount||0}</td><td>{s.downloadCount||0}</td><td style={{whiteSpace:'nowrap'}}>{fmtDate(s.createdAt)}</td>
+              <td>{s.year}</td>
+              <td>
+                <span style={{display:'flex',alignItems:'center',gap:4}}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  {s.viewCount||0}
+                </span>
+              </td>
+              <td>
+                <span style={{display:'flex',alignItems:'center',gap:4}}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  {s.downloadCount||0}
+                </span>
+              </td>
+              <td style={{whiteSpace:'nowrap'}}>{fmtDate(s.createdAt)}</td>
+              <td>
+                <button
+                  className="btn btn-ol btn-sm"
+                  style={{display:'flex',alignItems:'center',gap:5,fontSize:'0.72rem',padding:'5px 10px',minHeight:32}}
+                  onClick={()=>setHistoryStudy(s)}
+                  title="View who viewed and downloaded this study">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  Who viewed
+                </button>
+              </td>
             </tr>)}</tbody>
           </table></div>
         )}
       </div>
       {showUpload&&<UploadModal onClose={()=>setShowUpload(false)} currentUser={currentUser} cats={cats} onUpload={()=>{load();setShowUpload(false);}}/>}
+      {historyStudy&&<StudyHistoryModal study={historyStudy} onClose={()=>setHistoryStudy(null)}/>}
     </div>
   );
 }
@@ -3090,7 +3469,11 @@ function AdminStudies() {
     <div>
       <div style={{marginBottom:18}}><h2 className="sec-title" style={{marginBottom:1}}>Manage Studies</h2><p className="muted">{studies.length} studies</p></div>
       <div className="fb" style={{marginBottom:16}}>
-        <div className="sb" style={{flex:1,minWidth:200}}><Ico.search/><input placeholder="Search by title, author, or keyword…" value={searchInput} onChange={handleSearch} aria-label="Search studies"/></div>
+        <div className="sb" style={{flex:1,minWidth:200}}>
+          <Ico.search/>
+          <input placeholder="Search by title, author, or keyword…" value={searchInput} onChange={handleSearch} aria-label="Search studies"/>
+          {searchInput&&<button onClick={()=>{setSearchInput('');setSearch('');}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem',lineHeight:1}} title="Clear search">✕</button>}
+        </div>
       </div>
       <div className="card">
         {loading?<div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
@@ -3121,8 +3504,21 @@ function AdminCats() {
   const [editIdx,setEditIdx]=useState(null);
   const [editVal,setEditVal]=useState('');
   const [loading,setLoading]=useState(true);
+  const [activeSection,setActiveSection]=useState('categories'); // 'categories' | 'by-year'
+  const [studies,setStudies]=useState([]);
+  const [studiesLoading,setStudiesLoading]=useState(false);
+  const [expandedYear,setExpandedYear]=useState(null);
+  const [selectedStudy,setSelectedStudy]=useState(null);
 
   useEffect(()=>{API.getCategories().then(c=>{setCats(c);setLoading(false);});},[]);
+
+  // Load studies when By Year tab is activated
+  useEffect(()=>{
+    if(activeSection==='by-year'&&studies.length===0){
+      setStudiesLoading(true);
+      API.getAllStudies().then(s=>{setStudies(s);setStudiesLoading(false);}).catch(()=>setStudiesLoading(false));
+    }
+  },[activeSection]);
 
   const save=async()=>{await API.setCategories(cats);toast.ok('Categories saved!');};
   const add=()=>{const t=newCat.trim();if(!t)return;if(cats.includes(t)){toast.err('Already exists.');return;}setCats([...cats,t]);setNewCat('');};
@@ -3130,32 +3526,363 @@ function AdminCats() {
   const startEdit=i=>{setEditIdx(i);setEditVal(cats[i]);};
   const saveEdit=()=>{if(!editVal.trim())return;setCats(cats.map((c,i)=>i===editIdx?editVal.trim():c));setEditIdx(null);};
 
+  // Group studies by year
+  const byYear = useMemo(()=>{
+    const map={};
+    studies.forEach(s=>{
+      const yr=s.year||'Unknown';
+      if(!map[yr])map[yr]=[];
+      map[yr].push(s);
+    });
+    return Object.entries(map).sort((a,b)=>b[0]-a[0]);
+  },[studies]);
+
+  const TAB_BTN = (id,label,icon)=>(
+    <button
+      onClick={()=>setActiveSection(id)}
+      style={{flex:1,padding:'9px 10px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'var(--text-sm)',fontWeight:500,transition:'all var(--transition)',
+        background:activeSection===id?'var(--white)':'transparent',
+        color:activeSection===id?'var(--ink)':'var(--muted)',
+        boxShadow:activeSection===id?'0 1px 4px rgba(0,0,0,0.08)':'none',
+        display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+      <span>{icon}</span>{label}
+    </button>
+  );
+
   if(loading)return <div style={{textAlign:'center',padding:'40px',color:'var(--muted)'}}>Loading…</div>;
 
   return (
     <div>
-      <div style={{marginBottom:18}}><h2 className="sec-title" style={{marginBottom:1}}>Manage Categories</h2><p className="muted">Students can select 1–2 per upload.</p></div>
-      <div className="card" style={{marginBottom:18}}>
-        <div className="card-hd"><span className="card-title">Current Categories ({cats.length})</span></div>
-        {cats.map((cat,idx)=>(
-          <div key={idx} className="cm-item">
-            {editIdx===idx?(
-              <><input className="cm-in" value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>e.key==='Enter'&&saveEdit()} autoFocus aria-label="Edit category name"/>
-              <button className="btn btn-grn btn-sm" onClick={saveEdit}><Ico.chk/> Save</button>
-              <button className="btn btn-ol btn-sm" onClick={()=>setEditIdx(null)}>Cancel</button></>
-            ):(
-              <><span className="cm-name">{cat}</span>
-              <button className="btn btn-ol btn-sm" onClick={()=>startEdit(idx)} aria-label={`Edit ${cat}`}><Ico.edit/> Edit</button>
-              <button className="btn btn-red btn-sm" onClick={()=>rem(idx)} aria-label={`Delete ${cat}`}><Ico.trash/></button></>
-            )}
-          </div>
-        ))}
-        <div style={{display:'flex',gap:9,marginTop:14,flexWrap:'wrap'}}>
-          <input placeholder="Add new category…" value={newCat} onChange={e=>setNewCat(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} style={{flex:1,minWidth:160}} aria-label="New category name"/>
-          <button className="btn btn-ink" onClick={add}><Ico.plus/> Add</button>
-        </div>
+      <div style={{marginBottom:18}}>
+        <h2 className="sec-title" style={{marginBottom:1}}>Manage Categories</h2>
+        <p className="muted">Manage category labels and browse studies by publication year.</p>
       </div>
-      <div style={{display:'flex',justifyContent:'flex-end'}}><button className="btn btn-gold" onClick={save}>Save All Changes</button></div>
+
+      {/* Tab switcher */}
+      <div style={{display:'flex',gap:4,background:'var(--surface)',borderRadius:10,padding:4,marginBottom:20,border:'1px solid var(--border)'}}>
+        {TAB_BTN('categories','Categories','🏷️')}
+        {TAB_BTN('by-year','By Year','📅')}
+      </div>
+
+      {/* ── CATEGORIES TAB ── */}
+      {activeSection==='categories'&&(
+        <>
+          <div className="card" style={{marginBottom:18}}>
+            <div className="card-hd"><span className="card-title">Current Categories ({cats.length})</span></div>
+            {cats.map((cat,idx)=>(
+              <div key={idx} className="cm-item">
+                {editIdx===idx?(
+                  <><input className="cm-in" value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>e.key==='Enter'&&saveEdit()} autoFocus aria-label="Edit category name"/>
+                  <button className="btn btn-grn btn-sm" onClick={saveEdit}><Ico.chk/> Save</button>
+                  <button className="btn btn-ol btn-sm" onClick={()=>setEditIdx(null)}>Cancel</button></>
+                ):(
+                  <><span className="cm-name">{cat}</span>
+                  <button className="btn btn-ol btn-sm" onClick={()=>startEdit(idx)} aria-label={`Edit ${cat}`}><Ico.edit/> Edit</button>
+                  <button className="btn btn-red btn-sm" onClick={()=>rem(idx)} aria-label={`Delete ${cat}`}><Ico.trash/></button></>
+                )}
+              </div>
+            ))}
+            <div style={{display:'flex',gap:9,marginTop:14,flexWrap:'wrap'}}>
+              <input placeholder="Add new category…" value={newCat} onChange={e=>setNewCat(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} style={{flex:1,minWidth:160}} aria-label="New category name"/>
+              <button className="btn btn-ink" onClick={add}><Ico.plus/> Add</button>
+            </div>
+          </div>
+          <div style={{display:'flex',justifyContent:'flex-end'}}><button className="btn btn-gold" onClick={save}>Save All Changes</button></div>
+        </>
+      )}
+
+      {/* ── BY YEAR TAB ── */}
+      {activeSection==='by-year'&&(
+        <div>
+          {studiesLoading?(
+            <div style={{textAlign:'center',padding:'50px',color:'var(--muted)'}}>
+              <span className="spin spin-gold" style={{width:28,height:28,border:'3px solid rgba(201,162,39,0.25)',borderTopColor:'var(--gold)',display:'inline-block',marginBottom:12}}/>
+              <p>Loading studies…</p>
+            </div>
+          ):byYear.length===0?(
+            <div className="empty"><div className="empty-ico">📚</div><h3>No studies yet</h3><p>Upload research studies to see them grouped by year.</p></div>
+          ):(
+            <>
+              {/* Summary pills */}
+              <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:18}}>
+                {byYear.map(([yr,ss])=>(
+                  <button key={yr} onClick={()=>setExpandedYear(expandedYear===yr?null:yr)}
+                    style={{display:'flex',alignItems:'center',gap:6,padding:'6px 14px',borderRadius:99,
+                      border:`1.5px solid ${expandedYear===yr?'var(--gold)':'var(--border)'}`,
+                      background:expandedYear===yr?'var(--gold-bg)':'var(--white)',
+                      cursor:'pointer',fontSize:'var(--text-xs)',fontFamily:'var(--font-body)',
+                      transition:'all var(--transition)',color:expandedYear===yr?'var(--gold)':'var(--ink-3)',
+                      fontWeight:expandedYear===yr?700:400}}>
+                    <span style={{fontWeight:700,color:expandedYear===yr?'var(--gold)':'var(--purple)'}}>{yr}</span>
+                    <span style={{background:expandedYear===yr?'rgba(201,162,39,0.18)':'var(--surface)',color:expandedYear===yr?'var(--gold)':'var(--muted)',borderRadius:99,padding:'1px 7px',fontSize:'0.67rem',fontWeight:600}}>{ss.length}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Year groups */}
+              <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                {byYear.map(([yr,ss])=>{
+                  const isOpen=expandedYear===yr||expandedYear===null;
+                  return(
+                    <div key={yr} className="card" style={{padding:0,overflow:'hidden'}}>
+                      {/* Year header */}
+                      <button onClick={()=>setExpandedYear(expandedYear===yr?null:yr)}
+                        style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'13px 18px',background:'none',border:'none',cursor:'pointer',textAlign:'left',transition:'background var(--transition)'}}
+                        onMouseEnter={e=>e.currentTarget.style.background='var(--surface)'}
+                        onMouseLeave={e=>e.currentTarget.style.background='none'}>
+                        <div style={{background:'var(--purple)',color:'#fff',borderRadius:6,padding:'3px 12px',fontSize:'var(--text-xs)',fontWeight:700,flexShrink:0}}>
+                          📅 {yr}
+                        </div>
+                        <div style={{height:1,flex:1,background:'var(--border)'}}/>
+                        <span style={{fontSize:'var(--text-xs)',color:'var(--muted)',flexShrink:0,fontWeight:500}}>
+                          {ss.length} {ss.length===1?'study':'studies'}
+                        </span>
+                        <span style={{color:'var(--muted)',fontSize:'0.8rem',flexShrink:0,transform:isOpen?'rotate(180deg)':'rotate(0deg)',transition:'transform .2s'}}>▾</span>
+                      </button>
+
+                      {/* Studies list */}
+                      {isOpen&&(
+                        <div style={{borderTop:'1px solid var(--border)'}}>
+                          {ss.map((s,i)=>(
+                            <div key={s.id||i}
+                              style={{display:'flex',alignItems:'flex-start',gap:12,padding:'12px 18px',borderBottom:i<ss.length-1?'1px solid var(--border)':'none',cursor:'pointer',transition:'background var(--transition)'}}
+                              onClick={()=>setSelectedStudy(selectedStudy?.id===s.id?null:s)}
+                              onMouseEnter={e=>e.currentTarget.style.background='var(--surface)'}
+                              onMouseLeave={e=>e.currentTarget.style.background='none'}>
+                              <div style={{width:28,height:28,borderRadius:6,background:'var(--gold-bg)',color:'var(--gold)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.7rem',fontWeight:700,flexShrink:0,marginTop:1}}>{i+1}</div>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontFamily:'var(--font-display)',fontSize:'var(--text-sm)',fontWeight:600,color:'var(--ink)',lineHeight:1.4,marginBottom:3}}>{s.title}</div>
+                                <div style={{fontSize:'var(--text-xs)',color:'var(--muted)',marginBottom:4}}>By: {(s.authors||[]).join(', ')}</div>
+                                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                                  {(s.categories||[]).map(c=><span key={c} style={{fontSize:'0.65rem',fontWeight:600,padding:'1px 6px',borderRadius:4,background:'var(--gold-bg)',color:'var(--gold)'}}>{c}</span>)}
+                                  {s.keywords?.length>0&&s.keywords.slice(0,3).map(k=><span key={k} style={{fontSize:'0.65rem',padding:'1px 6px',borderRadius:4,background:'var(--surface)',color:'var(--muted)',border:'1px solid var(--border)'}}>{k}</span>)}
+                                </div>
+                                {selectedStudy?.id===s.id&&(
+                                  <div style={{marginTop:10,padding:'10px 12px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
+                                    <p style={{fontSize:'var(--text-xs)',color:'var(--slate)',lineHeight:1.6,marginBottom:8}}>{s.abstract}</p>
+                                    <div style={{display:'flex',gap:14,fontSize:'0.68rem',color:'var(--muted)'}}>
+                                      <span>👁 {s.viewCount||0} views</span>
+                                      <span>⬇ {s.downloadCount||0} downloads</span>
+                                      <span>🗓 Added {fmtDate(s.createdAt)}</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{fontSize:'0.68rem',color:'var(--muted)',flexShrink:0,marginTop:4}}>
+                                {s.gdrive&&<span style={{color:'var(--teal)'}}>🔗</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  RECOGNIZED STUDIES PAGE
+// ══════════════════════════════════════════════════════════════════
+function RecognizedStudiesPage({ currentUser, isAdmin }) {
+  const STORAGE_KEY = 'sabnahis_recognized_studies';
+
+  const loadStored = () => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+  };
+
+  const [entries, setEntries] = useState(loadStored);
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState({ title:'', authors:'', award:'', year:String(new Date().getFullYear()), description:'', institution:'' });
+  const [search, setSearch] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  const persist = data => {
+    setEntries(data);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
+  };
+
+  const sf = (k,v) => setForm(f => ({...f, [k]:v}));
+
+  const openNew = () => {
+    setEditId(null);
+    setForm({ title:'', authors:'', award:'', year:String(new Date().getFullYear()), description:'', institution:'' });
+    setShowForm(true);
+  };
+
+  const openEdit = entry => {
+    setEditId(entry.id);
+    setForm({ title:entry.title, authors:entry.authors, award:entry.award, year:entry.year, description:entry.description||'', institution:entry.institution||'' });
+    setShowForm(true);
+  };
+
+  const submit = () => {
+    if (!form.title.trim()) { toast.err('Title is required.'); return; }
+    if (!form.authors.trim()) { toast.err('Author(s) are required.'); return; }
+    if (!form.award.trim()) { toast.err('Award / Recognition is required.'); return; }
+    if (editId) {
+      persist(entries.map(e => e.id === editId ? { ...e, ...form, updatedAt: new Date().toISOString() } : e));
+      toast.ok('Entry updated!');
+    } else {
+      const newEntry = { ...form, id: Date.now().toString(), addedBy: currentUser.name, createdAt: new Date().toISOString() };
+      persist([newEntry, ...entries]);
+      toast.ok('Recognized study added!');
+    }
+    setShowForm(false);
+  };
+
+  const remove = id => {
+    persist(entries.filter(e => e.id !== id));
+    setDeleteConfirm(null);
+    toast.ok('Entry removed.');
+  };
+
+  const filtered = entries.filter(e =>
+    !search || [e.title, e.authors, e.award, e.institution].join(' ').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const AWARD_COLORS = {
+    default: { bg:'var(--gold-bg)', color:'var(--gold)', border:'var(--gold)' },
+  };
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="page-hd">
+        <div className="page-hd-left">
+          <h2>Recognized Studies</h2>
+          <p className="muted">{entries.length} recognized {entries.length===1?'study':'studies'}</p>
+        </div>
+        {isAdmin && (
+          <button className="btn btn-gold" onClick={openNew}>
+            <Ico.plus/> Add Recognition
+          </button>
+        )}
+      </div>
+
+      {/* Admin notice */}
+      {!isAdmin && (
+        <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--blue-light)',border:'1.5px solid var(--blue)',borderRadius:'var(--radius)',marginBottom:18,fontSize:'var(--text-sm)',color:'var(--blue)'}}>
+          <Ico.award/>
+          <span>This page showcases research studies that have received awards or formal recognition. New entries are added by the administrator.</span>
+        </div>
+      )}
+
+      {/* Search */}
+      {entries.length > 0 && (
+        <div className="fb" style={{marginBottom:18}}>
+          <div className="sb" style={{flex:1,maxWidth:460}}>
+            <Ico.search/>
+            <input placeholder="Search by title, author, award…" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search recognized studies"/>
+            {search&&<button onClick={()=>setSearch('')} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem'}}>✕</button>}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {entries.length === 0 ? (
+        <div className="empty">
+          <div style={{fontSize:'2.5rem',marginBottom:8}}>🏆</div>
+          <h3>No recognized studies yet</h3>
+          <p>{isAdmin ? 'Click "Add Recognition" to showcase award-winning research.' : 'Check back later — recognized studies will appear here.'}</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="empty">
+          <div className="empty-ico">🔍</div>
+          <h3>No results found</h3>
+          <p>Try a different search term.</p>
+        </div>
+      ) : (
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          {filtered.map((entry, idx) => (
+            <div key={entry.id} className="card" style={{position:'relative',borderLeft:'4px solid var(--gold)',transition:'box-shadow var(--transition)'}}>
+              {/* Rank badge */}
+              <div style={{position:'absolute',top:16,right:16,display:'flex',gap:6,alignItems:'center'}}>
+                {isAdmin && (
+                  <>
+                    <button className="btn btn-ol btn-sm" onClick={()=>openEdit(entry)} title="Edit" aria-label={`Edit ${entry.title}`}><Ico.edit/></button>
+                    <button className="btn btn-red btn-sm" onClick={()=>setDeleteConfirm(entry.id)} title="Delete" aria-label={`Delete ${entry.title}`}><Ico.trash/></button>
+                  </>
+                )}
+              </div>
+
+              <div style={{display:'flex',alignItems:'flex-start',gap:14,flexWrap:'wrap',paddingRight:isAdmin?100:0}}>
+                {/* Trophy icon */}
+                <div style={{width:44,height:44,borderRadius:10,background:'var(--gold-bg)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.4rem',flexShrink:0}}>
+                  🏆
+                </div>
+                <div style={{flex:1,minWidth:200}}>
+                  <h3 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-lg)',fontWeight:700,color:'var(--ink)',marginBottom:4,lineHeight:1.3}}>{entry.title}</h3>
+                  <p style={{fontSize:'var(--text-sm)',color:'var(--slate)',marginBottom:8}}>By: <strong>{entry.authors}</strong></p>
+
+                  {/* Award badge */}
+                  <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 11px',borderRadius:99,background:'var(--gold-bg)',color:'var(--gold)',border:'1.5px solid var(--gold)',fontSize:'var(--text-xs)',fontWeight:700,marginBottom:entry.description||entry.institution?10:0}}>
+                    🥇 {entry.award}
+                  </span>
+
+                  {(entry.description || entry.institution) && (
+                    <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                      {entry.institution && (
+                        <p style={{fontSize:'var(--text-xs)',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}>
+                          🏫 {entry.institution}
+                        </p>
+                      )}
+                      {entry.description && (
+                        <p style={{fontSize:'var(--text-sm)',color:'var(--slate)',lineHeight:1.55}}>{entry.description}</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{display:'flex',gap:14,marginTop:10,fontSize:'var(--text-xs)',color:'var(--muted)',flexWrap:'wrap'}}>
+                    <span><Ico.cal/> {entry.year}</span>
+                    <span>Added by {entry.addedBy}</span>
+                    <span>{fmtDate(entry.createdAt)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add / Edit Modal — Admin only */}
+      {showForm && isAdmin && (
+        <Modal title={editId ? 'Edit Recognition' : 'Add Recognized Study'} onClose={()=>setShowForm(false)} wide>
+          <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--blue-light)',border:'1px solid var(--blue)',borderRadius:'var(--radius)',marginBottom:18,fontSize:'var(--text-sm)',color:'var(--blue)'}}>
+            ℹ️ Only admins can add or edit entries. This listing is visible to all users.
+          </div>
+          <div className="fg"><label>Study Title *</label><input placeholder="Full title of the recognized research study" value={form.title} onChange={e=>sf('title',e.target.value)} autoFocus/></div>
+          <div className="fg"><label>Author(s) * <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></label><input placeholder="e.g. Juan dela Cruz, Maria Santos" value={form.authors} onChange={e=>sf('authors',e.target.value)}/></div>
+          <div className="fg"><label>Award / Recognition *</label><input placeholder="e.g. Best Research Paper – Regional Science Fair 2024" value={form.award} onChange={e=>sf('award',e.target.value)}/></div>
+          <div className="fr">
+            <div className="fg"><label>Year</label><input type="number" min="1900" max="2099" value={form.year} onChange={e=>sf('year',e.target.value)}/></div>
+            <div className="fg"><label>Institution / Organization</label><input placeholder="e.g. SABNAHIS" value={form.institution} onChange={e=>sf('institution',e.target.value)}/></div>
+          </div>
+          <div className="fg"><label>Description <span style={{fontWeight:300,color:'var(--muted)'}}>(optional)</span></label><textarea placeholder="Brief description of the recognition or study significance…" value={form.description} onChange={e=>sf('description',e.target.value)} style={{minHeight:80}}/></div>
+          <div style={{display:'flex',gap:9,justifyContent:'flex-end',flexWrap:'wrap',marginTop:4}}>
+            <button className="btn btn-ol" onClick={()=>setShowForm(false)}>Cancel</button>
+            <button className="btn btn-gold" onClick={submit}>{editId?<><Ico.chk/> Save Changes</>:<><Ico.plus/> Add Recognition</>}</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteConfirm && (
+        <Modal title="Remove Recognition" onClose={()=>setDeleteConfirm(null)}>
+          <p style={{marginBottom:20,color:'var(--slate)'}}>Are you sure you want to remove this recognized study entry? This cannot be undone.</p>
+          <div style={{display:'flex',gap:9,justifyContent:'flex-end'}}>
+            <button className="btn btn-ol" onClick={()=>setDeleteConfirm(null)}>Cancel</button>
+            <button className="btn btn-red" onClick={()=>remove(deleteConfirm)}><Ico.trash/> Remove</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -3171,11 +3898,13 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
     {id:'studies-admin',label:'All Studies',icon:<Ico.book/>},
     {id:'categories',label:'Categories',icon:<Ico.tag/>},
     {id:'repository',label:'Repository',icon:<Ico.search/>},
+    {id:'recognized',label:'Recognized Studies',icon:<Ico.award/>},
     {id:'chatbot',label:'AI Assistant',icon:<Ico.bot/>},
   ];
   const studentNav=[
     {id:'dashboard',label:'Dashboard',icon:<Ico.home/>},
     {id:'repository',label:'Browse Studies',icon:<Ico.book/>},
+    {id:'recognized',label:'Recognized Studies',icon:<Ico.award/>},
     {id:'chatbot',label:'AI Assistant',icon:<Ico.bot/>},
   ];
   const nav = isAdmin ? adminNav : studentNav;
@@ -3234,6 +3963,29 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
 // ══════════════════════════════════════════════════════════════════
 //  ROOT APP
 // ══════════════════════════════════════════════════════════════════
+
+// ── BACK TO TOP ──────────────────────────────────────────────────
+function BackToTop() {
+  const [show,setShow]=useState(false);
+  useEffect(()=>{
+    const el=document.getElementById('main-content');
+    if(!el)return;
+    const fn=()=>setShow(el.scrollTop>300);
+    el.addEventListener('scroll',fn,{passive:true});
+    return()=>el.removeEventListener('scroll',fn);
+  },[]);
+  if(!show)return null;
+  return(
+    <button
+      onClick={()=>document.getElementById('main-content')?.scrollTo({top:0,behavior:'smooth'})}
+      style={{position:'fixed',bottom:24,right:24,zIndex:300,width:42,height:42,borderRadius:'50%',background:'var(--gold)',color:'#1a1400',border:'none',cursor:'pointer',boxShadow:'var(--shadow-lg)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',transition:'all .2s'}}
+      title="Back to top"
+      aria-label="Scroll to top">
+      ↑
+    </button>
+  );
+}
+
 function App() {
   const [currentUser,setCurrentUser]=useState(null);
   const [authChecked,setAuthChecked]=useState(false);
@@ -3275,7 +4027,7 @@ function App() {
     return ()=>{try{unsub();}catch{}};
   },[]);
 
-  const titles={dashboard:'Dashboard',users:'User Management','studies-admin':'Manage Studies',categories:'Manage Categories',repository:'Research Repository',chatbot:'AI Research Assistant'};
+  const titles={dashboard:'Dashboard',users:'User Management','studies-admin':'Manage Studies',categories:'Manage Categories',repository:'Research Repository',chatbot:'AI Research Assistant',recognized:'Recognized Studies'};
 
   if(!authChecked){
     return (
@@ -3319,14 +4071,15 @@ function App() {
       case 'studies-admin': return isAdmin?<AdminStudies/>:null;
       case 'categories':    return isAdmin?<AdminCats/>:null;
       case 'repository':    return <StudiesPage currentUser={currentUser}/>;
+      case 'recognized':    return <RecognizedStudiesPage currentUser={currentUser} isAdmin={isAdmin}/>;
       case 'chatbot':       return <ChatPage currentUser={currentUser}/>;
       default:              return null;
     }
   };
 
   const mobNav = isAdmin
-    ? [{id:'dashboard',label:'Home',icon:<Ico.home/>},{id:'repository',label:'Studies',icon:<Ico.book/>},{id:'chatbot',label:'AI Chat',icon:<Ico.bot/>},{id:'users',label:'Users',icon:<Ico.users/>}]
-    : [{id:'dashboard',label:'Home',icon:<Ico.home/>},{id:'repository',label:'Studies',icon:<Ico.book/>},{id:'chatbot',label:'AI Chat',icon:<Ico.bot/>}];
+    ? [{id:'dashboard',label:'Home',icon:<Ico.home/>},{id:'repository',label:'Studies',icon:<Ico.book/>},{id:'recognized',label:'Recognized',icon:<Ico.award/>},{id:'chatbot',label:'AI Chat',icon:<Ico.bot/>},{id:'users',label:'Users',icon:<Ico.users/>}]
+    : [{id:'dashboard',label:'Home',icon:<Ico.home/>},{id:'repository',label:'Studies',icon:<Ico.book/>},{id:'recognized',label:'Recognized',icon:<Ico.award/>},{id:'chatbot',label:'AI Chat',icon:<Ico.bot/>}];
 
   return (
     <ToastProvider>
@@ -3342,7 +4095,7 @@ function App() {
           theme={theme}
           toggleTheme={toggleTheme}
         />
-        <div className="main-content">
+        <div className="main-content" id="main-content">
           {/* Desktop topbar */}
           <div className="topbar">
             <span className="topbar-title">{titles[activeTab]||'Dashboard'}</span>
