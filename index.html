@@ -107,6 +107,19 @@
   --sidebar-item-hover-text: #e8eaf2;
   --sidebar-item-active-bg: rgba(224,184,48,0.14);
 }
+/* ── Reviews ────────────────────────────── */
+.review-list { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+.review-item { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; }
+.review-header { display:flex; align-items:center; gap:9px; margin-bottom:5px; flex-wrap:wrap; }
+.review-avatar { width:30px; height:30px; border-radius:50%; background:var(--teal); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.75rem; flex-shrink:0; }
+.review-name { font-weight:600; font-size:var(--text-sm); flex:1; }
+.review-date { font-size:0.7rem; color:var(--muted); }
+.review-stars { display:flex; gap:2px; }
+.review-star { font-size:0.95rem; line-height:1; cursor:pointer; transition:transform .1s; }
+.review-star:hover { transform:scale(1.2); }
+.review-comment { font-size:var(--text-sm); color:var(--ink); line-height:1.55; }
+.review-own { border-color:var(--gold); background:var(--gold-bg); }
+
 /* ── Sidebar light mode ─────────────────── */
 [data-theme="light"] {
   --sidebar-bg: #ffffff;
@@ -1665,6 +1678,49 @@ const API = {
       openedAt:new Date().toISOString()
     });
   },
+  // ── Reviews ────────────────────────────────────────────
+  async getReviews(studyId, limitN=5) {
+    const snap = await db.collection('studies').doc(studyId)
+      .collection('reviews').orderBy('createdAt','desc').limit(limitN).get();
+    return snap.docs.map(d=>({id:d.id,...d.data()}));
+  },
+  async getReviewsCount(studyId) {
+    const snap = await db.collection('studies').doc(studyId).collection('reviews').get();
+    return snap.size;
+  },
+  async getUserReview(studyId, userId) {
+    const snap = await db.collection('studies').doc(studyId).collection('reviews').doc(userId).get();
+    return snap.exists ? {id:snap.id,...snap.data()} : null;
+  },
+  async submitReview(studyId, userId, userName, userInstitution, rating, comment) {
+    if(!rating||rating<1||rating>5) throw new Error('Please select a rating.');
+    if(!comment.trim()) throw new Error('Please write a comment.');
+    if(comment.trim().length<10) throw new Error('Comment must be at least 10 characters.');
+    await db.collection('studies').doc(studyId).collection('reviews').doc(userId).set({
+      userId, userName, userInstitution:userInstitution||'',
+      rating, comment:comment.trim(),
+      createdAt:new Date().toISOString()
+    });
+    // update avg rating on study doc
+    const allSnap = await db.collection('studies').doc(studyId).collection('reviews').get();
+    const ratings = allSnap.docs.map(d=>d.data().rating||0);
+    const avg = ratings.reduce((a,b)=>a+b,0)/ratings.length;
+    await db.collection('studies').doc(studyId).update({
+      avgRating: Math.round(avg*10)/10,
+      reviewCount: ratings.length
+    }).catch(()=>{});
+  },
+  async deleteReview(studyId, userId) {
+    await db.collection('studies').doc(studyId).collection('reviews').doc(userId).delete();
+    const allSnap = await db.collection('studies').doc(studyId).collection('reviews').get();
+    const ratings = allSnap.docs.map(d=>d.data().rating||0);
+    const avg = ratings.length ? ratings.reduce((a,b)=>a+b,0)/ratings.length : 0;
+    await db.collection('studies').doc(studyId).update({
+      avgRating: ratings.length ? Math.round(avg*10)/10 : 0,
+      reviewCount: ratings.length
+    }).catch(()=>{});
+  },
+
   async getLastRead(userId) {
     const snap = await db.collection('users').doc(userId).collection('lastRead').doc('current').get();
     return snap.exists ? snap.data() : null;
@@ -2575,6 +2631,7 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
           </div>
         </div>
       )}
+      <ReviewsSection study={study} currentUser={currentUser}/>
       {/* Favorited By — only visible to study owner */}
       {isOwner&&favBy.length>0&&(
         <div style={{marginBottom:14,padding:'10px 14px',background:'var(--purple-light)',border:'1px solid var(--purple)',borderRadius:'var(--radius)'}}>
@@ -2627,6 +2684,171 @@ function SchoolLogoZone({ context }) {
     <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:10,marginBottom:16}}>
       {SCHOOL_LOGO_URL  && <img src={SCHOOL_LOGO_URL}  alt="School logo"  style={{width:72,height:72,borderRadius:12,objectFit:'contain'}}/>}
       {SCHOOL_LOGO_URL2 && <img src={SCHOOL_LOGO_URL2} alt="School logo 2" style={{width:72,height:72,borderRadius:12,objectFit:'contain'}}/>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  REVIEWS SECTION
+// ══════════════════════════════════════════════════════════════════
+function StarRating({ value, onChange, readOnly=false }) {
+  const [hover, setHover] = useState(0);
+  return (
+    <div className="review-stars" role="group" aria-label="Rating">
+      {[1,2,3,4,5].map(n=>(
+        <span key={n} className="review-star"
+          style={{color: (hover||value)>=n ? '#f59e0b' : 'var(--border)', fontSize: readOnly?'0.85rem':'1.2rem'}}
+          onClick={()=>!readOnly&&onChange&&onChange(n)}
+          onMouseEnter={()=>!readOnly&&setHover(n)}
+          onMouseLeave={()=>!readOnly&&setHover(0)}
+          role={readOnly?undefined:'button'}
+          aria-label={readOnly?undefined:`Rate ${n} star${n!==1?'s':''}`}>
+          ★
+        </span>
+      ))}
+      {readOnly&&value>0&&<span style={{fontSize:'0.72rem',color:'var(--muted)',marginLeft:4}}>{value.toFixed(1)}</span>}
+    </div>
+  );
+}
+
+function ReviewsSection({ study, currentUser }) {
+  const [reviews, setReviews] = useState([]);
+  const [myReview, setMyReview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [showForm, setShowForm] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const isOwner = currentUser.id === study.uploadedBy;
+
+  const load = async () => {
+    setLoading(true);
+    const [revs, mine, count] = await Promise.all([
+      API.getReviews(study.id, showAll ? 50 : 5),
+      API.getUserReview(study.id, currentUser.id),
+      API.getReviewsCount(study.id)
+    ]);
+    setReviews(revs); setMyReview(mine); setTotalCount(count);
+    if(mine){ setRating(mine.rating); setComment(mine.comment); }
+    setLoading(false);
+  };
+  useEffect(()=>{ load(); },[showAll]);
+
+  const submit = async () => {
+    setSubmitting(true);
+    try {
+      await API.submitReview(study.id, currentUser.id, currentUser.name, currentUser.institution||'', rating, comment);
+      toast.ok(myReview ? 'Review updated!' : 'Review submitted!');
+      setShowForm(false);
+      load();
+    } catch(e) { toast.err(e.message); }
+    setSubmitting(false);
+  };
+
+  const del = async () => {
+    if(!confirm('Delete your review?')) return;
+    await API.deleteReview(study.id, currentUser.id);
+    setMyReview(null); setRating(0); setComment('');
+    toast.ok('Review deleted.');
+    load();
+  };
+
+  const avgRating = study.avgRating || 0;
+  const reviewCount = study.reviewCount || totalCount || 0;
+
+  return (
+    <div style={{marginTop:20}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:12}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{fontSize:'0.72rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.8px',color:'var(--muted)'}}>Reviews</div>
+          {avgRating>0&&(
+            <div style={{display:'flex',alignItems:'center',gap:5}}>
+              <StarRating value={avgRating} readOnly/>
+              <span style={{fontSize:'0.75rem',color:'var(--muted)'}}>({reviewCount} review{reviewCount!==1?'s':''})</span>
+            </div>
+          )}
+          {reviewCount===0&&<span style={{fontSize:'0.75rem',color:'var(--muted)'}}>No reviews yet</span>}
+        </div>
+        {!isOwner&&!showForm&&(
+          <button className="btn btn-ol btn-sm" onClick={()=>setShowForm(true)}>
+            {myReview?'✏️ Edit Review':'⭐ Write Review'}
+          </button>
+        )}
+      </div>
+
+      {/* Write / Edit form */}
+      {showForm&&(
+        <div style={{background:'var(--surface)',border:'1.5px solid var(--gold)',borderRadius:'var(--radius)',padding:'14px',marginBottom:14}}>
+          <div style={{fontWeight:600,fontSize:'var(--text-sm)',marginBottom:10}}>{myReview?'Edit your review':'Write a review'}</div>
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:'0.75rem',color:'var(--muted)',marginBottom:5}}>Rating *</div>
+            <StarRating value={rating} onChange={setRating}/>
+          </div>
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:'0.75rem',color:'var(--muted)',marginBottom:5}}>Comment * <span style={{color:comment.length>500?'var(--red)':'var(--muted)'}}>{comment.length}/500</span></div>
+            <textarea
+              placeholder="Share your thoughts about this study…"
+              value={comment}
+              onChange={e=>setComment(e.target.value.slice(0,500))}
+              style={{minHeight:80,width:'100%',resize:'vertical'}}/>
+          </div>
+          <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+            <button className="btn btn-ol btn-sm" onClick={()=>{setShowForm(false);if(myReview){setRating(myReview.rating);setComment(myReview.comment);}}}>Cancel</button>
+            {myReview&&<button className="btn btn-red btn-sm" onClick={del}>Delete</button>}
+            <button className="btn btn-gold btn-sm" onClick={submit} disabled={submitting||!rating}>
+              {submitting?<span className="spin spin-dark" style={{width:13,height:13}}/>:(myReview?'Update':'Submit')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Reviews list */}
+      {loading?(
+        <div style={{textAlign:'center',padding:'16px',color:'var(--muted)'}}><span className="spin"/></div>
+      ):(
+        <>
+          {myReview&&!showForm&&(
+            <div className="review-item review-own" style={{marginBottom:8}}>
+              <div className="review-header">
+                <div className="review-avatar">{currentUser.name.charAt(0).toUpperCase()}</div>
+                <span className="review-name">{myReview.userName} <span style={{fontSize:'0.68rem',fontWeight:400,color:'var(--gold)'}}>· Your review</span></span>
+                <StarRating value={myReview.rating} readOnly/>
+                <span className="review-date">{fmtDate(myReview.createdAt)}</span>
+                <button className="btn btn-ol btn-sm" style={{marginLeft:'auto'}} onClick={()=>setShowForm(true)}>✏️ Edit</button>
+              </div>
+              <p className="review-comment">{myReview.comment}</p>
+            </div>
+          )}
+          <div className="review-list">
+            {reviews.filter(r=>r.userId!==currentUser.id).map(r=>(
+              <div key={r.id} className="review-item">
+                <div className="review-header">
+                  <div className="review-avatar" style={{background:'var(--purple)'}}>{r.userName?.charAt(0).toUpperCase()||'?'}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div className="review-name">{r.userName}</div>
+                    {r.userInstitution&&<div style={{fontSize:'0.68rem',color:'var(--muted)'}}>{r.userInstitution}</div>}
+                  </div>
+                  <StarRating value={r.rating} readOnly/>
+                  <span className="review-date">{fmtDate(r.createdAt)}</span>
+                </div>
+                <p className="review-comment">{r.comment}</p>
+              </div>
+            ))}
+          </div>
+          {!showAll&&totalCount>5&&(
+            <button className="btn btn-ol btn-sm" style={{marginTop:10,width:'100%'}} onClick={()=>setShowAll(true)}>
+              Load more reviews ({totalCount-5} remaining)
+            </button>
+          )}
+          {reviews.filter(r=>r.userId!==currentUser.id).length===0&&!myReview&&(
+            <div style={{textAlign:'center',padding:'18px',color:'var(--muted)',fontSize:'var(--text-sm)'}}>
+              No reviews yet.{!isOwner?' Be the first to review this study!':''}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -2845,6 +3067,11 @@ function StudiesPage({ currentUser }) {
       </div>
 
       <div className="fb mob-search-hidden" style={{marginBottom:18}}>
+        <div className="sb" style={{flex:1,minWidth:200}}>
+          <Ico.search/>
+          <input placeholder="Search by title, author, or keyword…" value={searchInput} onChange={handleSearch} aria-label="Search studies"/>
+          {searchInput&&<button onClick={()=>{setSearchInput('');setSearch('');setPage(1);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem',lineHeight:1}} title="Clear search">✕</button>}
+        </div>
         <select value={filterCat} onChange={e=>{setFilterCat(e.target.value);setPage(1);}} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by category">
           <option value="">All Categories</option>
           {cats.map(c=><option key={c}>{c}</option>)}
@@ -2898,6 +3125,7 @@ function StudiesPage({ currentUser }) {
                 <span><Ico.cal/>{study.year}</span>
                 {(study.gdrive||study.file)&&<span title="Google Drive file attached" style={{color:'var(--teal)'}}>🔗 Drive</span>}
                 {(study.favoriteCount||0)>0&&<span title="Bookmarked by students" style={{color:'var(--purple)'}}>📌{study.favoriteCount}</span>}
+                {(study.avgRating||0)>0&&<span title={`Avg rating: ${study.avgRating}`} style={{color:'#f59e0b'}}>★{study.avgRating}</span>}
                 <span style={{marginLeft:'auto'}}>{fmtDate(study.createdAt)}</span>
               </div>
             </div>
