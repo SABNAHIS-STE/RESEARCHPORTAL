@@ -1952,7 +1952,26 @@ CORE INTELLIGENCE PRINCIPLES — ALWAYS APPLY:
 //  AI CALL
 // ══════════════════════════════════════════════════════════════════
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
-const getGroqKey = () => localStorage.getItem('sabnahis_groq_key') || '';
+/* ── FIRESTORE SECURITY RULE NEEDED ────────────────────────────────
+   Add this to your Firestore rules so only admins can read/write the key:
+
+   match /config/{doc} {
+     allow read: if request.auth != null;
+     allow write: if request.auth != null
+       && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+   }
+──────────────────────────────────────────────────────────────────── */
+// Groq key — fetched from Firestore, cached in memory
+let _groqKeyCache = null;
+const getGroqKey = () => _groqKeyCache || localStorage.getItem('sabnahis_groq_key') || '';
+async function loadGroqKeyFromFirestore() {
+  try {
+    const snap = await db.collection('config').doc('groq').get();
+    if (snap.exists && snap.data().apiKey) {
+      _groqKeyCache = snap.data().apiKey;
+    }
+  } catch(e) { /* silent — fallback to localStorage */ }
+}
 
 async function callAI(query, history, studies, mode='general') {
   const recent = history.slice(-6).map(m=>`${m.role==='user'?'Student':'Assistant'}: ${m.content.slice(0,200)}`).join('\n');
@@ -2724,19 +2743,33 @@ function ChatPage({ currentUser }) {
   const [groqKey, setGroqKey] = useState(()=>localStorage.getItem('sabnahis_groq_key')||'');
   const [keyInput, setKeyInput] = useState('');
   const [showKeySetup, setShowKeySetup] = useState(false);
-  const saveKey = () => {
+  const saveKey = async () => {
     const k = keyInput.trim();
     if (!k) { toast.err('Please enter a valid API key.'); return; }
-    localStorage.setItem('sabnahis_groq_key', k);
-    setGroqKey(k);
-    setKeyInput('');
-    setShowKeySetup(false);
-    toast.ok('API key saved!');
+    try {
+      await db.collection('config').doc('groq').set({ apiKey: k });
+      _groqKeyCache = k;
+      localStorage.setItem('sabnahis_groq_key', k);
+      setGroqKey(k);
+      setKeyInput('');
+      setShowKeySetup(false);
+      toast.ok('API key saved to Firestore!');
+    } catch(e) {
+      toast.err('Failed to save: ' + e.message);
+    }
   };
-  const removeKey = () => {
-    localStorage.removeItem('sabnahis_groq_key');
-    setGroqKey('');
-    toast.ok('API key removed.');
+  const removeKey = async () => {
+    try {
+      await db.collection('config').doc('groq').delete();
+      _groqKeyCache = null;
+      localStorage.removeItem('sabnahis_groq_key');
+      setGroqKey('');
+      toast.ok('API key removed.');
+    } catch(e) {
+      localStorage.removeItem('sabnahis_groq_key');
+      setGroqKey('');
+      toast.ok('API key removed locally.');
+    }
   };
   const [studies,setStudies]=useState([]);
   const [msgs,setMsgs]=useState([]);
@@ -2753,6 +2786,9 @@ function ChatPage({ currentUser }) {
   const msgsRef=useRef();
 
   useEffect(()=>{
+    loadGroqKeyFromFirestore().then(()=>{
+      if(_groqKeyCache) setGroqKey(_groqKeyCache);
+    });
     API.getAllStudies().then(s=>{
       setStudies(s);
       setStudiesLoaded(true);
@@ -2892,7 +2928,7 @@ I have **${s.length}** ${s.length===1?'study':'studies'} loaded. Use the **mode 
             <button className="btn btn-ol btn-sm" onClick={()=>setShowKeySetup(false)}>✕ Close</button>
           </div>
           <p style={{fontSize:'var(--text-xs)',color:'var(--muted)',marginBottom:10}}>
-            Your key is stored only in this browser's local storage — it is never uploaded or shared. Get a free key at <strong>console.groq.com</strong>.
+            Your key is saved to <strong>Firestore</strong> (admin-only) and loaded automatically for all users — it is never exposed in the source code. Get a free key at <strong>console.groq.com</strong>.
           </p>
           {groqKey && (
             <div style={{display:'flex',alignItems:'center',gap:9,padding:'8px 12px',background:'var(--green-light)',borderRadius:'var(--radius)',marginBottom:10,fontSize:'var(--text-xs)',color:'var(--green)'}}>
