@@ -1469,7 +1469,8 @@ const db   = firebase.firestore();
 // ══════════════════════════════════════════════════════════════════
 //  SCHOOL LOGO — set the URL here, or leave null to hide
 // ══════════════════════════════════════════════════════════════════
-const SCHOOL_LOGO_URL = null; // e.g. 'https://example.com/logo.png'
+const SCHOOL_LOGO_URL  = 'LOGO.png'; // e.g. 'logo.png'
+const SCHOOL_LOGO_URL2 = null; // e.g. 'logo2.png'
 
 // ══════════════════════════════════════════════════════════════════
 //  CONSTANTS
@@ -2481,18 +2482,20 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
 //  SCHOOL LOGO ZONE
 // ══════════════════════════════════════════════════════════════════
 function SchoolLogoZone({ context }) {
-  if (!SCHOOL_LOGO_URL) return null;
+  if (!SCHOOL_LOGO_URL && !SCHOOL_LOGO_URL2) return null;
   if (context === 'sidebar') {
     return (
-      <img src={SCHOOL_LOGO_URL} alt="School logo"
-        style={{width:36,height:36,borderRadius:6,objectFit:'contain',flexShrink:0}}/>
+      <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+        {SCHOOL_LOGO_URL  && <img src={SCHOOL_LOGO_URL}  alt="School logo"  style={{width:36,height:36,borderRadius:6,objectFit:'contain'}}/>}
+        {SCHOOL_LOGO_URL2 && <img src={SCHOOL_LOGO_URL2} alt="School logo 2" style={{width:36,height:36,borderRadius:6,objectFit:'contain'}}/>}
+      </div>
     );
   }
   // context === 'login'
   return (
-    <div style={{display:'flex',justifyContent:'center',marginBottom:16}}>
-      <img src={SCHOOL_LOGO_URL} alt="School logo"
-        style={{width:72,height:72,borderRadius:12,objectFit:'contain'}}/>
+    <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:10,marginBottom:16}}>
+      {SCHOOL_LOGO_URL  && <img src={SCHOOL_LOGO_URL}  alt="School logo"  style={{width:72,height:72,borderRadius:12,objectFit:'contain'}}/>}
+      {SCHOOL_LOGO_URL2 && <img src={SCHOOL_LOGO_URL2} alt="School logo 2" style={{width:72,height:72,borderRadius:12,objectFit:'contain'}}/>}
     </div>
   );
 }
