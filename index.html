@@ -1044,6 +1044,8 @@ tr:hover td { background: var(--surface); }
 .cm-meta { font-size:var(--text-xs); color:var(--muted); display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
 .cm-src  { font-size:var(--text-xs); padding:1px 6px; border-radius:4px; font-weight:500; }
 .cm-src.claude { background:var(--purple-light); color:var(--purple); }
+.cm-src.gemini { background:var(--blue-light); color:var(--blue); }
+.cm-src.groq { background:var(--green-light); color:var(--green); }
 .cm-src.local  { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
 
 /* Typing dots */
@@ -1467,7 +1469,7 @@ const db   = firebase.firestore();
 // ══════════════════════════════════════════════════════════════════
 //  SCHOOL LOGO — set the URL here, or leave null to hide
 // ══════════════════════════════════════════════════════════════════
-const SCHOOL_LOGO_URL = 'LOGO.png'; // e.g. 'https://example.com/logo.png'
+const SCHOOL_LOGO_URL = null; // e.g. 'https://example.com/logo.png'
 
 // ══════════════════════════════════════════════════════════════════
 //  CONSTANTS
@@ -1949,34 +1951,47 @@ CORE INTELLIGENCE PRINCIPLES — ALWAYS APPLY:
 // ══════════════════════════════════════════════════════════════════
 //  AI CALL
 // ══════════════════════════════════════════════════════════════════
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const getGroqKey = () => localStorage.getItem('sabnahis_groq_key') || '';
+
 async function callAI(query, history, studies, mode='general') {
   const recent = history.slice(-6).map(m=>`${m.role==='user'?'Student':'Assistant'}: ${m.content.slice(0,200)}`).join('\n');
   const system = buildSystemPrompt(studies, mode, recent);
-  const messages = [...history.slice(-14), { role:'user', content: query }];
+
+  const GROQ_API_KEY = getGroqKey();
+  if (!GROQ_API_KEY) return buildLocalResponse(query, studies, mode);
+
+  const messages = [
+    { role:'system', content: system },
+    ...history.slice(-12).map(m=>({ role: m.role==='user'?'user':'assistant', content: m.content })),
+    { role:'user', content: query }
+  ];
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': window.ANTHROPIC_API_KEY || '',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
+        'Authorization': `Bearer ${GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: GROQ_MODEL,
+        messages,
         max_tokens: 1600,
-        system,
-        messages
+        temperature: 0.7
       })
     });
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    const text = data.content?.[0]?.text || 'No response generated.';
+    if (data.error) {
+      console.error('Groq API error:', data.error);
+      toast.err(`Groq: ${data.error.message}`);
+      throw new Error(data.error.message);
+    }
+    const text = data.choices?.[0]?.message?.content || 'No response generated.';
     const relevant = findRelevant(query, studies, 4);
-    return { text, citations: relevant, source: 'claude' };
+    return { text, citations: relevant, source: 'groq' };
   } catch(err) {
-    console.error('AI error:', err);
+    console.error('AI call failed:', err);
     return buildLocalResponse(query, studies, mode);
   }
 }
@@ -2038,7 +2053,7 @@ What would you like to explore?`, citations:[], source:'local' };
   // Compare
   if (/compar|versus|vs\b|difference between|contrast/.test(q) && relevant.length>=2) {
     const [a,b] = relevant;
-    return { text:`### Comparing Studies\n\n**Study 1:** ${a.title} ${generateInText(a)}\n**Study 2:** ${b.title} ${generateInText(b)}\n\n| Aspect | Study 1 | Study 2 |\n|--------|---------|---------|\n| **Year** | ${a.year} | ${b.year} |\n| **Category** | ${(a.categories||[]).join(', ')} | ${(b.categories||[]).join(', ')} |\n| **Authors** | ${(a.authors||[]).join(', ')} | ${(b.authors||[]).join(', ')} |\n\n*For a full AI analysis with methodology comparison, reconnect to Claude AI.*`, citations:relevant, source:'local' };
+    return { text:`### Comparing Studies\n\n**Study 1:** ${a.title} ${generateInText(a)}\n**Study 2:** ${b.title} ${generateInText(b)}\n\n| Aspect | Study 1 | Study 2 |\n|--------|---------|---------|\n| **Year** | ${a.year} | ${b.year} |\n| **Category** | ${(a.categories||[]).join(', ')} | ${(b.categories||[]).join(', ')} |\n| **Authors** | ${(a.authors||[]).join(', ')} | ${(b.authors||[]).join(', ')} |\n\n*For a full AI analysis with methodology comparison, reconnect to Groq AI.*`, citations:relevant, source:'local' };
   }
 
   // Definition requests — full built-in definitions
@@ -2086,7 +2101,7 @@ What would you like to explore?`, citations:[], source:'local' };
     }
 
     // Generic definition structure for unknown topics
-    return { text: `### 📖 Definition: ${topic.charAt(0).toUpperCase()+topic.slice(1)}\n\nFor a full academic definition of **"${topic}"** — including examples, characteristics, applications, and related concepts — the Claude AI connection provides the most complete answer.\n\n**What I can tell you:**\n• This topic appears to be in the domain of STEM/academic research\n• Use **Define Topic** mode and type your question\n• If Claude AI is connected, you'll get a structured definition with examples and analogies\n\n*(Tip: Try asking "What is [specific term]?" for built-in definitions of common STEM concepts like photosynthesis, algorithm, DNA, hypothesis, ecosystem, and more.)*${repoNote}`, citations: relevant, source: 'local' };
+    return { text: `### 📖 Definition: ${topic.charAt(0).toUpperCase()+topic.slice(1)}\n\nFor a full academic definition of **"${topic}"** — including examples, characteristics, applications, and related concepts — the Groq AI connection provides the most complete answer.\n\n**What I can tell you:**\n• This topic appears to be in the domain of STEM/academic research\n• Use **Define Topic** mode and type your question\n• If Groq AI is connected, you'll get a structured definition with examples and analogies\n\n*(Tip: Try asking "What is [specific term]?" for built-in definitions of common STEM concepts like photosynthesis, algorithm, DNA, hypothesis, ecosystem, and more.)*${repoNote}`, citations: relevant, source: 'local' };
   }
 
   // Suggest / Gap mode
@@ -2095,7 +2110,7 @@ What would you like to explore?`, citations:[], source:'local' };
     const gapText = gaps.length
       ? `**🔭 Detected Research Gaps:**\n${gaps.map(g=>`• **${g}** — no studies in the repository cover this yet`).join('\n')}`
       : '• The repository has decent coverage across core STEM areas.';
-    return { text:`### Research Direction Suggestions\n\n${gapText}\n\n**💡 Ideas for Novel Studies:**\n• Interdisciplinary studies combining ${Object.keys(clusterStudies(all)).slice(0,2).join(' + ')}\n• Longitudinal follow-ups to existing studies\n• Comparative studies across different years\n\n*For detailed, context-specific suggestions with full research questions, use Claude AI mode.*`, citations:[], source:'local' };
+    return { text:`### Research Direction Suggestions\n\n${gapText}\n\n**💡 Ideas for Novel Studies:**\n• Interdisciplinary studies combining ${Object.keys(clusterStudies(all)).slice(0,2).join(' + ')}\n• Longitudinal follow-ups to existing studies\n• Comparative studies across different years\n\n*For detailed, context-specific suggestions with full research questions, use Groq AI mode.*`, citations:[], source:'local' };
   }
 
   // Relevant results found — intelligent response
@@ -2195,7 +2210,7 @@ const Ico = {
   bot:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="11"/><line x1="8" y1="15" x2="8" y2="15" strokeWidth="3" strokeLinecap="round"/><line x1="12" y1="15" x2="12" y2="15" strokeWidth="3" strokeLinecap="round"/><line x1="16" y1="15" x2="16" y2="15" strokeWidth="3" strokeLinecap="round"/></svg>,
   search: ()=><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" style={{flexShrink:0,opacity:0.5}}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   dl:     ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-  eye:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  eye:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
   trash:  ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
   X:      ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   chk:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="13" height="13"><polyline points="20 6 9 17 4 12"/></svg>,
@@ -2705,6 +2720,24 @@ const QUICK_PROMPTS = {
 //  CHAT PAGE — Upgraded Research Copilot
 // ══════════════════════════════════════════════════════════════════
 function ChatPage({ currentUser }) {
+  const isAdmin = currentUser.role === 'admin';
+  const [groqKey, setGroqKey] = useState(()=>localStorage.getItem('sabnahis_groq_key')||'');
+  const [keyInput, setKeyInput] = useState('');
+  const [showKeySetup, setShowKeySetup] = useState(false);
+  const saveKey = () => {
+    const k = keyInput.trim();
+    if (!k) { toast.err('Please enter a valid API key.'); return; }
+    localStorage.setItem('sabnahis_groq_key', k);
+    setGroqKey(k);
+    setKeyInput('');
+    setShowKeySetup(false);
+    toast.ok('API key saved!');
+  };
+  const removeKey = () => {
+    localStorage.removeItem('sabnahis_groq_key');
+    setGroqKey('');
+    toast.ok('API key removed.');
+  };
   const [studies,setStudies]=useState([]);
   const [msgs,setMsgs]=useState([]);
   const [input,setInput]=useState('');
@@ -2736,7 +2769,7 @@ function ChatPage({ currentUser }) {
       const gapHint = gaps.length > 0 ? `\n\n🔭 *Quick insight: I've spotted **${gaps.length} research gap${gaps.length>1?'s':''}** in the repository — topics with no studies yet. Ask me "What research gaps exist?" to learn more.*` : '';
       setMsgs([{
         id:1,role:'bot',citations:[],time:now(),source:'local',
-        text:`Hello! 👋 I'm your **SABNAHIS STE Research Assistant** — powered by Claude AI.
+        text:`Hello! 👋 I'm your **SABNAHIS STE Research Assistant** — powered by Groq AI.
 
 I function as a **smart research copilot**, not just a keyword search. I can:
 
@@ -2836,17 +2869,50 @@ I have **${s.length}** ${s.length===1?'study':'studies'} loaded. Use the **mode 
       <div className="page-hd">
         <div className="page-hd-left">
           <h2 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-2xl)',fontWeight:600}}>AI Research Assistant</h2>
-          <p className="muted" style={{fontSize:'var(--text-xs)'}}>Claude AI · {studies.length} studies loaded · APA citations</p>
+          <p className="muted" style={{fontSize:'var(--text-xs)'}}>Groq AI · {studies.length} studies loaded · APA citations</p>
         </div>
         <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
-          <span style={{background:'var(--green-light)',color:'var(--green)',fontSize:'0.7rem',fontWeight:500,padding:'4px 9px',borderRadius:99,display:'flex',alignItems:'center',gap:4}}>
-            <span style={{width:6,height:6,borderRadius:'50%',background:'currentColor',flexShrink:0}}/>Claude AI
+          <span style={{background: groqKey ? 'var(--green-light)' : 'var(--red-light)', color: groqKey ? 'var(--green)' : 'var(--red)', fontSize:'0.7rem',fontWeight:500,padding:'4px 9px',borderRadius:99,display:'flex',alignItems:'center',gap:4}}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:'currentColor',flexShrink:0}}/>{groqKey ? 'Groq AI' : 'No API Key'}
           </span>
+          {isAdmin && (
+            <button className="btn btn-ol btn-sm" onClick={()=>setShowKeySetup(s=>!s)} title="Manage API key">🔑 {groqKey ? 'Change Key' : 'Set API Key'}</button>
+          )}
           {savedCites.length>0&&<button className="chat-export-btn" onClick={()=>setShowSaved(s=>!s)}>📝 {savedCites.length} saved</button>}
           <button className="chat-export-btn" onClick={exportChat}>⬇ Export</button>
           <button className="btn btn-ol btn-sm" onClick={clearChat}>Clear</button>
         </div>
       </div>
+
+      {/* API Key setup — admin only */}
+      {showKeySetup && isAdmin && (
+        <div className="card" style={{marginBottom:14,borderLeft:'4px solid var(--gold)'}}>
+          <div className="card-hd" style={{marginBottom:10}}>
+            <span className="card-title" style={{fontSize:'0.875rem'}}>🔑 Groq API Key</span>
+            <button className="btn btn-ol btn-sm" onClick={()=>setShowKeySetup(false)}>✕ Close</button>
+          </div>
+          <p style={{fontSize:'var(--text-xs)',color:'var(--muted)',marginBottom:10}}>
+            Your key is stored only in this browser's local storage — it is never uploaded or shared. Get a free key at <strong>console.groq.com</strong>.
+          </p>
+          {groqKey && (
+            <div style={{display:'flex',alignItems:'center',gap:9,padding:'8px 12px',background:'var(--green-light)',borderRadius:'var(--radius)',marginBottom:10,fontSize:'var(--text-xs)',color:'var(--green)'}}>
+              ✓ Key saved: <code style={{fontFamily:'var(--font-mono)'}}>{groqKey.slice(0,12)}••••••••••••</code>
+              <button className="btn btn-red btn-sm" style={{marginLeft:'auto'}} onClick={removeKey}>Remove</button>
+            </div>
+          )}
+          <div style={{display:'flex',gap:9}}>
+            <input placeholder="Paste your Groq API key here (gsk_...)" value={keyInput} onChange={e=>setKeyInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&saveKey()} style={{flex:1}} type="password"/>
+            <button className="btn btn-gold" onClick={saveKey}>Save Key</button>
+          </div>
+        </div>
+      )}
+
+      {/* No key warning for non-admins */}
+      {!groqKey && !isAdmin && (
+        <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--gold-bg)',border:'1.5px solid var(--gold)',borderRadius:'var(--radius)',marginBottom:14,fontSize:'var(--text-sm)',color:'var(--gold)'}}>
+          ⚠️ AI is running in local mode. Ask your administrator to set up the Groq API key.
+        </div>
+      )}
 
       {/* Saved citations panel */}
       {showSaved&&savedCites.length>0&&(
@@ -2923,7 +2989,7 @@ I have **${s.length}** ${s.length===1?'study':'studies'} loaded. Use the **mode 
                   </div>
                   <div className="cm-meta">
                     <span>{msg.time}</span>
-                    {msg.source&&<span className={`cm-src ${msg.source}`}>{msg.source==='claude'?'⚡ Claude AI':'🔧 Local'}</span>}
+                    {msg.source&&<span className={`cm-src ${msg.source}`}>{msg.source==='groq'?'⚡ Groq AI':'🔧 Local'}</span>}
                     {msg.role==='bot'&&(
                       <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 4px',borderRadius:4,minWidth:28,minHeight:24,display:'flex',alignItems:'center'}} onClick={()=>copyMsg(msg.text)} title="Copy response" aria-label="Copy response">
                         <Ico.copy/>
@@ -3550,7 +3616,7 @@ function AdminStudies() {
         {loading?<div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
         :studies.length===0?<div className="empty" style={{padding:'36px 0'}}><div className="empty-ico">📚</div><h3>No studies yet</h3></div>
         :<div className="tw"><table>
-          <thead><tr><th>Title</th><th>Authors</th><th>Categories</th><th>Uploader</th><th>Views</th><th>Dls</th><th>Latest Activity</th><th>Date</th><th></th></tr></thead>
+          <thead><tr><th>Title</th><th>Authors</th><th>Categories</th><th>Uploader</th><th>Views</th><th>Dls</th><th>Latest Activity</th><th>Date</th><th style={{position:'sticky',right:0,background:'var(--white)',zIndex:2}}>Actions</th></tr></thead>
           <tbody>{studies.map(s=><tr key={s.id}>
             <td style={{maxWidth:190}}><div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></td>
             <td style={{fontSize:'0.78rem'}}>{(s.authors||[]).join(', ')}</td>
@@ -3559,8 +3625,8 @@ function AdminStudies() {
             <td>{s.viewCount||0}</td><td>{s.downloadCount||0}</td>
             <td><ActivityCell sid={s.id}/></td>
             <td style={{whiteSpace:'nowrap'}}>{fmtDate(s.createdAt)}</td>
-            <td><div style={{display:'flex',gap:5}}>
-              <button className="btn btn-ol btn-sm" onClick={()=>setHistoryStudy(s)} title="Full activity log"><Ico.eye/></button>
+            <td style={{position:'sticky',right:0,background:'var(--white)',zIndex:1}}><div style={{display:'flex',gap:5}}>
+              <button className="btn btn-ol btn-sm" onClick={()=>setHistoryStudy(s)} title="Full activity log" style={{display:'flex',alignItems:'center',gap:4}}><Ico.eye/> Log</button>
               <button className="btn btn-red btn-sm" onClick={()=>del(s.id)} title="Delete study"><Ico.trash/></button>
             </div></td>
           </tr>)}</tbody>
