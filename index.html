@@ -1346,6 +1346,25 @@ tr:hover td { background: var(--surface); }
 
   /* Toast */
   .toasts { right:12px; left:12px; max-width:100%; bottom:calc(var(--mob-nav-h) + 10px + var(--safe-bottom)); }
+
+  /* Sticky search bar on mobile */
+  .mob-search-sticky {
+    position: sticky;
+    top: calc(var(--mob-header-h) + var(--safe-top));
+    z-index: 90;
+    background: var(--bg);
+    padding: 8px 0 10px;
+    margin: -6px 0 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mob-search-sticky .sb { width: 100%; }
+  .mob-search-hidden { display: none; }
+}
+
+/* Desktop: hide sticky, show normal */
+@media (min-width: 769px) {
+  .mob-search-sticky { display: none; }
+  .mob-search-hidden { display: flex !important; }
 }
 
 @media (max-width:400px) {
@@ -1572,8 +1591,16 @@ const API = {
     if (!title||!abstract)   throw new Error('Title and abstract are required.');
     if (!authors?.length)    throw new Error('At least one author is required.');
     if (!categories?.length) throw new Error('At least one category is required.');
+
+    // Duplicate detection — check if a study with the same title already exists
+    const normalized = title.trim().toLowerCase().replace(/\s+/g,' ');
+    const existing = await db.collection('studies')
+      .where('titleNorm','==', normalized)
+      .limit(1).get();
+    if (!existing.empty) throw new Error(`⚠️ A study with this title already exists: "${existing.docs[0].data().title}"`);
+
     await db.collection('studies').add({
-      title:title.trim(), authors, abstract:abstract.trim(),
+      title:title.trim(), titleNorm: normalized, authors, abstract:abstract.trim(),
       keywords:keywords||[], categories,
       year:parseInt(year)||new Date().getFullYear(),
       gdrive:gdrive||null, uploadedBy, uploadedByName,
@@ -1586,6 +1613,62 @@ const API = {
   },
 
   async deleteStudy(id) { await db.collection('studies').doc(id).delete(); },
+
+  // ── Favorites ──────────────────────────────────────────
+  async getFavorites(userId) {
+    const snap = await db.collection('users').doc(userId).collection('favorites').orderBy('savedAt','desc').get();
+    return snap.docs.map(d=>({id:d.id,...d.data()}));
+  },
+  async addFavorite(userId, study) {
+    const BOOKMARK_LIMIT = 10;
+    const existing = await db.collection('users').doc(userId).collection('favorites').get();
+    if (existing.size >= BOOKMARK_LIMIT) throw new Error(`📌 Bookmark limit reached (${BOOKMARK_LIMIT} max). Remove one to add a new one.`);
+    await db.collection('users').doc(userId).collection('favorites').doc(study.id).set({
+      studyId:study.id, title:study.title, authors:study.authors||[],
+      categories:study.categories||[], year:study.year,
+      savedAt:new Date().toISOString()
+    });
+    // also write to study's favoriteBy subcollection so author can see
+    await db.collection('studies').doc(study.id).collection('favoriteBy').doc(userId).set({
+      userId, savedAt:new Date().toISOString()
+    });
+    await db.collection('studies').doc(study.id).update({
+      favoriteCount: firebase.firestore.FieldValue.increment(1)
+    }).catch(()=>{});
+  },
+  async removeFavorite(userId, studyId) {
+    await db.collection('users').doc(userId).collection('favorites').doc(studyId).delete();
+    await db.collection('studies').doc(studyId).collection('favoriteBy').doc(userId).delete();
+    await db.collection('studies').doc(studyId).update({
+      favoriteCount: firebase.firestore.FieldValue.increment(-1)
+    }).catch(()=>{});
+  },
+  async isFavorited(userId, studyId) {
+    const snap = await db.collection('users').doc(userId).collection('favorites').doc(studyId).get();
+    return snap.exists;
+  },
+  async getFavoritedBy(studyId) {
+    const snap = await db.collection('studies').doc(studyId).collection('favoriteBy').orderBy('savedAt','desc').get();
+    if(snap.empty) return [];
+    // fetch user names
+    const uids = snap.docs.map(d=>d.id);
+    const userSnaps = await Promise.all(uids.map(uid=>db.collection('users').doc(uid).get()));
+    return userSnaps.filter(d=>d.exists).map(d=>({uid:d.id,name:d.data().name,institution:d.data().institution||''}));
+  },
+
+  // ── Last Read ───────────────────────────────────────────
+  async setLastRead(userId, study) {
+    await db.collection('users').doc(userId).collection('lastRead').doc('current').set({
+      studyId:study.id, title:study.title, authors:study.authors||[],
+      categories:study.categories||[], year:study.year,
+      abstract:study.abstract||'',
+      openedAt:new Date().toISOString()
+    });
+  },
+  async getLastRead(userId) {
+    const snap = await db.collection('users').doc(userId).collection('lastRead').doc('current').get();
+    return snap.exists ? snap.data() : null;
+  },
 
   async trackStudy(id, field, user) {
     try {
@@ -2426,6 +2509,25 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
   const gdriveData = study.gdrive || study.file || null;
   const gdriveUrl = gdriveData ? (gdriveData.driveUrl || gdriveData.viewUrl || null) : null;
   const gdriveDownload = gdriveData ? (gdriveData.downloadUrl || null) : null;
+  const [faved, setFaved] = useState(false);
+  const [favLoading, setFavLoading] = useState(true);
+  const [favBy, setFavBy] = useState([]);
+  const [showFavBy, setShowFavBy] = useState(false);
+  const isOwner = currentUser.id === study.uploadedBy;
+
+  useEffect(()=>{
+    API.isFavorited(currentUser.id, study.id).then(v=>{setFaved(v);setFavLoading(false);});
+    if(isOwner) API.getFavoritedBy(study.id).then(setFavBy);
+  },[]);
+
+  const toggleFav = async () => {
+    setFavLoading(true);
+    try {
+      if(faved){ await API.removeFavorite(currentUser.id, study.id); setFaved(false); toast.ok('Removed from bookmarks.'); }
+      else { await API.addFavorite(currentUser.id, study); setFaved(true); toast.ok('📌 Bookmarked!'); }
+    } catch(e){ toast.err(e.message); }
+    setFavLoading(false);
+  };
   return (
     <Modal title="Study Details" onClose={onClose} wide>
       <div className="sc-cats" style={{marginBottom:12}}>{(study.categories||[]).map(c=><span key={c} className="sc-cat">{c}</span>)}</div>
@@ -2473,7 +2575,36 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
           </div>
         </div>
       )}
-      {canDel&&<div style={{display:'flex',justifyContent:'flex-end',marginTop:6,paddingTop:14,borderTop:'1px solid var(--border)'}}><button className="btn btn-red btn-sm" onClick={()=>{onDelete(study.id);onClose();}}><Ico.trash/> Delete Study</button></div>}
+      {/* Favorited By — only visible to study owner */}
+      {isOwner&&favBy.length>0&&(
+        <div style={{marginBottom:14,padding:'10px 14px',background:'var(--purple-light)',border:'1px solid var(--purple)',borderRadius:'var(--radius)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,cursor:'pointer'}} onClick={()=>setShowFavBy(s=>!s)}>
+            <span style={{fontSize:'0.8rem',fontWeight:600,color:'var(--purple)'}}>📌 {favBy.length} student{favBy.length!==1?'s':''} bookmarked this study</span>
+            <span style={{fontSize:'0.7rem',color:'var(--purple)',marginLeft:'auto'}}>{showFavBy?'▲ hide':'▼ show'}</span>
+          </div>
+          {showFavBy&&(
+            <div style={{display:'flex',flexDirection:'column',gap:6}}>
+              {favBy.map(u=>(
+                <div key={u.uid} style={{display:'flex',alignItems:'center',gap:8,fontSize:'0.78rem'}}>
+                  <div style={{width:26,height:26,borderRadius:'50%',background:'var(--purple)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:'0.7rem',flexShrink:0}}>{u.name.charAt(0).toUpperCase()}</div>
+                  <div><div style={{fontWeight:500}}>{u.name}</div>{u.institution&&<div style={{fontSize:'0.7rem',color:'var(--muted)'}}>{u.institution}</div>}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6,paddingTop:14,borderTop:'1px solid var(--border)',flexWrap:'wrap',gap:9}}>
+        <button
+          className={faved?'btn btn-gold btn-sm':'btn btn-ol btn-sm'}
+          onClick={toggleFav}
+          disabled={favLoading}
+          title={faved?'Remove bookmark':'Bookmark this study'}>
+          {favLoading?<span className="spin" style={{width:13,height:13}}/>:<>{faved?'📌 Bookmarked':'🔖 Bookmark'}</>}
+        </button>
+        {canDel&&<button className="btn btn-red btn-sm" onClick={()=>{onDelete(study.id);onClose();}}><Ico.trash/> Delete Study</button>}
+      </div>
     </Modal>
   );
 }
@@ -2509,7 +2640,27 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
   const [gdriveUrl,setGdriveUrl]=useState('');
   const [gdriveInfo,setGdriveInfo]=useState(null);
   const [loading,setLoading]=useState(false);
-  const sf=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const [titleDupe,setTitleDupe]=useState(null); // null=unchecked, false=ok, string=dupe title
+  const [titleChecking,setTitleChecking]=useState(false);
+  const titleCheckTimeout=useRef(null);
+  const sf=(k,v)=>{
+    setForm(f=>({...f,[k]:v}));
+    if(k==='title'){
+      setTitleDupe(null);
+      clearTimeout(titleCheckTimeout.current);
+      if(v.trim().length>4){
+        setTitleChecking(true);
+        titleCheckTimeout.current=setTimeout(async()=>{
+          try{
+            const norm=v.trim().toLowerCase().replace(/\s+/g,' ');
+            const snap=await db.collection('studies').where('titleNorm','==',norm).limit(1).get();
+            setTitleDupe(snap.empty?false:snap.docs[0].data().title);
+          }catch{setTitleDupe(false);}
+          setTitleChecking(false);
+        },600);
+      }else{setTitleChecking(false);}
+    }
+  };
 
   const handleGdriveInput=val=>{
     setGdriveUrl(val);
@@ -2541,7 +2692,16 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
 
   return (
     <Modal title="Upload Research Study" onClose={confirmClose} wide>
-      <div className="fg"><label>Title *</label><input placeholder="Full title of your research study" value={form.title} onChange={e=>sf('title',e.target.value)} autoCapitalize="words" spellCheck/></div>
+      <div className="fg">
+        <label>Title *</label>
+        <input placeholder="Full title of your research study" value={form.title} onChange={e=>sf('title',e.target.value)} autoCapitalize="words" spellCheck style={titleDupe?{borderColor:'var(--red)'}:{}}/>
+        {titleChecking&&<span style={{fontSize:'0.73rem',color:'var(--muted)',marginTop:4,display:'block'}}>⏳ Checking for duplicates…</span>}
+        {titleDupe&&<div className="al al-err" style={{marginTop:6,padding:'8px 12px',fontSize:'0.78rem'}}>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" style={{flexShrink:0}}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>A study with this title already exists: <strong>"{titleDupe}"</strong></span>
+        </div>}
+        {titleDupe===false&&form.title.trim().length>4&&<span style={{fontSize:'0.73rem',color:'var(--green)',marginTop:4,display:'block'}}>✓ Title is available</span>}
+      </div>
       <div className="fg"><label>Author(s) * <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></label><input placeholder="Juan dela Cruz, Maria Santos" value={form.authors} onChange={e=>sf('authors',e.target.value)}/></div>
       <div className="fg">
         <label style={{display:'flex',justifyContent:'space-between'}}>
@@ -2599,7 +2759,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
       </div>
       <div style={{display:'flex',gap:9,justifyContent:'flex-end',flexWrap:'wrap'}}>
         <button className="btn btn-ol" onClick={onClose}>Cancel</button>
-        <button className="btn btn-gold" onClick={submit} disabled={loading}>{loading?<><span className="spin spin-dark"/>Uploading…</>:<><Ico.up/> Upload Study</>}</button>
+        <button className="btn btn-gold" onClick={submit} disabled={loading||!!titleDupe}>{loading?<><span className="spin spin-dark"/>Uploading…</>:<><Ico.up/> Upload Study</>}</button>
       </div>
     </Modal>
   );
@@ -2674,12 +2834,17 @@ function StudiesPage({ currentUser }) {
         </div>
         <button className="btn btn-gold" onClick={()=>setShowUpload(true)}><Ico.up/> Upload Study</button>
       </div>
-      <div className="fb" style={{marginBottom:18}}>
-        <div className="sb" style={{flex:1,minWidth:200}}>
-          <Ico.search/>
-          <input placeholder="Search by title, author, or keyword…" value={searchInput} onChange={handleSearch} aria-label="Search studies"/>
-          {searchInput&&<button onClick={()=>{setSearchInput('');setSearch('');setPage(1);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem',lineHeight:1}} title="Clear search">✕</button>}
+      <div className="mob-search-sticky">
+        <div className="fb">
+          <div className="sb" style={{flex:1,minWidth:200}}>
+            <Ico.search/>
+            <input placeholder="Search by title, author, or keyword…" value={searchInput} onChange={handleSearch} aria-label="Search studies"/>
+            {searchInput&&<button onClick={()=>{setSearchInput('');setSearch('');setPage(1);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem',lineHeight:1}} title="Clear search">✕</button>}
+          </div>
         </div>
+      </div>
+
+      <div className="fb mob-search-hidden" style={{marginBottom:18}}>
         <select value={filterCat} onChange={e=>{setFilterCat(e.target.value);setPage(1);}} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by category">
           <option value="">All Categories</option>
           {cats.map(c=><option key={c}>{c}</option>)}
@@ -2719,7 +2884,7 @@ function StudiesPage({ currentUser }) {
         <div className="grid">
           {sortedStudies.map(study=>(
             <div key={study.id} className="sc"
-              onClick={async()=>{await API.trackStudy(study.id,'viewCount',currentUser);setSelected({...study,viewCount:(study.viewCount||0)+1});}}
+              onClick={async()=>{await API.trackStudy(study.id,'viewCount',currentUser);API.setLastRead(currentUser.id,study).catch(()=>{});setSelected({...study,viewCount:(study.viewCount||0)+1});}}
               role="article" tabIndex={0}
               onKeyDown={e=>e.key==='Enter'&&e.currentTarget.click()}
               aria-label={`Study: ${study.title}`}>
@@ -2732,6 +2897,7 @@ function StudiesPage({ currentUser }) {
                 <span><Ico.dl/>{study.downloadCount||0}</span>
                 <span><Ico.cal/>{study.year}</span>
                 {(study.gdrive||study.file)&&<span title="Google Drive file attached" style={{color:'var(--teal)'}}>🔗 Drive</span>}
+                {(study.favoriteCount||0)>0&&<span title="Bookmarked by students" style={{color:'var(--purple)'}}>📌{study.favoriteCount}</span>}
                 <span style={{marginLeft:'auto'}}>{fmtDate(study.createdAt)}</span>
               </div>
             </div>
@@ -3415,15 +3581,21 @@ function StudentDash({ currentUser }) {
   const [loading,setLoading]=useState(true);
   const [allTotal,setAllTotal]=useState(0);
   const [historyStudy,setHistoryStudy]=useState(null);
+  const [lastRead,setLastRead]=useState(null);
+  const [favorites,setFavorites]=useState([]);
+  const [selectedStudy,setSelectedStudy]=useState(null);
 
   const load=async()=>{
     setLoading(true);
-    const [res,catsArr,allRes]=await Promise.all([
+    const [res,catsArr,allRes,lr,favs]=await Promise.all([
       API.getStudies({uploadedBy:currentUser.id,status:'active',perPage:100}),
       API.getCategories(),
-      API.getStudies({perPage:1})
+      API.getStudies({perPage:1}),
+      API.getLastRead(currentUser.id),
+      API.getFavorites(currentUser.id)
     ]);
     setMyStudies(res.data);setCats(catsArr);setAllTotal(allRes.total);
+    setLastRead(lr);setFavorites(favs);
     setLoading(false);
   };
   useEffect(()=>{load();},[]);
@@ -3438,8 +3610,58 @@ function StudentDash({ currentUser }) {
         <div className="stat gold"><div className="stat-lbl">My Studies</div><div className="stat-val">{myStudies.length}</div><div className="stat-sub">Uploaded</div></div>
         <div className="stat teal"><div className="stat-lbl">Total Views</div><div className="stat-val">{myStudies.reduce((a,s)=>a+(s.viewCount||0),0)}</div><div className="stat-sub">Across all my studies</div></div>
         <div className="stat blue"><div className="stat-lbl">Downloads</div><div className="stat-val">{myStudies.reduce((a,s)=>a+(s.downloadCount||0),0)}</div><div className="stat-sub">Total</div></div>
-        <div className="stat slate"><div className="stat-lbl">Repository</div><div className="stat-val">{allTotal}</div><div className="stat-sub">Total studies</div></div>
+        <div className="stat slate"><div className="stat-lbl">Bookmarks</div><div className="stat-val">{favorites.length}</div><div className="stat-sub">Saved studies</div></div>
       </div>
+
+      {/* ── Continue Reading ── */}
+      {lastRead&&(
+        <div className="card" style={{marginBottom:16,cursor:'pointer'}} onClick={async()=>{
+          const snap=await db.collection('studies').doc(lastRead.studyId).get();
+          if(snap.exists) setSelectedStudy({id:snap.id,...snap.data()});
+          else toast.err('Study no longer available.');
+        }}>
+          <div className="card-hd"><span className="card-title">📖 Continue Reading</span><span style={{fontSize:'0.72rem',color:'var(--muted)'}}>Last opened {fmtDate(lastRead.openedAt)}</span></div>
+          <div style={{display:'flex',gap:14,alignItems:'flex-start'}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:600,fontSize:'var(--text-sm)',marginBottom:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{lastRead.title}</div>
+              <div style={{fontSize:'0.75rem',color:'var(--muted)',marginBottom:6}}>By: {(lastRead.authors||[]).join(', ')}</div>
+              <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+                {(lastRead.categories||[]).map(c=><span key={c} className="sc-cat" style={{fontSize:'0.65rem'}}>{c}</span>)}
+                <span style={{fontSize:'0.7rem',color:'var(--muted)',marginLeft:2}}>{lastRead.year}</span>
+              </div>
+            </div>
+            <button className="btn btn-gold btn-sm" style={{flexShrink:0}}>Open →</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bookmarks ── */}
+      {favorites.length>0&&(
+        <div className="card" style={{marginBottom:16}}>
+          <div className="card-hd"><span className="card-title">📌 My Bookmarks</span><span style={{fontSize:'0.72rem',color:favorites.length>=10?'var(--red)':'var(--muted)'}}>{favorites.length}/10 saved</span></div>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {favorites.map(fav=>(
+              <div key={fav.studyId} style={{display:'flex',alignItems:'center',gap:12,padding:'9px 12px',background:'var(--surface)',borderRadius:'var(--radius)',cursor:'pointer',border:'1px solid var(--border)'}}
+                onClick={async()=>{
+                  const snap=await db.collection('studies').doc(fav.studyId).get();
+                  if(snap.exists) setSelectedStudy({id:snap.id,...snap.data()});
+                  else toast.err('Study no longer available.');
+                }}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:500,fontSize:'var(--text-sm)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{fav.title}</div>
+                  <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{(fav.authors||[]).join(', ')} · {fav.year}</div>
+                </div>
+                <button className="btn btn-ol btn-sm" style={{flexShrink:0}}
+                  onClick={async e=>{e.stopPropagation();await API.removeFavorite(currentUser.id,fav.studyId);setFavorites(f=>f.filter(x=>x.studyId!==fav.studyId));toast.ok('Bookmark removed.');}}>
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {selectedStudy&&<StudyDetailModal study={selectedStudy} onClose={()=>setSelectedStudy(null)} currentUser={currentUser} onDelete={async id=>{await API.deleteStudy(id);setSelectedStudy(null);load();}}/>}
       <div className="card">
         <div className="card-hd"><span className="card-title">My Uploaded Studies</span><button className="btn btn-gold btn-sm" onClick={()=>setShowUpload(true)}><Ico.up/> Upload New</button></div>
         {loading?(
