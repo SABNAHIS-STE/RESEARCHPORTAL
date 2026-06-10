@@ -1523,7 +1523,7 @@ const DEFAULT_CATS = [
 //  FIREBASE API
 // ══════════════════════════════════════════════════════════════════
 const API = {
-  async register({ name, email, password, institution, department, secQ, secA }) {
+  async register({ name, email, password, institution, department, secQ, secA, gender }) {
     if (!name||!email||!password) throw new Error('Name, email and password are required.');
     if (password.length < 8)       throw new Error('Password must be at least 8 characters.');
     if (!secA?.trim())             throw new Error('Security answer is required.');
@@ -1534,6 +1534,7 @@ const API = {
         name: name.trim(), email: email.toLowerCase(),
         role: 'student', status: 'pending',
         institution: institution?.trim()||'', department: department?.trim()||'',
+        gender: gender||'',
         secQ: secQ||SEC_QS[0], secA: secA.trim().toLowerCase(),
         uploadCount: 0, createdAt: new Date().toISOString()
       });
@@ -2693,7 +2694,7 @@ function AuthPage({ onLogin }) {
   const [tab,setTab]=useState('login');
   const [rememberMe,setRememberMe]=useState(true);
   const [loading,setLoading]=useState(false);
-  const [form,setForm]=useState({name:'',email:'',password:'',confirm:'',institution:'',department:'',secQ:SEC_QS[0],secA:''});
+  const [form,setForm]=useState({name:'',email:'',password:'',confirm:'',institution:'',department:'',secQ:SEC_QS[0],secA:'',gender:''});
   const [err,setErr]=useState('');
   const [ok,setOk]=useState('');
   const [showForgot,setShowForgot]=useState(false);
@@ -2743,6 +2744,27 @@ function AuthPage({ onLogin }) {
             <button style={{width:'100%',textAlign:'center',background:'none',border:'none',color:'var(--muted)',fontSize:'0.82rem',cursor:'pointer',padding:'6px'}} onClick={()=>setShowForgot(true)}>Forgot your password?</button>
           </>):(<>
             <div className="fg"><label htmlFor="reg-name">Full Name *</label><input id="reg-name" placeholder="Juan dela Cruz" value={form.name} onChange={e=>sf('name',e.target.value)} autoComplete="name"/></div>
+            <div className="fg">
+              <label htmlFor="reg-gender">Gender *</label>
+              <div style={{display:'flex',gap:8}}>
+                {['Male','Female'].map(g=>(
+                  <button key={g} type="button"
+                    onClick={()=>sf('gender',g)}
+                    style={{
+                      flex:1,padding:'10px',borderRadius:'var(--radius)',
+                      border:`1.5px solid ${form.gender===g?'var(--gold)':'var(--border)'}`,
+                      background:form.gender===g?'var(--gold-bg)':'var(--white)',
+                      color:form.gender===g?'var(--gold)':'var(--ink-3)',
+                      fontFamily:'var(--font-body)',fontSize:'var(--text-sm)',
+                      fontWeight:form.gender===g?600:400,
+                      cursor:'pointer',transition:'all var(--transition)',
+                      minHeight:'var(--tap-min)',display:'flex',alignItems:'center',justifyContent:'center',gap:6
+                    }}>
+                    {g==='Male'?'♂':'♀'} {g}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="fr">
               <div className="fg"><label htmlFor="reg-inst">School / Institution</label><input id="reg-inst" placeholder="SABNAHIS" value={form.institution} onChange={e=>sf('institution',e.target.value)}/></div>
               <div className="fg"><label htmlFor="reg-dept">Department / Grade</label><input id="reg-dept" placeholder="Grade 12 STEM" value={form.department} onChange={e=>sf('department',e.target.value)}/></div>
@@ -4146,7 +4168,7 @@ function StudentDash({ currentUser }) {
 // ══════════════════════════════════════════════════════════════════
 //  ADMIN DASHBOARD
 // ══════════════════════════════════════════════════════════════════
-function AdminDash() {
+function AdminDash({ currentUser }) {
   const [stats,setStats]=useState(null);
   const [pending,setPending]=useState([]);
   const [recent,setRecent]=useState([]);
@@ -4163,7 +4185,12 @@ function AdminDash() {
 
   return (
     <div>
-      <div style={{marginBottom:22}}><h2 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-2xl)',marginBottom:3}}>Admin Dashboard</h2><p className="muted">System overview and management</p></div>
+      <div style={{marginBottom:22}}>
+        <h2 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-2xl)',marginBottom:3}}>
+          Welcome back, {currentUser?.gender==='Female'?'Ma\'am':'Sir'} {currentUser?.name?.split(' ')[0] || 'Admin'} 👋
+        </h2>
+        <p className="muted">Here's your system overview for today.</p>
+      </div>
       <div className="stats">
         <div className="stat gold"><div className="stat-lbl">Total Students</div><div className="stat-val">{stats.totalStudents}</div><div className="stat-sub">{stats.approvedStudents} approved</div></div>
         <div className="stat red"><div className="stat-lbl">Pending</div><div className="stat-val">{stats.pendingStudents}</div><div className="stat-sub">Awaiting review</div></div>
@@ -5049,7 +5076,7 @@ function App() {
 
   const renderPage=()=>{
     switch(activeTab){
-      case 'dashboard':     return isAdmin?<AdminDash/>:<StudentDash currentUser={currentUser}/>;
+      case 'dashboard':     return isAdmin?<AdminDash currentUser={currentUser}/>:<StudentDash currentUser={currentUser}/>;
       case 'users':         return isAdmin?<AdminUsers/>:null;
       case 'studies-admin': return isAdmin?<AdminStudies/>:null;
       case 'categories':    return isAdmin?<AdminCats/>:null;
