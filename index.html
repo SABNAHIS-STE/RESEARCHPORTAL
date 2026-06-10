@@ -1646,6 +1646,25 @@ const API = {
 
   async setCategories(cats) { await db.collection('config').doc('categories').set({ list: cats }); },
 
+  async getRecognizedStudies() {
+    try {
+      const snap = await db.collection('recognized_studies').orderBy('createdAt','desc').get();
+      return snap.docs.map(d=>({id:d.id,...d.data()}));
+    } catch { return []; }
+  },
+
+  async addRecognizedStudy(data) {
+    await db.collection('recognized_studies').add({ ...data, createdAt: new Date().toISOString() });
+  },
+
+  async updateRecognizedStudy(id, data) {
+    await db.collection('recognized_studies').doc(id).update({ ...data, updatedAt: new Date().toISOString() });
+  },
+
+  async deleteRecognizedStudy(id) {
+    await db.collection('recognized_studies').doc(id).delete();
+  },
+
   async getStats() {
     try {
       const [uSnap, sSnap] = await Promise.all([
@@ -3691,23 +3710,23 @@ function AdminCats() {
 //  RECOGNIZED STUDIES PAGE
 // ══════════════════════════════════════════════════════════════════
 function RecognizedStudiesPage({ currentUser, isAdmin }) {
-  const STORAGE_KEY = 'sabnahis_recognized_studies';
-
-  const loadStored = () => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
-  };
-
-  const [entries, setEntries] = useState(loadStored);
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ title:'', authors:'', award:'', year:String(new Date().getFullYear()), description:'', institution:'' });
   const [search, setSearch] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const persist = data => {
+  const load = useCallback(async () => {
+    setLoading(true);
+    const data = await API.getRecognizedStudies();
     setEntries(data);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
-  };
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const sf = (k,v) => setForm(f => ({...f, [k]:v}));
 
@@ -3723,25 +3742,32 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
     setShowForm(true);
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!form.title.trim()) { toast.err('Title is required.'); return; }
     if (!form.authors.trim()) { toast.err('Author(s) are required.'); return; }
     if (!form.award.trim()) { toast.err('Award / Recognition is required.'); return; }
-    if (editId) {
-      persist(entries.map(e => e.id === editId ? { ...e, ...form, updatedAt: new Date().toISOString() } : e));
-      toast.ok('Entry updated!');
-    } else {
-      const newEntry = { ...form, id: Date.now().toString(), addedBy: currentUser.name, createdAt: new Date().toISOString() };
-      persist([newEntry, ...entries]);
-      toast.ok('Recognized study added!');
-    }
-    setShowForm(false);
+    setSaving(true);
+    try {
+      if (editId) {
+        await API.updateRecognizedStudy(editId, form);
+        toast.ok('Entry updated!');
+      } else {
+        await API.addRecognizedStudy({ ...form, addedBy: currentUser.name });
+        toast.ok('Recognized study added!');
+      }
+      setShowForm(false);
+      await load();
+    } catch(e) { toast.err(e.message); }
+    setSaving(false);
   };
 
-  const remove = id => {
-    persist(entries.filter(e => e.id !== id));
-    setDeleteConfirm(null);
-    toast.ok('Entry removed.');
+  const remove = async id => {
+    try {
+      await API.deleteRecognizedStudy(id);
+      setDeleteConfirm(null);
+      toast.ok('Entry removed.');
+      await load();
+    } catch(e) { toast.err(e.message); }
   };
 
   const filtered = entries.filter(e =>
@@ -3786,8 +3812,12 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
         </div>
       )}
 
-      {/* Empty state */}
-      {entries.length === 0 ? (
+      {loading ? (
+        <div style={{textAlign:'center',padding:'50px',color:'var(--muted)'}}>
+          <span className="spin spin-gold" style={{width:28,height:28,border:'3px solid rgba(201,162,39,0.25)',borderTopColor:'var(--gold)',display:'inline-block',marginBottom:12}}/>
+          <p>Loading…</p>
+        </div>
+      ) : entries.length === 0 ? (
         <div className="empty">
           <div style={{fontSize:'2.5rem',marginBottom:8}}>🏆</div>
           <h3>No recognized studies yet</h3>
@@ -3868,7 +3898,7 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
           <div className="fg"><label>Description <span style={{fontWeight:300,color:'var(--muted)'}}>(optional)</span></label><textarea placeholder="Brief description of the recognition or study significance…" value={form.description} onChange={e=>sf('description',e.target.value)} style={{minHeight:80}}/></div>
           <div style={{display:'flex',gap:9,justifyContent:'flex-end',flexWrap:'wrap',marginTop:4}}>
             <button className="btn btn-ol" onClick={()=>setShowForm(false)}>Cancel</button>
-            <button className="btn btn-gold" onClick={submit}>{editId?<><Ico.chk/> Save Changes</>:<><Ico.plus/> Add Recognition</>}</button>
+            <button className="btn btn-gold" onClick={submit} disabled={saving}>{saving?<><span className="spin spin-dark"/>Saving…</>:editId?<><Ico.chk/> Save Changes</>:<><Ico.plus/> Add Recognition</>}</button>
           </div>
         </Modal>
       )}
