@@ -1551,6 +1551,13 @@ const API = {
       const data = snap.data();
       if (data.status==='pending')  { await auth.signOut(); throw new Error('Your account is awaiting admin approval. Please check back later.'); }
       if (data.status==='rejected') { await auth.signOut(); throw new Error('Your registration was rejected. Please contact your administrator.'); }
+      // Apply any pending on-site password reset
+      if (data._pwReset) {
+        try {
+          await cred.user.updatePassword(data._pwReset);
+          await db.collection('users').doc(cred.user.uid).update({ _pwReset: firebase.firestore.FieldValue.delete(), _pwResetAt: firebase.firestore.FieldValue.delete() });
+        } catch(pe) { /* non-fatal: clear it anyway */ await db.collection('users').doc(cred.user.uid).update({ _pwReset: firebase.firestore.FieldValue.delete(), _pwResetAt: firebase.firestore.FieldValue.delete() }).catch(()=>{}); }
+      }
       await db.collection('users').doc(cred.user.uid).update({ lastLogin: new Date().toISOString() }).catch(()=>{});
       return { id: cred.user.uid, ...data };
     } catch(e) {
@@ -1826,7 +1833,53 @@ const API = {
     } catch { return {totalStudents:0,approvedStudents:0,pendingStudents:0,totalStudies:0,totalViews:0,totalDownloads:0}; }
   },
 
-  async sendPasswordReset(email) { await auth.sendPasswordResetEmail(email.trim()); }
+  async saveSecurityQuestion(uid, secQ, secA) {
+    if (!secQ||!secA?.trim()) throw new Error('Both a question and answer are required.');
+    await db.collection('users').doc(uid).update({ secQ, secA: secA.trim().toLowerCase() });
+  },
+
+  async _withAnon(fn) {
+    let anonUser = null;
+    try {
+      const cred = await auth.signInAnonymously();
+      anonUser = cred.user;
+      return await fn();
+    } finally {
+      if (anonUser) await auth.signOut().catch(()=>{});
+    }
+  },
+
+  async getSecurityQuestion(email) {
+    return this._withAnon(async () => {
+      const snap = await db.collection('users').where('email','==',email.trim().toLowerCase()).limit(1).get();
+      if (snap.empty) throw new Error('No account found with that email address.');
+      const doc = snap.docs[0];
+      const data = doc.data();
+      if (!data.secQ || !data.secA) throw new Error('No security question is set for this account. Please contact an administrator.');
+      return { uid: doc.id, secQ: data.secQ };
+    });
+  },
+
+  async verifySecurityAnswer(uid, answer) {
+    return this._withAnon(async () => {
+      const snap = await db.collection('users').doc(uid).get();
+      if (!snap.exists) throw new Error('Account not found.');
+      const data = snap.data();
+      if ((data.secA||'').toLowerCase().trim() !== answer.toLowerCase().trim())
+        throw new Error('Incorrect answer. Please check your spelling and try again.');
+      return true;
+    });
+  },
+
+  async resetPasswordOnSite(uid, newPassword) {
+    if (!newPassword || newPassword.length < 8) throw new Error('Password must be at least 8 characters.');
+    return this._withAnon(async () => {
+      await db.collection('users').doc(uid).update({
+        _pwReset: newPassword,
+        _pwResetAt: new Date().toISOString()
+      });
+    });
+  }
 };
 
 // ══════════════════════════════════════════════════════════════════
@@ -2442,35 +2495,189 @@ function CatPicker({ selected, onChange, max=2, cats=[] }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  FORGOT PASSWORD
+//  FORGOT PASSWORD  (on-site, no email required)
 // ══════════════════════════════════════════════════════════════════
 function ForgotModal({ onClose }) {
-  const [step,setStep]=useState('email');
+  const [step,setStep]=useState('email');       // 'email' → 'question' → 'newpw' → 'done'
   const [email,setEmail]=useState('');
+  const [secQ,setSecQ]=useState('');
+  const [answer,setAnswer]=useState('');
+  const [uid,setUid]=useState('');
+  const [pw,setPw]=useState('');
+  const [pw2,setPw2]=useState('');
+  const [showPw,setShowPw]=useState(false);
   const [err,setErr]=useState('');
   const [loading,setLoading]=useState(false);
-  const submit=async()=>{
-    setErr('');setLoading(true);
-    try{await API.sendPasswordReset(email);setStep('done');}
-    catch(e){setErr(e.message);}
+
+  // Step indicators
+  const steps=['Email','Security Question','New Password'];
+  const stepIdx={'email':0,'question':1,'newpw':2,'done':3};
+
+  const stepEmail=async()=>{
+    setErr('');
+    if(!email.trim()){setErr('Please enter your email address.');return;}
+    setLoading(true);
+    try{
+      const res=await API.getSecurityQuestion(email);
+      setUid(res.uid);setSecQ(res.secQ);setStep('question');
+    }catch(e){
+      const msg=e.message||'';
+      if(msg.includes('anonymous')||msg.includes('ANONYMOUS')||e.code==='auth/operation-not-allowed')
+        setErr('On-site reset requires Anonymous Authentication to be enabled in Firebase Console → Authentication → Sign-in methods → Anonymous.');
+      else setErr(msg);
+    }
     setLoading(false);
   };
+
+  const stepQuestion=async()=>{
+    setErr('');
+    if(!answer.trim()){setErr('Please enter your security answer.');return;}
+    setLoading(true);
+    try{
+      await API.verifySecurityAnswer(uid,answer);
+      setStep('newpw');
+    }catch(e){setErr(e.message);}
+    setLoading(false);
+  };
+
+  const stepNewPw=async()=>{
+    setErr('');
+    if(pw.length<8){setErr('Password must be at least 8 characters.');return;}
+    if(pw!==pw2){setErr('Passwords do not match.');return;}
+    setLoading(true);
+    try{
+      await API.resetPasswordOnSite(uid,pw);
+      setStep('done');
+    }catch(e){setErr(e.message);}
+    setLoading(false);
+  };
+
+  const titles={'email':'Reset Your Password','question':'Security Question','newpw':'Set New Password','done':'Password Updated'};
+
   return (
-    <Modal title="Reset Your Password" onClose={onClose}>
-      {err&&<div className="al al-err">{err}</div>}
-      {step==='email'&&(<>
-        <p className="muted" style={{marginBottom:14}}>Enter your email and we'll send a reset link.</p>
-        <div className="fg"><label htmlFor="reset-email">Email Address</label><input id="reset-email" type="email" placeholder="your@email.com" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} autoFocus/></div>
-        <div style={{display:'flex',gap:9,justifyContent:'flex-end'}}>
-          <button className="btn btn-ol" onClick={onClose}>Cancel</button>
-          <button className="btn btn-gold" onClick={submit} disabled={loading||!email.trim()}>{loading?<><span className="spin spin-dark"/>Sending…</>:'Send Reset Link'}</button>
+    <Modal title={titles[step]} onClose={onClose}>
+      {/* Progress bar */}
+      {step!=='done'&&(
+        <div style={{display:'flex',gap:0,marginBottom:20,borderRadius:8,overflow:'hidden',border:'1px solid var(--border)'}}>
+          {steps.map((s,i)=>(
+            <div key={s} style={{
+              flex:1,padding:'6px 4px',textAlign:'center',
+              fontSize:'0.68rem',fontWeight:600,
+              background:i<stepIdx[step]?'var(--green-light)':i===stepIdx[step]?'var(--gold-bg)':'var(--surface)',
+              color:i<stepIdx[step]?'var(--green)':i===stepIdx[step]?'var(--gold)':'var(--muted)',
+              borderRight:i<2?'1px solid var(--border)':'none',
+              transition:'all .3s'
+            }}>
+              {i<stepIdx[step]?'✓ ':''}{s}
+            </div>
+          ))}
         </div>
-      </>)}
+      )}
+
+      {err&&<div className="al al-err" role="alert">{err}</div>}
+
+      {step==='email'&&(
+        <>
+          <p className="muted" style={{marginBottom:16,fontSize:'var(--text-sm)'}}>
+            Enter your registered email address and we'll verify your identity using your security question — no email needed.
+          </p>
+          <div className="fg">
+            <label htmlFor="fp-email">Email Address</label>
+            <input id="fp-email" type="email" placeholder="your@email.com"
+              value={email} onChange={e=>setEmail(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&stepEmail()} autoFocus/>
+          </div>
+          <div style={{display:'flex',gap:9,justifyContent:'flex-end',marginTop:4}}>
+            <button className="btn btn-ol" onClick={onClose}>Cancel</button>
+            <button className="btn btn-gold" onClick={stepEmail} disabled={loading||!email.trim()}>
+              {loading?<><span className="spin spin-dark"/>Checking…</>:'Continue →'}
+            </button>
+          </div>
+        </>
+      )}
+
+      {step==='question'&&(
+        <>
+          <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--radius)',padding:'12px 14px',marginBottom:16}}>
+            <p style={{fontSize:'var(--text-xs)',color:'var(--muted)',marginBottom:4,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.5px'}}>Your Security Question</p>
+            <p style={{fontSize:'var(--text-sm)',color:'var(--ink)',fontWeight:500}}>{secQ}</p>
+          </div>
+          <div className="fg">
+            <label htmlFor="fp-answer">Your Answer</label>
+            <input id="fp-answer" placeholder="Type your answer…"
+              value={answer} onChange={e=>setAnswer(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&stepQuestion()} autoFocus/>
+            <p style={{fontSize:'var(--text-xs)',color:'var(--muted)',marginTop:4}}>Answer is not case-sensitive.</p>
+          </div>
+          <div style={{display:'flex',gap:9,justifyContent:'flex-end',marginTop:4}}>
+            <button className="btn btn-ol" onClick={()=>{setStep('email');setAnswer('');setErr('');}}>← Back</button>
+            <button className="btn btn-gold" onClick={stepQuestion} disabled={loading||!answer.trim()}>
+              {loading?<><span className="spin spin-dark"/>Verifying…</>:'Verify Answer →'}
+            </button>
+          </div>
+        </>
+      )}
+
+      {step==='newpw'&&(
+        <>
+          <p className="muted" style={{marginBottom:16,fontSize:'var(--text-sm)'}}>
+            Identity verified! Choose a new password for your account.
+          </p>
+          <div className="fg">
+            <label htmlFor="fp-pw">New Password</label>
+            <div style={{position:'relative'}}>
+              <input id="fp-pw" type={showPw?'text':'password'} placeholder="Min. 8 characters"
+                value={pw} onChange={e=>setPw(e.target.value)} autoFocus
+                style={{paddingRight:42}}/>
+              <button type="button" onClick={()=>setShowPw(v=>!v)}
+                style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:'var(--muted)',cursor:'pointer',fontSize:'1rem',padding:'2px 4px'}}>
+                {showPw?'🙈':'👁'}
+              </button>
+            </div>
+            {pw&&(
+              <div style={{marginTop:5,display:'flex',gap:4,alignItems:'center'}}>
+                {[1,2,3,4].map(i=>(
+                  <div key={i} style={{height:3,flex:1,borderRadius:4,background:
+                    pw.length>=12&&/[A-Z]/.test(pw)&&/[0-9]/.test(pw)&&/[^A-Za-z0-9]/.test(pw)?'var(--green)':
+                    pw.length>=10&&/[A-Z]/.test(pw)&&/[0-9]/.test(pw)?'var(--teal)':
+                    pw.length>=8?'var(--gold)':'var(--red)',
+                    opacity:i===1?1:i===2&&pw.length>=8?1:i===3&&pw.length>=10&&/[A-Z]/.test(pw)?1:i===4&&pw.length>=12&&/[^A-Za-z0-9]/.test(pw)?1:0.2
+                  }}/>
+                ))}
+                <span style={{fontSize:'0.65rem',color:'var(--muted)',whiteSpace:'nowrap'}}>
+                  {pw.length<8?'Too short':pw.length<10?'Fair':pw.length<12?'Good':'Strong'}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="fg">
+            <label htmlFor="fp-pw2">Confirm New Password</label>
+            <input id="fp-pw2" type={showPw?'text':'password'} placeholder="Repeat new password"
+              value={pw2} onChange={e=>setPw2(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&stepNewPw()}
+              style={{borderColor:pw2&&pw!==pw2?'var(--red)':pw2&&pw===pw2?'var(--green)':''}}/>
+            {pw2&&pw!==pw2&&<p style={{fontSize:'var(--text-xs)',color:'var(--red)',marginTop:3}}>Passwords do not match.</p>}
+            {pw2&&pw===pw2&&<p style={{fontSize:'var(--text-xs)',color:'var(--green)',marginTop:3}}>✓ Passwords match.</p>}
+          </div>
+          <div style={{display:'flex',gap:9,justifyContent:'flex-end',marginTop:4}}>
+            <button className="btn btn-ol" onClick={()=>{setStep('question');setPw('');setPw2('');setErr('');}}>← Back</button>
+            <button className="btn btn-gold" onClick={stepNewPw} disabled={loading||!pw||!pw2}>
+              {loading?<><span className="spin spin-dark"/>Saving…</>:'Save New Password'}
+            </button>
+          </div>
+        </>
+      )}
+
       {step==='done'&&(
         <div style={{textAlign:'center',padding:'18px 0'}}>
-          <div style={{fontSize:'2.8rem',marginBottom:10}}>📧</div>
-          <h3 style={{fontFamily:'var(--font-display)',fontSize:'1.15rem',marginBottom:7}}>Check Your Email</h3>
-          <p className="muted" style={{marginBottom:22}}>A reset link was sent to <strong>{email}</strong>.</p>
+          <div style={{fontSize:'3rem',marginBottom:12}}>🔓</div>
+          <h3 style={{fontFamily:'var(--font-display)',fontSize:'1.15rem',marginBottom:8,color:'var(--green)'}}>Password Updated!</h3>
+          <p className="muted" style={{marginBottom:8,fontSize:'var(--text-sm)'}}>
+            Your new password has been saved. Sign in with your new password right away.
+          </p>
+          <p style={{fontSize:'var(--text-xs)',color:'var(--muted)',marginBottom:22,background:'var(--surface)',borderRadius:8,padding:'8px 12px',border:'1px solid var(--border)'}}>
+            💡 The new password takes effect on your next sign-in.
+          </p>
           <button className="btn btn-gold btn-full" onClick={onClose}>Back to Sign In</button>
         </div>
       )}
@@ -4658,6 +4865,107 @@ function BackToTop() {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  SET SECURITY QUESTION  (shown once for accounts missing it)
+// ══════════════════════════════════════════════════════════════════
+function SetSecurityQuestionModal({ user, onDone }) {
+  const [secQ,setSecQ]=useState(SEC_QS[0]);
+  const [secA,setSecA]=useState('');
+  const [showA,setShowA]=useState(false);
+  const [err,setErr]=useState('');
+  const [loading,setLoading]=useState(false);
+  const [done,setDone]=useState(false);
+
+  const save=async()=>{
+    setErr('');
+    if(!secA.trim()){setErr('Please provide an answer to your security question.');return;}
+    setLoading(true);
+    try{
+      await API.saveSecurityQuestion(user.id,secQ,secA);
+      setDone(true);
+    }catch(e){setErr(e.message);}
+    setLoading(false);
+  };
+
+  return (
+    <div style={{
+      position:'fixed',inset:0,zIndex:900,
+      background:'rgba(13,15,20,0.72)',
+      backdropFilter:'blur(4px)',WebkitBackdropFilter:'blur(4px)',
+      display:'flex',alignItems:'center',justifyContent:'center',
+      padding:'20px'
+    }}>
+      <div style={{
+        background:'var(--white)',borderRadius:'var(--radius-xl)',
+        width:'100%',maxWidth:460,
+        boxShadow:'var(--shadow-xl)',
+        padding:'clamp(22px,5vw,36px)',
+        animation:'slideUp .25s cubic-bezier(0.34,1.56,0.64,1)'
+      }}>
+        {!done ? (<>
+          {/* Header */}
+          <div style={{display:'flex',alignItems:'flex-start',gap:14,marginBottom:20}}>
+            <div style={{width:46,height:46,borderRadius:12,background:'var(--gold-bg)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.5rem',flexShrink:0}}>🛡️</div>
+            <div>
+              <h2 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-xl)',fontWeight:700,color:'var(--ink)',marginBottom:4}}>Set a Security Question</h2>
+              <p style={{fontSize:'var(--text-sm)',color:'var(--muted)',lineHeight:1.5}}>
+                Welcome, <strong>{user.name.split(' ')[0]}</strong>! Your account needs a security question so you can reset your password on-site without email.
+              </p>
+            </div>
+          </div>
+
+          {err&&<div className="al al-err" role="alert" style={{marginBottom:14}}>{err}</div>}
+
+          <div className="fg">
+            <label htmlFor="sq-select">Security Question</label>
+            <select id="sq-select" value={secQ} onChange={e=>setSecQ(e.target.value)}>
+              {SEC_QS.map(q=><option key={q}>{q}</option>)}
+            </select>
+          </div>
+
+          <div className="fg">
+            <label htmlFor="sq-answer">Your Answer</label>
+            <div style={{position:'relative'}}>
+              <input
+                id="sq-answer"
+                type={showA?'text':'password'}
+                placeholder="Type your answer…"
+                value={secA}
+                onChange={e=>setSecA(e.target.value)}
+                onKeyDown={e=>e.key==='Enter'&&save()}
+                style={{paddingRight:42}}
+                autoFocus
+              />
+              <button type="button" onClick={()=>setShowA(v=>!v)}
+                style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:'var(--muted)',cursor:'pointer',fontSize:'1rem',padding:'2px 4px'}}>
+                {showA?'🙈':'👁'}
+              </button>
+            </div>
+            <p style={{fontSize:'var(--text-xs)',color:'var(--muted)',marginTop:4}}>Remember this — it's used to verify your identity when you forget your password.</p>
+          </div>
+
+          <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--blue-light)',border:'1px solid var(--blue)',borderRadius:'var(--radius)',marginBottom:18,fontSize:'var(--text-xs)',color:'var(--blue)'}}>
+            ℹ️ Your answer is stored securely and is not case-sensitive.
+          </div>
+
+          <button className="btn btn-gold btn-full" style={{height:46}} onClick={save} disabled={loading||!secA.trim()}>
+            {loading?<><span className="spin spin-dark"/>Saving…</>:'Save Security Question'}
+          </button>
+        </>) : (
+          <div style={{textAlign:'center',padding:'18px 0'}}>
+            <div style={{fontSize:'3rem',marginBottom:12}}>✅</div>
+            <h3 style={{fontFamily:'var(--font-display)',fontSize:'1.2rem',marginBottom:8,color:'var(--green)'}}>All Set!</h3>
+            <p className="muted" style={{marginBottom:24,fontSize:'var(--text-sm)'}}>
+              Your security question has been saved. You can now reset your password directly on this site if you ever forget it.
+            </p>
+            <button className="btn btn-gold btn-full" onClick={onDone}>Go to Dashboard</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [currentUser,setCurrentUser]=useState(null);
   const [authChecked,setAuthChecked]=useState(false);
@@ -4665,6 +4973,7 @@ function App() {
   const [pendingCount,setPendingCount]=useState(0);
   const [initError,setInitError]=useState('');
   const [sidebarOpen,setSidebarOpen]=useState(false);
+  const [showSecQ,setShowSecQ]=useState(false);
   const [theme,toggleTheme]=useTheme();
 
   useEffect(()=>{
@@ -4677,6 +4986,7 @@ function App() {
             const profile=await API.getProfile(fbUser.uid);
             if(profile&&(profile.status==='approved'||profile.role==='admin')){
               setCurrentUser(profile);
+              if(!profile.secQ||!profile.secA||!profile.secQ.trim()||!profile.secA.trim()) setShowSecQ(true);
               if(profile.role==='admin'){
                 API.getUsers({role:'student',status:'pending'}).then(p=>setPendingCount(p.length)).catch(()=>{});
               }
@@ -4728,6 +5038,7 @@ function App() {
       <ToastProvider>
         <AuthPage onLogin={user=>{
           setCurrentUser(user);
+          if(!user.secQ||!user.secA||!user.secQ.trim()||!user.secA.trim()) setShowSecQ(true);
           if(user.role==='admin') API.getUsers({role:'student',status:'pending'}).then(p=>setPendingCount(p.length)).catch(()=>{});
         }}/>
       </ToastProvider>
@@ -4825,6 +5136,7 @@ function App() {
           </div>
         </nav>
       </div>
+      {showSecQ&&<SetSecurityQuestionModal user={currentUser} onDone={()=>setShowSecQ(false)}/>}
     </ToastProvider>
   );
 }
