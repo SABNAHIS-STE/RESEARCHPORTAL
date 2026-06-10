@@ -1898,7 +1898,7 @@ Structure: Purpose → Methods → Key Findings → Significance → Limitations
 6. Consider local/Filipino context where appropriate`,
   };
 
-  return `You are a highly intelligent academic research copilot for the SABNAHIS STE Research Portal — a Science, Technology, and Engineering institutional repository for Filipino students.
+  return `You are a highly intelligent academic research copilot for the SABNAHIS STE Research Portal — a Science, Technology, and Engineering INNOVATE. ENGINEER. DISCOVER.
 
 CURRENT MODE: ${AI_MODES[mode]?.label || 'General'}
 MODE INSTRUCTIONS:
@@ -2485,7 +2485,7 @@ function SchoolLogoZone({ context }) {
   if (!SCHOOL_LOGO_URL && !SCHOOL_LOGO_URL2) return null;
   if (context === 'sidebar') {
     return (
-      <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,flexShrink:0}}>
         {SCHOOL_LOGO_URL  && <img src={SCHOOL_LOGO_URL}  alt="School logo"  style={{width:36,height:36,borderRadius:6,objectFit:'contain'}}/>}
         {SCHOOL_LOGO_URL2 && <img src={SCHOOL_LOGO_URL2} alt="School logo 2" style={{width:36,height:36,borderRadius:6,objectFit:'contain'}}/>}
       </div>
