@@ -1017,8 +1017,13 @@ tr:hover td { background: var(--surface); }
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 .cm-bub.user {
-  background:var(--ink); color:#fff;
+  background: var(--gold);
+  color: #1a1400;
   border-radius: var(--radius-lg) 4px var(--radius-lg) var(--radius-lg);
+}
+[data-theme="dark"] .cm-bub.user {
+  background: var(--gold);
+  color: #1a1400;
 }
 
 .cm-meta { font-size:var(--text-xs); color:var(--muted); display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
@@ -1442,15 +1447,20 @@ const API = {
     if (!name||!email||!password) throw new Error('Name, email and password are required.');
     if (password.length < 8)       throw new Error('Password must be at least 8 characters.');
     if (!secA?.trim())             throw new Error('Security answer is required.');
-    const cred = await auth.createUserWithEmailAndPassword(email.trim(), password);
-    await db.collection('users').doc(cred.user.uid).set({
-      name: name.trim(), email: email.toLowerCase(),
-      role: 'student', status: 'pending',
-      institution: institution?.trim()||'', department: department?.trim()||'',
-      secQ: secQ||SEC_QS[0], secA: secA.trim().toLowerCase(),
-      uploadCount: 0, createdAt: new Date().toISOString()
-    });
-    await auth.signOut();
+    window._registering = true;
+    try {
+      const cred = await auth.createUserWithEmailAndPassword(email.trim(), password);
+      await db.collection('users').doc(cred.user.uid).set({
+        name: name.trim(), email: email.toLowerCase(),
+        role: 'student', status: 'pending',
+        institution: institution?.trim()||'', department: department?.trim()||'',
+        secQ: secQ||SEC_QS[0], secA: secA.trim().toLowerCase(),
+        uploadCount: 0, createdAt: new Date().toISOString()
+      });
+      await auth.signOut();
+    } finally {
+      window._registering = false;
+    }
   },
 
   async login(email, password) {
@@ -2241,7 +2251,7 @@ function AuthPage({ onLogin }) {
         <div className="auth-brand">
           <SchoolLogoZone context="login"/>
           <h1>SABNAHIS<span>STE Research Portal</span></h1>
-          <p>Institutional Research Repository for SABNAHIS STE Students</p>
+          <p>Institutional Research Repository for Filipino STEM Students</p>
         </div>
         <div className="auth-card">
           {err&&<div className="al al-err" role="alert">{err}</div>}
@@ -3237,6 +3247,7 @@ function App() {
     let unsub=()=>{};
     try{
       unsub=auth.onAuthStateChanged(async fbUser=>{
+        if(window._registering){setAuthChecked(true);return;}
         if(fbUser){
           try{
             const profile=await API.getProfile(fbUser.uid);
