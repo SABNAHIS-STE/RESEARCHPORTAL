@@ -1952,8 +1952,7 @@ CORE INTELLIGENCE PRINCIPLES — ALWAYS APPLY:
 //  AI CALL
 // ══════════════════════════════════════════════════════════════════
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
-const INJECTED_GROQ_KEY = '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'; // replaced by GitHub Actions at deploy time
-const getGroqKey = () => (INJECTED_GROQ_KEY && !INJECTED_GROQ_KEY.startsWith('__')) ? INJECTED_GROQ_KEY : (localStorage.getItem('sabnahis_groq_key') || '');
+const getGroqKey = () => localStorage.getItem('sabnahis_groq_key') || '';
 
 async function callAI(query, history, studies, mode='general') {
   const recent = history.slice(-6).map(m=>`${m.role==='user'?'Student':'Assistant'}: ${m.content.slice(0,200)}`).join('\n');
@@ -2873,13 +2872,11 @@ I have **${s.length}** ${s.length===1?'study':'studies'} loaded. Use the **mode 
           <p className="muted" style={{fontSize:'var(--text-xs)'}}>Groq AI · {studies.length} studies loaded · APA citations</p>
         </div>
         <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
-          <span style={{background: (groqKey||(INJECTED_GROQ_KEY&&!INJECTED_GROQ_KEY.startsWith('__'))) ? 'var(--green-light)' : 'var(--red-light)', color: (groqKey||(INJECTED_GROQ_KEY&&!INJECTED_GROQ_KEY.startsWith('__'))) ? 'var(--green)' : 'var(--red)', fontSize:'0.7rem',fontWeight:500,padding:'4px 9px',borderRadius:99,display:'flex',alignItems:'center',gap:4}}>
-            <span style={{width:6,height:6,borderRadius:'50%',background:'currentColor',flexShrink:0}}/>{(INJECTED_GROQ_KEY&&!INJECTED_GROQ_KEY.startsWith('__')) ? '⚡ Groq AI' : groqKey ? 'Groq AI' : 'No API Key'}
+          <span style={{background: groqKey ? 'var(--green-light)' : 'var(--red-light)', color: groqKey ? 'var(--green)' : 'var(--red)', fontSize:'0.7rem',fontWeight:500,padding:'4px 9px',borderRadius:99,display:'flex',alignItems:'center',gap:4}}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:'currentColor',flexShrink:0}}/>{groqKey ? 'Groq AI' : 'No API Key'}
           </span>
           {isAdmin && (
-            {!(INJECTED_GROQ_KEY && !INJECTED_GROQ_KEY.startsWith('__')) && (
-              <button className="btn btn-ol btn-sm" onClick={()=>setShowKeySetup(s=>!s)} title="Manage API key">🔑 {groqKey ? 'Change Key' : 'Set API Key'}</button>
-            )}
+            <button className="btn btn-ol btn-sm" onClick={()=>setShowKeySetup(s=>!s)} title="Manage API key">🔑 {groqKey ? 'Change Key' : 'Set API Key'}</button>
           )}
           {savedCites.length>0&&<button className="chat-export-btn" onClick={()=>setShowSaved(s=>!s)}>📝 {savedCites.length} saved</button>}
           <button className="chat-export-btn" onClick={exportChat}>⬇ Export</button>
