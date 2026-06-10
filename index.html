@@ -1952,7 +1952,7 @@ CORE INTELLIGENCE PRINCIPLES — ALWAYS APPLY:
 //  AI CALL
 // ══════════════════════════════════════════════════════════════════
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
-const INJECTED_GROQ_KEY = 'MY_API_KEY'; // replaced by GitHub Actions at deploy time
+const INJECTED_GROQ_KEY = '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'; // replaced by GitHub Actions at deploy time
 const getGroqKey = () => (INJECTED_GROQ_KEY && !INJECTED_GROQ_KEY.startsWith('__')) ? INJECTED_GROQ_KEY : (localStorage.getItem('sabnahis_groq_key') || '');
 
 async function callAI(query, history, studies, mode='general') {
