@@ -3470,9 +3470,29 @@ function AdminStudies() {
   const [searchInput,setSearchInput]=useState('');
   const [studies,setStudies]=useState([]);
   const [loading,setLoading]=useState(true);
+  const [activityMap,setActivityMap]=useState({});
+  const [historyStudy,setHistoryStudy]=useState(null);
   const searchTimeout=useRef(null);
 
-  const load=useCallback(async()=>{setLoading(true);const res=await API.getStudies({search,status:'',perPage:100});setStudies(res.data);setLoading(false);},[search]);
+  const load=useCallback(async()=>{
+    setLoading(true);
+    const res=await API.getStudies({search,status:'',perPage:100});
+    const list=res.data;
+    setStudies(list);
+    setLoading(false);
+    // Fetch latest viewer + downloader for each study in parallel
+    const entries = await Promise.all(
+      list.map(async s => {
+        try {
+          const logs = await API.getStudyLogs(s.id);
+          const latestView = logs.views[0] || null;
+          const latestDl   = logs.downloads[0] || null;
+          return [s.id, { latestView, latestDl }];
+        } catch { return [s.id, { latestView:null, latestDl:null }]; }
+      })
+    );
+    setActivityMap(Object.fromEntries(entries));
+  },[search]);
   useEffect(()=>{load();},[load]);
 
   const handleSearch=e=>{
@@ -3483,6 +3503,38 @@ function AdminStudies() {
   };
 
   const del=async id=>{if(!confirm('Delete this study?'))return;await API.deleteStudy(id);toast.ok('Study deleted.');load();};
+
+  const ActivityCell = ({ sid }) => {
+    const act = activityMap[sid];
+    if (!act) return <span style={{color:'var(--muted)',fontSize:'0.72rem'}}>—</span>;
+    const { latestView, latestDl } = act;
+    return (
+      <div style={{display:'flex',flexDirection:'column',gap:4,minWidth:130}}>
+        {latestView ? (
+          <div style={{display:'flex',alignItems:'center',gap:5}}>
+            <span style={{fontSize:'0.65rem',background:'var(--teal-light)',color:'var(--teal)',borderRadius:4,padding:'1px 5px',fontWeight:600,flexShrink:0}}>👁 View</span>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:'0.72rem',fontWeight:500,color:'var(--ink-3)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:110}}>{latestView.userName||'Unknown'}</div>
+              <div style={{fontSize:'0.65rem',color:'var(--muted)'}}>{fmtDate(latestView.timestamp)}</div>
+            </div>
+          </div>
+        ) : (
+          <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>👁 No views yet</div>
+        )}
+        {latestDl ? (
+          <div style={{display:'flex',alignItems:'center',gap:5}}>
+            <span style={{fontSize:'0.65rem',background:'var(--blue-light)',color:'var(--blue)',borderRadius:4,padding:'1px 5px',fontWeight:600,flexShrink:0}}>⬇ DL</span>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:'0.72rem',fontWeight:500,color:'var(--ink-3)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:110}}>{latestDl.userName||'Unknown'}</div>
+              <div style={{fontSize:'0.65rem',color:'var(--muted)'}}>{fmtDate(latestDl.timestamp)}</div>
+            </div>
+          </div>
+        ) : (
+          <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>⬇ No downloads yet</div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -3498,24 +3550,26 @@ function AdminStudies() {
         {loading?<div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
         :studies.length===0?<div className="empty" style={{padding:'36px 0'}}><div className="empty-ico">📚</div><h3>No studies yet</h3></div>
         :<div className="tw"><table>
-          <thead><tr><th>Title</th><th>Authors</th><th>Categories</th><th>Uploader</th><th>Views</th><th>Dls</th><th>Date</th><th></th></tr></thead>
+          <thead><tr><th>Title</th><th>Authors</th><th>Categories</th><th>Uploader</th><th>Views</th><th>Dls</th><th>Latest Activity</th><th>Date</th><th></th></tr></thead>
           <tbody>{studies.map(s=><tr key={s.id}>
             <td style={{maxWidth:190}}><div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></td>
             <td style={{fontSize:'0.78rem'}}>{(s.authors||[]).join(', ')}</td>
             <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{(s.categories||[]).map(c=><span key={c} className="badge" style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.63rem'}}>{c}</span>)}</div></td>
             <td style={{fontSize:'0.82rem'}}>{s.uploadedByName}</td>
             <td>{s.viewCount||0}</td><td>{s.downloadCount||0}</td>
+            <td><ActivityCell sid={s.id}/></td>
             <td style={{whiteSpace:'nowrap'}}>{fmtDate(s.createdAt)}</td>
-            <td><button className="btn btn-red btn-sm" onClick={()=>del(s.id)} title="Delete study"><Ico.trash/></button></td>
+            <td><div style={{display:'flex',gap:5}}>
+              <button className="btn btn-ol btn-sm" onClick={()=>setHistoryStudy(s)} title="Full activity log"><Ico.eye/></button>
+              <button className="btn btn-red btn-sm" onClick={()=>del(s.id)} title="Delete study"><Ico.trash/></button>
+            </div></td>
           </tr>)}</tbody>
         </table></div>}
       </div>
+      {historyStudy&&<StudyHistoryModal study={historyStudy} onClose={()=>setHistoryStudy(null)}/>}
     </div>
   );
 }
-
-// ══════════════════════════════════════════════════════════════════
-//  ADMIN CATEGORIES
 // ══════════════════════════════════════════════════════════════════
 function AdminCats() {
   const [cats,setCats]=useState([]);
