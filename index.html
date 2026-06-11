@@ -1671,6 +1671,132 @@ document.addEventListener('keydown', function(e) {
   var allowed = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || (t.closest && t.closest('.apa-box')));
   if (!allowed) e.preventDefault();
 });
+
+// ── Screenshot / screen-capture blur protection ────────────────────
+(function() {
+  // Inject blur overlay style
+  var style = document.createElement('style');
+  style.textContent = [
+    '#ss-blur-overlay{',
+      'display:none;position:fixed;inset:0;z-index:2147483647;',
+      'backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);',
+      'background:rgba(13,15,20,0.88);',
+      'align-items:center;justify-content:center;flex-direction:column;gap:16px;',
+    '}',
+    '#ss-blur-overlay.active{display:flex;}',
+    '#ss-blur-overlay p{',
+      'font-family:"JetBrains Mono",monospace;font-size:13px;letter-spacing:0.1em;',
+      'color:rgba(236,194,70,0.7);text-transform:uppercase;margin:0;text-align:center;padding:0 24px;',
+    '}',
+    '@media print{body>*:not(#ss-blur-overlay){filter:blur(40px)!important;opacity:0!important;} #ss-blur-overlay{display:flex!important;}}',
+  ].join('');
+  document.head.appendChild(style);
+
+  // Create overlay element
+  var overlay = document.createElement('div');
+  overlay.id = 'ss-blur-overlay';
+  overlay.innerHTML = '<p>&#128683; Screen capture restricted</p>';
+  document.body.appendChild(overlay);
+
+  function showBlur() { overlay.classList.add('active'); }
+  function hideBlur() { overlay.classList.remove('active'); }
+
+  var blurTimer = null;
+  function showThenHide(ms) {
+    showBlur();
+    clearTimeout(blurTimer);
+    blurTimer = setTimeout(hideBlur, ms || 2000);
+  }
+
+  // 1. PrintScreen key (Windows/Linux)
+  document.addEventListener('keyup', function(e) {
+    if (e.key === 'PrintScreen' || e.key === 'Print') {
+      showThenHide(2000);
+      try { navigator.clipboard.writeText(''); } catch(_) {}
+    }
+  });
+
+  // 2. Win+Shift+S / Mac Cmd+Shift+3/4/5
+  document.addEventListener('keydown', function(e) {
+    var winSnip = e.metaKey && e.shiftKey && /^[s345]$/i.test(e.key);
+    var macSnip = e.metaKey && e.shiftKey && /^[345]$/.test(e.key);
+    if (winSnip || macSnip) { showThenHide(2000); }
+  });
+
+  // 3. visibilitychange — fires on desktop AND on phones when:
+  //    - iOS: user presses sleep/side button, swipes to app switcher
+  //    - Android: power+volume screenshot briefly blanks the screen in some launchers
+  //    - Any tab switch / screen lock
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+      showBlur();
+      clearTimeout(blurTimer);
+    } else {
+      // Stay blurred 1.8s after returning — enough to cover any captured frame
+      blurTimer = setTimeout(hideBlur, 1800);
+    }
+  });
+
+  // 4. window blur — catches app-switch on Android Chrome, Samsung Internet
+  //    and desktop window losing focus
+  window.addEventListener('blur', function() {
+    showBlur();
+    clearTimeout(blurTimer);
+  });
+  window.addEventListener('focus', function() {
+    blurTimer = setTimeout(hideBlur, 1800);
+  });
+
+  // 5. pagehide — fires on iOS Safari when user swipes away or the page is
+  //    put into the back/forward cache
+  window.addEventListener('pagehide', function() { showBlur(); });
+  window.addEventListener('pageshow',  function() { blurTimer = setTimeout(hideBlur, 1800); });
+
+  // 6. iOS-specific: touchstart with 2+ fingers simultaneously (volume-button
+  //    screenshot = power+volume, but on iPhone the gesture momentarily triggers
+  //    multi-touch if the user's palm touches the screen).
+  //    More reliably: detect rapid 2-finger press pattern.
+  var touchStartTime = 0;
+  var touchCount = 0;
+  document.addEventListener('touchstart', function(e) {
+    var now = Date.now();
+    // Reset counter if touches are more than 300 ms apart
+    if (now - touchStartTime > 300) touchCount = 0;
+    touchCount = e.touches.length;
+    touchStartTime = now;
+
+    // 2 simultaneous touches with one finger on the very edge (power-button area)
+    // is the closest heuristic we can get for an iOS screenshot gesture in-browser
+    if (e.touches.length >= 2) {
+      var hasEdgeTouch = false;
+      for (var i = 0; i < e.touches.length; i++) {
+        var t = e.touches[i];
+        // Within 30px of any screen edge — typical for hardware button presses
+        if (t.clientX < 30 || t.clientX > window.innerWidth - 30 ||
+            t.clientY < 30 || t.clientY > window.innerHeight - 30) {
+          hasEdgeTouch = true;
+          break;
+        }
+      }
+      if (hasEdgeTouch) { showThenHide(2500); }
+    }
+  }, { passive: true });
+
+  // 7. Android: the MediaSession API pauses media when a screenshot notification
+  //    appears on some devices — piggyback on it as a signal
+  if ('mediaSession' in navigator) {
+    try {
+      navigator.mediaSession.setActionHandler('pause', function() {
+        showThenHide(2000);
+      });
+    } catch(_) {}
+  }
+
+  // 8. CSS ::backdrop blur (Picture-in-Picture, Fullscreen API, etc.)
+  var blurStyle = document.createElement('style');
+  blurStyle.textContent = '::backdrop{filter:blur(40px);}';
+  document.head.appendChild(blurStyle);
+})();
 </script>
 
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -3007,9 +3133,20 @@ function AuthPage({ onLogin }) {
 
   const login=async()=>{
     setErr('');setLoading(true);
-    try{const user=await API.login(form.email,form.password);toast.ok(`Welcome back, ${user.name.split(' ')[0]}!`);onLogin(user);}
-    catch(e){setErr(e.message);}
-    setLoading(false);
+    try{
+      const user=await API.login(form.email,form.password);
+      // Show the branded loading animation, then transition into the app
+      if(typeof window.sabnahisLoaderShow==='function'){
+        window.sabnahisLoaderShow(()=>{
+          toast.ok(`Welcome back, ${user.name.split(' ')[0]}!`);
+          onLogin(user);
+        });
+      } else {
+        toast.ok(`Welcome back, ${user.name.split(' ')[0]}!`);
+        onLogin(user);
+      }
+    }
+    catch(e){setErr(e.message);setLoading(false);}
   };
 
   const register=async()=>{
@@ -5612,6 +5749,7 @@ function SetSecurityQuestionModal({ user, onDone }) {
 function App() {
   const [currentUser,setCurrentUser]=useState(null);
   const [authChecked,setAuthChecked]=useState(false);
+  const [loaderDone,setLoaderDone]=useState(false);
   const [activeTab,setActiveTab]=useState('dashboard');
   const [pendingCount,setPendingCount]=useState(0);
   const [initError,setInitError]=useState('');
@@ -5667,15 +5805,17 @@ function App() {
 
   const titles={dashboard:'Dashboard',users:'User Management',announcements:'Announcements','studies-admin':'Manage Studies',categories:'Manage Categories',repository:'Research Repository',chatbot:'AI Research Assistant',recognized:'Recognized Studies'};
 
-  if(!authChecked){
-    // Loading screen is the HTML element; return null so React mounts nothing yet
+  if(!authChecked || !loaderDone){
+    // Keep React from rendering anything until auth is known AND the loader has fully faded out
+    if(authChecked && !loaderDone){
+      // Auth is ready — trigger the loader dismiss and wait for its fade-out (700ms) before showing app
+      if(typeof window.sabnahisLoaderDone==='function'){
+        window.sabnahisLoaderDone();
+        window.sabnahisLoaderDone=null;
+      }
+      setTimeout(()=>setLoaderDone(true), 750);
+    }
     return null;
-  }
-
-  // Once auth is checked, dismiss the branded loader
-  if(typeof window.sabnahisLoaderDone==='function'){
-    window.sabnahisLoaderDone();
-    window.sabnahisLoaderDone=null;
   }
 
   if(initError){
@@ -5827,6 +5967,71 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
   window.sabnahisLoaderDone = function() {
     var el = document.getElementById('sabnahis-loader');
     if (el) { el.classList.add('fade-out'); setTimeout(function(){ el.remove(); }, 700); }
+  };
+
+  // Expose show — re-creates the loader if already removed, or re-shows it
+  window.sabnahisLoaderShow = function(onComplete) {
+    var el = document.getElementById('sabnahis-loader');
+    if (!el) {
+      // Rebuild loader element
+      el = document.createElement('div');
+      el.id = 'sabnahis-loader';
+      el.innerHTML = [
+        '<div class="loader-grid-overlay"></div>',
+        '<div class="loader-corner loader-corner--tl"><span class="loader-corner-h" style="margin-bottom:12px;display:block;"></span><span class="loader-corner-v"></span></div>',
+        '<div class="loader-corner loader-corner--tr"><span class="loader-corner-h" style="margin-bottom:12px;display:block;margin-left:auto;"></span><span class="loader-corner-v" style="margin-left:auto;"></span></div>',
+        '<div class="loader-corner loader-corner--bl"><span class="loader-corner-v"></span><span class="loader-corner-h" style="margin-top:12px;display:block;"></span></div>',
+        '<div class="loader-corner loader-corner--br"><span class="loader-corner-v" style="margin-left:auto;"></span><span class="loader-corner-h" style="margin-top:12px;display:block;margin-left:auto;"></span></div>',
+        '<div class="loader-body">',
+          '<div class="loader-icon-wrap">',
+            '<div class="loader-icon-glow"></div>',
+            '<div class="loader-icon-box" style="flex-direction:row;gap:10px;width:auto;padding:0 16px;">',
+              '<img src="LOGO.png" alt="Logo 1" style="width:48px;height:48px;object-fit:contain;border-radius:6px;"/>',
+              '<img src="LOGO2.png" alt="Logo 2" style="width:48px;height:48px;object-fit:contain;border-radius:6px;"/>',
+            '</div>',
+          '</div>',
+          '<div class="loader-brand">',
+            '<div class="loader-brand-name">SABNAHIS STE</div>',
+            '<div class="loader-brand-sub">Advanced Research Environment</div>',
+          '</div>',
+          '<div class="loader-progress-wrap">',
+            '<div class="loader-track"><div class="loader-bar"></div></div>',
+            '<div class="loader-meta">',
+              '<span class="loader-meta-left"><span class="loader-meta-dot"></span>Authenticating…</span>',
+              '<span class="loader-meta-pct" id="loader-pct">0%</span>',
+            '</div>',
+          '</div>',
+        '</div>',
+        '<div class="loader-footer">',
+          '<div class="loader-tagline">Securing the Future of STEM Research</div>',
+        '</div>',
+      ].join('');
+      document.body.appendChild(el);
+    } else {
+      el.classList.remove('fade-out');
+      // Reset progress text
+      var p = el.querySelector('#loader-pct');
+      if (p) p.textContent = '0%';
+      // Update status label
+      var lbl = el.querySelector('.loader-meta-left');
+      if (lbl) lbl.innerHTML = '<span class="loader-meta-dot"></span>Authenticating…';
+    }
+
+    // Animate progress to 100% over ~1.8s then call onComplete
+    var pct = el.querySelector('#loader-pct');
+    var prog = 0;
+    var iv = setInterval(function() {
+      var inc = Math.random() > 0.7 ? 0.8 : 2.2;
+      prog = Math.min(prog + inc, 100);
+      if (pct) pct.textContent = Math.floor(prog) + '%';
+      if (prog >= 100) {
+        clearInterval(iv);
+        setTimeout(function() {
+          el.classList.add('fade-out');
+          setTimeout(function() { if (onComplete) onComplete(); }, 650);
+        }, 300);
+      }
+    }, 40);
   };
 })();
 </script>
