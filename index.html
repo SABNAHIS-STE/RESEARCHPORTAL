@@ -1674,25 +1674,38 @@ document.addEventListener('keydown', function(e) {
 
 // ── Screenshot / screen-capture blur protection ────────────────────
 (function() {
-  // Inject blur overlay style
+  // KEY iOS SAFARI FIX: overlay must use opacity:0 not display:none
+  // so it is ALWAYS in the compositor layer. display:none means iOS
+  // composites the screenshot before JS can flip it to visible.
   var style = document.createElement('style');
   style.textContent = [
     '#ss-blur-overlay{',
-      'display:none;position:fixed;inset:0;z-index:2147483647;',
+      'position:fixed;inset:0;z-index:2147483647;',
       'backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);',
       'background:rgba(13,15,20,0.88);',
       'align-items:center;justify-content:center;flex-direction:column;gap:16px;',
+      /* Always in the render tree — just invisible */
+      'opacity:0;pointer-events:none;',
+      'display:flex;',
+      /* GPU-composited layer so iOS can flip it synchronously */
+      '-webkit-transform:translateZ(0);transform:translateZ(0);',
+      'will-change:opacity;',
+      'transition:opacity 0.15s ease;',
     '}',
-    '#ss-blur-overlay.active{display:flex;}',
+    '#ss-blur-overlay.active{opacity:1;pointer-events:all;}',
     '#ss-blur-overlay p{',
       'font-family:"JetBrains Mono",monospace;font-size:13px;letter-spacing:0.1em;',
-      'color:rgba(236,194,70,0.7);text-transform:uppercase;margin:0;text-align:center;padding:0 24px;',
+      'color:rgba(236,194,70,0.85);text-transform:uppercase;margin:0;',
+      'text-align:center;padding:0 24px;',
     '}',
-    '@media print{body>*:not(#ss-blur-overlay){filter:blur(40px)!important;opacity:0!important;} #ss-blur-overlay{display:flex!important;}}',
+    /* Print / AirPrint protection */
+    '@media print{',
+      'body>*:not(#ss-blur-overlay){filter:blur(40px)!important;opacity:0!important;}',
+      '#ss-blur-overlay{opacity:1!important;pointer-events:all!important;}',
+    '}',
   ].join('');
   document.head.appendChild(style);
 
-  // Create overlay element
   var overlay = document.createElement('div');
   overlay.id = 'ss-blur-overlay';
   overlay.innerHTML = '<p>&#128683; Screen capture restricted</p>';
@@ -1708,7 +1721,7 @@ document.addEventListener('keydown', function(e) {
     blurTimer = setTimeout(hideBlur, ms || 2000);
   }
 
-  // 1. PrintScreen key (Windows/Linux)
+  // ── 1. PrintScreen (Windows/Linux) ──────────────────────────────
   document.addEventListener('keyup', function(e) {
     if (e.key === 'PrintScreen' || e.key === 'Print') {
       showThenHide(2000);
@@ -1716,29 +1729,28 @@ document.addEventListener('keydown', function(e) {
     }
   });
 
-  // 2. Win+Shift+S / Mac Cmd+Shift+3/4/5
+  // ── 2. Keyboard combos (Win+Shift+S, Mac Cmd+Shift+3/4/5) ───────
   document.addEventListener('keydown', function(e) {
-    var winSnip = e.metaKey && e.shiftKey && /^[s345]$/i.test(e.key);
-    var macSnip = e.metaKey && e.shiftKey && /^[345]$/.test(e.key);
-    if (winSnip || macSnip) { showThenHide(2000); }
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && /^[s345]$/i.test(e.key)) {
+      showThenHide(2000);
+    }
   });
 
-  // 3. visibilitychange — fires on desktop AND on phones when:
-  //    - iOS: user presses sleep/side button, swipes to app switcher
-  //    - Android: power+volume screenshot briefly blanks the screen in some launchers
-  //    - Any tab switch / screen lock
+  // ── 3. visibilitychange ──────────────────────────────────────────
+  // iOS Safari DOES fire this for screenshots on iOS 14.5+.
+  // The overlay must already be in the compositor (opacity:0 not display:none)
+  // for this to work — that's the critical fix above.
   document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'hidden') {
       showBlur();
       clearTimeout(blurTimer);
     } else {
-      // Stay blurred 1.8s after returning — enough to cover any captured frame
       blurTimer = setTimeout(hideBlur, 1800);
     }
   });
 
-  // 4. window blur — catches app-switch on Android Chrome, Samsung Internet
-  //    and desktop window losing focus
+  // ── 4. window blur/focus ─────────────────────────────────────────
+  // Catches Android Chrome app-switching, desktop alt-tab, Samsung Internet
   window.addEventListener('blur', function() {
     showBlur();
     clearTimeout(blurTimer);
@@ -1747,55 +1759,59 @@ document.addEventListener('keydown', function(e) {
     blurTimer = setTimeout(hideBlur, 1800);
   });
 
-  // 5. pagehide — fires on iOS Safari when user swipes away or the page is
-  //    put into the back/forward cache
+  // ── 5. pagehide/pageshow ─────────────────────────────────────────
+  // iOS Safari back/forward cache (bfcache) — fires when user swipes back
   window.addEventListener('pagehide', function() { showBlur(); });
-  window.addEventListener('pageshow',  function() { blurTimer = setTimeout(hideBlur, 1800); });
+  window.addEventListener('pageshow', function(e) {
+    // e.persisted = true means restored from bfcache
+    blurTimer = setTimeout(hideBlur, e.persisted ? 2000 : 1800);
+  });
 
-  // 6. iOS-specific: touchstart with 2+ fingers simultaneously (volume-button
-  //    screenshot = power+volume, but on iPhone the gesture momentarily triggers
-  //    multi-touch if the user's palm touches the screen).
-  //    More reliably: detect rapid 2-finger press pattern.
-  var touchStartTime = 0;
-  var touchCount = 0;
+  // ── 6. iOS touch-edge heuristic ──────────────────────────────────
+  // iPhone screenshot = Side button + Volume Up pressed simultaneously.
+  // Hardware presses register as touches near the screen edges in some cases.
   document.addEventListener('touchstart', function(e) {
-    var now = Date.now();
-    // Reset counter if touches are more than 300 ms apart
-    if (now - touchStartTime > 300) touchCount = 0;
-    touchCount = e.touches.length;
-    touchStartTime = now;
-
-    // 2 simultaneous touches with one finger on the very edge (power-button area)
-    // is the closest heuristic we can get for an iOS screenshot gesture in-browser
     if (e.touches.length >= 2) {
-      var hasEdgeTouch = false;
+      var hasEdge = false;
       for (var i = 0; i < e.touches.length; i++) {
         var t = e.touches[i];
-        // Within 30px of any screen edge — typical for hardware button presses
-        if (t.clientX < 30 || t.clientX > window.innerWidth - 30 ||
-            t.clientY < 30 || t.clientY > window.innerHeight - 30) {
-          hasEdgeTouch = true;
-          break;
+        if (t.clientX < 25 || t.clientX > window.innerWidth  - 25 ||
+            t.clientY < 25 || t.clientY > window.innerHeight - 25) {
+          hasEdge = true; break;
         }
       }
-      if (hasEdgeTouch) { showThenHide(2500); }
+      if (hasEdge) showThenHide(2500);
     }
   }, { passive: true });
 
-  // 7. Android: the MediaSession API pauses media when a screenshot notification
-  //    appears on some devices — piggyback on it as a signal
-  if ('mediaSession' in navigator) {
-    try {
-      navigator.mediaSession.setActionHandler('pause', function() {
-        showThenHide(2000);
-      });
-    } catch(_) {}
+  // ── 7. iOS DeviceMotion flash detection ──────────────────────────
+  // iOS flashes the screen white for ~120ms when a screenshot is taken.
+  // We can't detect the flash directly, but we can watch for the
+  // accelerometer going quiet (phone held still for screenshot) then
+  // a sharp jolt (the button press vibration on older iPhones).
+  var lastAccel = null;
+  var motionTimeout = null;
+  if (window.DeviceMotionEvent) {
+    window.addEventListener('devicemotion', function(e) {
+      var a = e.accelerationIncludingGravity;
+      if (!a) return;
+      if (lastAccel) {
+        var dx = Math.abs(a.x - lastAccel.x);
+        var dy = Math.abs(a.y - lastAccel.y);
+        var dz = Math.abs(a.z - lastAccel.z);
+        // Sharp jolt > 8 m/s² delta in any axis = button press
+        if (dx > 8 || dy > 8 || dz > 8) {
+          showThenHide(2000);
+        }
+      }
+      lastAccel = { x: a.x, y: a.y, z: a.z };
+    }, { passive: true });
   }
 
-  // 8. CSS ::backdrop blur (Picture-in-Picture, Fullscreen API, etc.)
-  var blurStyle = document.createElement('style');
-  blurStyle.textContent = '::backdrop{filter:blur(40px);}';
-  document.head.appendChild(blurStyle);
+  // ── 8. CSS ::backdrop ────────────────────────────────────────────
+  var backdropStyle = document.createElement('style');
+  backdropStyle.textContent = '::backdrop{filter:blur(40px);}';
+  document.head.appendChild(backdropStyle);
 })();
 </script>
 
