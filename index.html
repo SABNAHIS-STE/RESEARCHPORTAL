@@ -2126,20 +2126,43 @@ const API = {
   async getAnnouncements(limitN=20) {
     try {
       const snap = await db.collection('announcements').orderBy('createdAt','desc').limit(limitN).get();
-      return snap.docs.map(d=>({id:d.id,...d.data()}));
+      const now = new Date();
+      const active = [];
+      const expired = [];
+      snap.docs.forEach(d => {
+        const data = { id: d.id, ...d.data() };
+        const expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
+        if (expiresAt && now > expiresAt) {
+          expired.push(d.ref); // mark for deletion
+        } else {
+          active.push(data);
+        }
+      });
+      // Auto-delete expired announcements from Firestore
+      if (expired.length > 0) {
+        const batch = db.batch();
+        expired.forEach(ref => batch.delete(ref));
+        batch.commit().catch(() => {});
+      }
+      return active;
     } catch(e) {
       console.warn('Announcements read failed — check Firestore rules:', e.message);
       return [];
     }
   },
-  async createAnnouncement({ title, body, priority, authorId, authorName }) {
+  async createAnnouncement({ title, body, priority, authorId, authorName, durationHours }) {
     if(!title.trim()) throw new Error('Title is required.');
     if(!body.trim())  throw new Error('Message is required.');
+    const now = new Date();
+    const hours = parseFloat(durationHours) || 24;
+    const expiresAt = new Date(now.getTime() + hours * 60 * 60 * 1000).toISOString();
     await db.collection('announcements').add({
       title:title.trim(), body:body.trim(),
       priority:priority||'normal',
       authorId, authorName,
-      createdAt:new Date().toISOString(),
+      createdAt:now.toISOString(),
+      expiresAt,
+      durationHours: hours,
       pinned:priority==='urgent'
     });
   },
@@ -3725,12 +3748,23 @@ function StudiesPage({ currentUser }) {
         <button className="btn btn-gold" onClick={()=>setShowUpload(true)}><Ico.up/> Upload Study</button>
       </div>
       <div className="mob-search-sticky">
-        <div className="fb">
+        <div className="fb" style={{flexWrap:'wrap',gap:8}}>
           <div className="sb" style={{flex:1,minWidth:200}}>
             <Ico.search/>
             <input placeholder="Search by title, author, or keyword…" value={searchInput} onChange={handleSearch} aria-label="Search studies"/>
             {searchInput&&<button onClick={()=>{setSearchInput('');setSearch('');setPage(1);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem',lineHeight:1}} title="Clear search">✕</button>}
           </div>
+          <select value={filterCat} onChange={e=>{setFilterCat(e.target.value);setPage(1);}} style={{flex:1,minWidth:140,padding:'10px 13px'}} aria-label="Filter by category">
+            <option value="">All Categories</option>
+            {cats.map(c=><option key={c}>{c}</option>)}
+          </select>
+          <select value={filterYear} onChange={e=>{setFilterYear(e.target.value);setPage(1);}} style={{flex:1,minWidth:110,padding:'10px 13px'}} aria-label="Filter by year">
+            <option value="">All Years</option>
+            {availableYears.map(yr=><option key={yr} value={yr}>{yr}</option>)}
+          </select>
+          {hasFilters&&(
+            <button className="btn btn-ol btn-sm" onClick={()=>{setFilterCat('');setFilterYear('');setSearchInput('');setSearch('');setPage(1);}} title="Clear all filters" style={{whiteSpace:'nowrap'}}>✕ Clear</button>
+          )}
         </div>
       </div>
 
@@ -5138,18 +5172,21 @@ function AdminCats() {
 // ══════════════════════════════════════════════════════════════════
 function RecognizedStudiesPage({ currentUser, isAdmin }) {
   const [entries, setEntries] = useState([]);
+  const [cats, setCats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ title:'', authors:'', award:'', year:String(new Date().getFullYear()), description:'', institution:'' });
+  const [form, setForm] = useState({ title:'', authors:'', award:'', year:String(new Date().getFullYear()), description:'', institution:'', category:'' });
   const [search, setSearch] = useState('');
+  const [filterCat, setFilterCat] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const data = await API.getRecognizedStudies();
+    const [data, catsArr] = await Promise.all([API.getRecognizedStudies(), API.getCategories()]);
     setEntries(data);
+    setCats(catsArr);
     setLoading(false);
   }, []);
 
@@ -5159,13 +5196,13 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
 
   const openNew = () => {
     setEditId(null);
-    setForm({ title:'', authors:'', award:'', year:String(new Date().getFullYear()), description:'', institution:'' });
+    setForm({ title:'', authors:'', award:'', year:String(new Date().getFullYear()), description:'', institution:'', category:'' });
     setShowForm(true);
   };
 
   const openEdit = entry => {
     setEditId(entry.id);
-    setForm({ title:entry.title, authors:entry.authors, award:entry.award, year:entry.year, description:entry.description||'', institution:entry.institution||'' });
+    setForm({ title:entry.title, authors:entry.authors, award:entry.award, year:entry.year, description:entry.description||'', institution:entry.institution||'', category:entry.category||'' });
     setShowForm(true);
   };
 
@@ -5197,9 +5234,11 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
     } catch(e) { toast.err(e.message); }
   };
 
-  const filtered = entries.filter(e =>
-    !search || [e.title, e.authors, e.award, e.institution].join(' ').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = entries.filter(e => {
+    const matchSearch = !search || [e.title, e.authors, e.award, e.institution].join(' ').toLowerCase().includes(search.toLowerCase());
+    const matchCat = !filterCat || e.category === filterCat;
+    return matchSearch && matchCat;
+  });
 
   const AWARD_COLORS = {
     default: { bg:'var(--gold-bg)', color:'var(--gold)', border:'var(--gold)' },
@@ -5211,7 +5250,7 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
       <div className="page-hd">
         <div className="page-hd-left">
           <h2>Recognized Studies</h2>
-          <p className="muted">{entries.length} recognized {entries.length===1?'study':'studies'}</p>
+          <p className="muted">{entries.length} recognized {entries.length===1?'study':'studies'}{filterCat && <span style={{color:'var(--gold)',marginLeft:5}}>· {filterCat}</span>}</p>
         </div>
         {isAdmin && (
           <button className="btn btn-gold" onClick={openNew}>
@@ -5228,14 +5267,23 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
         </div>
       )}
 
-      {/* Search */}
+      {/* Search + Category filter */}
       {entries.length > 0 && (
-        <div className="fb" style={{marginBottom:18}}>
-          <div className="sb" style={{flex:1,maxWidth:460}}>
+        <div className="fb" style={{marginBottom:18,flexWrap:'wrap',gap:9}}>
+          <div className="sb" style={{flex:1,minWidth:200}}>
             <Ico.search/>
             <input placeholder="Search by title, author, award…" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search recognized studies"/>
             {search&&<button onClick={()=>setSearch('')} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem'}}>✕</button>}
           </div>
+          {cats.length > 0 && (
+            <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by category">
+              <option value="">All Categories</option>
+              {cats.map(c=><option key={c}>{c}</option>)}
+            </select>
+          )}
+          {(search || filterCat) && (
+            <button className="btn btn-ol btn-sm" onClick={()=>{setSearch('');setFilterCat('');}} style={{whiteSpace:'nowrap'}}>✕ Clear</button>
+          )}
         </div>
       )}
 
@@ -5279,10 +5327,17 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
                   <h3 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-lg)',fontWeight:700,color:'var(--ink)',marginBottom:4,lineHeight:1.3}}>{entry.title}</h3>
                   <p style={{fontSize:'var(--text-sm)',color:'var(--slate)',marginBottom:8}}>By: <strong>{entry.authors}</strong></p>
 
-                  {/* Award badge */}
-                  <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 11px',borderRadius:99,background:'var(--gold-bg)',color:'var(--gold)',border:'1.5px solid var(--gold)',fontSize:'var(--text-xs)',fontWeight:700,marginBottom:entry.description||entry.institution?10:0}}>
-                    🥇 {entry.award}
-                  </span>
+                  {/* Category + Award badges */}
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:entry.description||entry.institution?10:0}}>
+                    {entry.category && (
+                      <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 10px',borderRadius:99,background:'var(--purple-light)',color:'var(--purple)',border:'1.5px solid var(--purple)',fontSize:'var(--text-xs)',fontWeight:600}}>
+                        🏷️ {entry.category}
+                      </span>
+                    )}
+                    <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 11px',borderRadius:99,background:'var(--gold-bg)',color:'var(--gold)',border:'1.5px solid var(--gold)',fontSize:'var(--text-xs)',fontWeight:700}}>
+                      🥇 {entry.award}
+                    </span>
+                  </div>
 
                   {(entry.description || entry.institution) && (
                     <div style={{display:'flex',flexDirection:'column',gap:4}}>
@@ -5320,8 +5375,15 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
           <div className="fg"><label>Award / Recognition *</label><input placeholder="e.g. Best Research Paper – Regional Science Fair 2024" value={form.award} onChange={e=>sf('award',e.target.value)}/></div>
           <div className="fr">
             <div className="fg"><label>Year</label><input type="number" min="1900" max="2099" value={form.year} onChange={e=>sf('year',e.target.value)}/></div>
-            <div className="fg"><label>Institution / Organization</label><input placeholder="e.g. SABNAHIS" value={form.institution} onChange={e=>sf('institution',e.target.value)}/></div>
+            <div className="fg">
+              <label>Category</label>
+              <select value={form.category} onChange={e=>sf('category',e.target.value)}>
+                <option value="">— None —</option>
+                {cats.map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
           </div>
+          <div className="fg"><label>Institution / Organization</label><input placeholder="e.g. SABNAHIS" value={form.institution} onChange={e=>sf('institution',e.target.value)}/></div>
           <div className="fg"><label>Description <span style={{fontWeight:300,color:'var(--muted)'}}>(optional)</span></label><textarea placeholder="Brief description of the recognition or study significance…" value={form.description} onChange={e=>sf('description',e.target.value)} style={{minHeight:80}}/></div>
           <div style={{display:'flex',gap:9,justifyContent:'flex-end',flexWrap:'wrap',marginTop:4}}>
             <button className="btn btn-ol" onClick={()=>setShowForm(false)}>Cancel</button>
@@ -5355,35 +5417,42 @@ function AnnouncementsPage({ currentUser }) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [priority, setPriority] = useState('normal');
+  const [durationHours, setDurationHours] = useState('24');
   const [submitting, setSubmitting] = useState(false);
+  const [now, setNow] = useState(new Date());
+
+  // Live clock — ticks every minute to update countdowns
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(t);
+  }, []);
 
   const load = async () => {
     setLoading(true);
     const data = await API.getAnnouncements();
-    // pinned first, then by date
-    data.sort((a,b)=>{
-      if(a.pinned&&!b.pinned) return -1;
-      if(!a.pinned&&b.pinned) return 1;
-      return new Date(b.createdAt)-new Date(a.createdAt);
+    data.sort((a,b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return new Date(b.createdAt) - new Date(a.createdAt);
     });
     setAnnouncements(data);
     setLoading(false);
   };
-  useEffect(()=>{ load(); },[]);
+  useEffect(() => { load(); }, []);
 
   const submit = async () => {
     setSubmitting(true);
     try {
-      await API.createAnnouncement({ title, body, priority, authorId:currentUser.id, authorName:currentUser.name });
+      await API.createAnnouncement({ title, body, priority, authorId:currentUser.id, authorName:currentUser.name, durationHours });
       toast.ok('Announcement posted!');
-      setTitle(''); setBody(''); setPriority('normal'); setShowForm(false);
+      setTitle(''); setBody(''); setPriority('normal'); setDurationHours('24'); setShowForm(false);
       load();
     } catch(e) { toast.err(e.message); }
     setSubmitting(false);
   };
 
   const del = async id => {
-    if(!confirm('Delete this announcement?')) return;
+    if (!confirm('Delete this announcement?')) return;
     await API.deleteAnnouncement(id);
     toast.ok('Deleted.');
     load();
@@ -5394,25 +5463,40 @@ function AnnouncementsPage({ currentUser }) {
     load();
   };
 
+  // Format countdown string
+  const getCountdown = expiresAt => {
+    if (!expiresAt) return null;
+    const diff = new Date(expiresAt) - now;
+    if (diff <= 0) return { text: 'Expired', urgent: true };
+    const totalMins = Math.floor(diff / 60000);
+    const hrs = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    const days = Math.floor(hrs / 24);
+    const remHrs = hrs % 24;
+    let text = '';
+    if (days > 0)      text = `${days}d ${remHrs}h left`;
+    else if (hrs > 0)  text = `${hrs}h ${mins}m left`;
+    else               text = `${mins}m left`;
+    const urgent = diff < 3 * 60 * 60 * 1000; // < 3 hours
+    const warn   = diff < 6 * 60 * 60 * 1000; // < 6 hours
+    return { text, urgent, warn };
+  };
+
+  const DURATION_OPTS = [
+    { value:'1',   label:'1 hour' },
+    { value:'3',   label:'3 hours' },
+    { value:'6',   label:'6 hours' },
+    { value:'12',  label:'12 hours' },
+    { value:'24',  label:'24 hours (default)' },
+    { value:'48',  label:'2 days' },
+    { value:'72',  label:'3 days' },
+    { value:'168', label:'1 week' },
+  ];
+
   const priorityStyle = p => ({
-    urgent:   {
-      accent: '#ef4444', bg: 'linear-gradient(135deg,#fef2f2 0%,#fff5f5 100%)',
-      bgDark: 'linear-gradient(135deg,rgba(239,68,68,0.12) 0%,rgba(239,68,68,0.06) 100%)',
-      border: 'rgba(239,68,68,0.3)', icon: '🚨', label: 'Urgent',
-      tagBg: '#ef4444', tagColor: '#fff',
-    },
-    important: {
-      accent: '#f59e0b', bg: 'linear-gradient(135deg,#fffbeb 0%,#fefce8 100%)',
-      bgDark: 'linear-gradient(135deg,rgba(245,158,11,0.12) 0%,rgba(245,158,11,0.06) 100%)',
-      border: 'rgba(245,158,11,0.35)', icon: '⚠️', label: 'Important',
-      tagBg: '#f59e0b', tagColor: '#fff',
-    },
-    normal:    {
-      accent: '#3b82f6', bg: 'linear-gradient(135deg,#eff6ff 0%,#f0f9ff 100%)',
-      bgDark: 'linear-gradient(135deg,rgba(59,130,246,0.1) 0%,rgba(59,130,246,0.05) 100%)',
-      border: 'rgba(59,130,246,0.25)', icon: '📢', label: 'Notice',
-      tagBg: '#3b82f6', tagColor: '#fff',
-    },
+    urgent:   { accent:'#ef4444', bg:'linear-gradient(135deg,#fef2f2 0%,#fff5f5 100%)', bgDark:'linear-gradient(135deg,rgba(239,68,68,0.12) 0%,rgba(239,68,68,0.06) 100%)', border:'rgba(239,68,68,0.3)', icon:'🚨', label:'Urgent', tagBg:'#ef4444', tagColor:'#fff' },
+    important:{ accent:'#f59e0b', bg:'linear-gradient(135deg,#fffbeb 0%,#fefce8 100%)', bgDark:'linear-gradient(135deg,rgba(245,158,11,0.12) 0%,rgba(245,158,11,0.06) 100%)', border:'rgba(245,158,11,0.35)', icon:'⚠️', label:'Important', tagBg:'#f59e0b', tagColor:'#fff' },
+    normal:   { accent:'#3b82f6', bg:'linear-gradient(135deg,#eff6ff 0%,#f0f9ff 100%)', bgDark:'linear-gradient(135deg,rgba(59,130,246,0.1) 0%,rgba(59,130,246,0.05) 100%)', border:'rgba(59,130,246,0.25)', icon:'📢', label:'Notice', tagBg:'#3b82f6', tagColor:'#fff' },
   }[p||'normal']);
 
   return (
@@ -5420,7 +5504,7 @@ function AnnouncementsPage({ currentUser }) {
       <div className="page-hd">
         <div className="page-hd-left">
           <h2>Announcements</h2>
-          <p className="muted">{announcements.length} announcement{announcements.length!==1?'s':''}</p>
+          <p className="muted">{announcements.length} announcement{announcements.length!==1?'s':''} · auto-expire after set duration</p>
         </div>
         {isTeacher&&(
           <button className="btn btn-gold" onClick={()=>setShowForm(s=>!s)}>
@@ -5444,20 +5528,34 @@ function AnnouncementsPage({ currentUser }) {
             </label>
             <textarea placeholder="Write your announcement here…" value={body} onChange={e=>setBody(e.target.value)} style={{minHeight:100}}/>
           </div>
-          <div className="fg">
-            <label>Priority</label>
-            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-              {['normal','important','urgent'].map(p=>{
-                const s=priorityStyle(p);
-                return(
-                  <button key={p} onClick={()=>setPriority(p)}
-                    style={{padding:'7px 16px',borderRadius:99,border:`1.5px solid ${priority===p?s.accent:'var(--border)'}`,
-                      background:priority===p?s.tagBg:'none',color:priority===p?s.tagColor:'var(--muted)',
-                      cursor:'pointer',fontSize:'0.78rem',fontWeight:priority===p?600:400,transition:'all .2s',display:'flex',alignItems:'center',gap:5}}>
-                    {s.icon} {s.label}
-                  </button>
-                );
-              })}
+          <div className="fr">
+            <div className="fg">
+              <label>Priority</label>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:4}}>
+                {['normal','important','urgent'].map(p=>{
+                  const s=priorityStyle(p);
+                  return(
+                    <button key={p} onClick={()=>setPriority(p)}
+                      style={{padding:'7px 16px',borderRadius:99,border:`1.5px solid ${priority===p?s.accent:'var(--border)'}`,
+                        background:priority===p?s.tagBg:'none',color:priority===p?s.tagColor:'var(--muted)',
+                        cursor:'pointer',fontSize:'0.78rem',fontWeight:priority===p?600:400,transition:'all .2s',display:'flex',alignItems:'center',gap:5}}>
+                      {s.icon} {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="fg">
+              <label style={{display:'flex',alignItems:'center',gap:5}}>
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Expires After *
+              </label>
+              <select value={durationHours} onChange={e=>setDurationHours(e.target.value)} style={{marginTop:4}}>
+                {DURATION_OPTS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <p className="hint">
+                Announcement will auto-delete {durationHours==='1'?'in 1 hour':`after ${DURATION_OPTS.find(o=>o.value===durationHours)?.label||durationHours+' hours'}`}.
+              </p>
             </div>
           </div>
           <div style={{display:'flex',gap:9,justifyContent:'flex-end',marginTop:4}}>
@@ -5481,59 +5579,77 @@ function AnnouncementsPage({ currentUser }) {
       ):(
         <div style={{display:'flex',flexDirection:'column',gap:14}}>
           {announcements.map(a=>{
-            const s=priorityStyle(a.priority);
+            const s = priorityStyle(a.priority);
+            const countdown = getCountdown(a.expiresAt);
             return(
               <div key={a.id} style={{
                 background:'var(--surface)',
                 borderRadius:12,
-                border:'1px solid var(--border)',
+                border:`1px solid ${countdown?.urgent?'rgba(239,68,68,0.4)':countdown?.warn?'rgba(245,158,11,0.35)':'var(--border)'}`,
                 overflow:'hidden',
                 boxShadow:'0 2px 8px rgba(0,0,0,0.06)',
                 display:'flex',
-                transition:'box-shadow .2s',
+                transition:'box-shadow .2s, border-color .2s',
+                opacity: countdown?.urgent ? 0.92 : 1,
               }}>
                 {/* Left accent bar */}
-                <div style={{width:5,flexShrink:0,background:s.accent,borderRadius:'0'}}/>
+                <div style={{width:5,flexShrink:0,background:s.accent}}/>
 
                 <div style={{flex:1,padding:'16px 18px'}}>
-                  {/* Top row — tag + pin + date */}
+                  {/* Top row — tag + pin + countdown + date */}
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
-                    <span style={{
-                      display:'inline-flex',alignItems:'center',gap:4,
-                      background:s.tagBg,color:s.tagColor,
-                      fontSize:'0.68rem',fontWeight:700,letterSpacing:'0.5px',textTransform:'uppercase',
-                      padding:'3px 10px',borderRadius:99
-                    }}>{s.icon} {s.label}</span>
-                    {a.pinned&&<span style={{
-                      display:'inline-flex',alignItems:'center',gap:3,
-                      background:'var(--purple-light)',color:'var(--purple)',
-                      fontSize:'0.68rem',fontWeight:600,padding:'3px 9px',borderRadius:99
-                    }}>📌 Pinned</span>}
+                    <span style={{display:'inline-flex',alignItems:'center',gap:4,background:s.tagBg,color:s.tagColor,fontSize:'0.68rem',fontWeight:700,letterSpacing:'0.5px',textTransform:'uppercase',padding:'3px 10px',borderRadius:99}}>
+                      {s.icon} {s.label}
+                    </span>
+                    {a.pinned&&<span style={{display:'inline-flex',alignItems:'center',gap:3,background:'var(--purple-light)',color:'var(--purple)',fontSize:'0.68rem',fontWeight:600,padding:'3px 9px',borderRadius:99}}>📌 Pinned</span>}
+
+                    {/* Expiry countdown badge */}
+                    {countdown&&(
+                      <span style={{
+                        display:'inline-flex',alignItems:'center',gap:4,
+                        background: countdown.urgent ? '#fef2f2' : countdown.warn ? '#fffbeb' : 'var(--surface)',
+                        color: countdown.urgent ? '#ef4444' : countdown.warn ? '#f59e0b' : 'var(--muted)',
+                        border: `1px solid ${countdown.urgent?'rgba(239,68,68,0.3)':countdown.warn?'rgba(245,158,11,0.3)':'var(--border)'}`,
+                        fontSize:'0.68rem',fontWeight:600,padding:'3px 9px',borderRadius:99,
+                      }}>
+                        <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        {countdown.text}
+                      </span>
+                    )}
+
                     <span style={{marginLeft:'auto',fontSize:'0.72rem',color:'var(--muted)'}}>{fmtDate(a.createdAt)}</span>
                   </div>
 
                   {/* Title */}
-                  <h3 style={{
-                    fontFamily:'var(--font-display)',fontSize:'1.1rem',fontWeight:700,
-                    marginBottom:8,color:'var(--ink)',lineHeight:1.3
-                  }}>{a.title}</h3>
+                  <h3 style={{fontFamily:'var(--font-display)',fontSize:'1.1rem',fontWeight:700,marginBottom:8,color:'var(--ink)',lineHeight:1.3}}>{a.title}</h3>
 
                   {/* Body */}
-                  <p style={{
-                    fontSize:'var(--text-sm)',color:'var(--muted)',
-                    lineHeight:1.65,whiteSpace:'pre-wrap',marginBottom:12
-                  }}>{a.body}</p>
+                  <p style={{fontSize:'var(--text-sm)',color:'var(--muted)',lineHeight:1.65,whiteSpace:'pre-wrap',marginBottom:12}}>{a.body}</p>
+
+                  {/* Expiry info bar */}
+                  {a.expiresAt&&(
+                    <div style={{
+                      display:'flex',alignItems:'center',gap:6,
+                      padding:'6px 10px',
+                      background: countdown?.urgent ? 'rgba(239,68,68,0.07)' : countdown?.warn ? 'rgba(245,158,11,0.07)' : 'var(--surface)',
+                      borderRadius:6,
+                      marginBottom:12,
+                      fontSize:'0.72rem',
+                      color: countdown?.urgent ? '#ef4444' : countdown?.warn ? '#f59e0b' : 'var(--muted)',
+                      border:`1px solid ${countdown?.urgent?'rgba(239,68,68,0.15)':countdown?.warn?'rgba(245,158,11,0.15)':'var(--border)'}`,
+                    }}>
+                      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <span>Expires: <strong>{new Date(a.expiresAt).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})} at {new Date(a.expiresAt).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'})}</strong></span>
+                      {a.durationHours&&<span style={{marginLeft:'auto',opacity:0.7}}>({a.durationHours}h duration)</span>}
+                    </div>
+                  )}
 
                   {/* Footer */}
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,
-                    borderTop:'1px solid var(--border)',paddingTop:10}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,borderTop:'1px solid var(--border)',paddingTop:10}}>
                     <div style={{display:'flex',alignItems:'center',gap:6}}>
-                      <div style={{
-                        width:26,height:26,borderRadius:'50%',
-                        background:s.accent,color:'#fff',
-                        display:'flex',alignItems:'center',justifyContent:'center',
-                        fontWeight:700,fontSize:'0.68rem',flexShrink:0
-                      }}>{a.authorName?.charAt(0).toUpperCase()}</div>
+                      <div style={{width:26,height:26,borderRadius:'50%',background:s.accent,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:'0.68rem',flexShrink:0}}>
+                        {a.authorName?.charAt(0).toUpperCase()}
+                      </div>
                       <div>
                         <div style={{fontSize:'0.75rem',fontWeight:600,color:'var(--ink)'}}>{a.authorName}</div>
                         <div style={{fontSize:'0.65rem',color:'var(--muted)'}}>Teacher</div>
