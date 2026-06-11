@@ -513,74 +513,7 @@ a { color: inherit; }
 /* ══════════════════════════════════════════
    AUTH PAGE
 ══════════════════════════════════════════ */
-.auth-wrap {
-  min-height: 100vh;
-  display: flex;
-  background: var(--sidebar-bg);
-  position: relative;
-  overflow: hidden;
-  padding-top: var(--safe-top);
-  transition: background 0.25s ease;
-}
-.auth-bg {
-  position: absolute; inset: 0;
-  background:
-    radial-gradient(ellipse at 20% 50%,rgba(201,162,39,0.12) 0%,transparent 60%),
-    radial-gradient(ellipse at 80% 20%,rgba(26,127,110,0.09) 0%,transparent 50%),
-    radial-gradient(ellipse at 60% 80%,rgba(109,63,168,0.07) 0%,transparent 40%);
-  pointer-events: none;
-}
-.auth-inner {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(20px,5vw,40px);
-  position: relative; z-index: 1;
-}
-.auth-brand { text-align: center; margin-bottom: clamp(22px,4vw,32px); }
-.auth-brand h1 {
-  font-family: var(--font-display);
-  font-size: clamp(1.6rem,5vw,2rem);
-  font-weight: 700; color: var(--sidebar-text-strong);
-  letter-spacing: -1px; line-height: 1.2;
-}
-.auth-brand h1 span { color: var(--gold); display: block; font-size: clamp(1rem,3vw,1.3rem); margin-top: 4px; }
-.auth-brand p { color: var(--sidebar-text-sub); margin-top: 8px; font-size: var(--text-sm); }
-
-.auth-card {
-  background: var(--white);
-  border-radius: var(--radius-lg);
-  padding: clamp(20px,5vw,32px);
-  width: 100%; max-width: 440px;
-  box-shadow: var(--shadow-xl);
-}
-
-.auth-tabs {
-  display: flex; gap: 4px;
-  background: var(--surface);
-  border-radius: 8px; padding: 4px;
-  margin-bottom: 22px;
-}
-.auth-tab {
-  flex: 1;
-  padding: 10px;
-  min-height: var(--tap-min);
-  text-align: center;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--muted);
-  transition: all var(--transition);
-  border: none; background: none;
-}
-.auth-tab.active {
-  background: var(--white);
-  color: var(--ink);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-}
+/* auth styles moved to end of stylesheet */
 
 /* ══════════════════════════════════════════
    FORMS
@@ -773,7 +706,7 @@ tr:hover td { background: var(--surface); }
 .badge-pend { background:#fff8e6; color:#b7860b; }
 .badge-appr { background:var(--green-light); color:var(--green); }
 .badge-rej  { background:var(--red-light);   color:var(--red); }
-.badge-admin{ background:var(--blue-light);  color:var(--blue); }
+.badge-teacher{ background:var(--blue-light);  color:var(--blue); }
 
 /* ══════════════════════════════════════════
    SEARCH / FILTER
@@ -1394,9 +1327,321 @@ tr:hover td { background: var(--surface); }
 @media (prefers-contrast: high) {
   .nav-item.active { background:rgba(201,162,39,0.3); }
 }
+
+/* ══════════════════════════════════════════
+   LOADING SCREEN (SABNAHIS branded)
+══════════════════════════════════════════ */
+#sabnahis-loader {
+  position: fixed; inset: 0; z-index: 9999;
+  background: #0d0f14;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+#sabnahis-loader.fade-out { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.loader-grid-overlay {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(45,55,72,0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(45,55,72,0.1) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.loader-corner {
+  position: absolute; z-index: 1;
+  opacity: 0.3;
+}
+.loader-corner--tl { top: 24px; left: 24px; }
+.loader-corner--tr { top: 24px; right: 24px; text-align: right; }
+.loader-corner--bl { bottom: 24px; left: 24px; }
+.loader-corner--br { bottom: 24px; right: 24px; text-align: right; }
+.loader-corner-h { width: 48px; height: 1px; background: #4d4635; display: block; }
+.loader-corner-v { width: 1px; height: 48px; background: #4d4635; display: block; }
+
+.loader-body { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 32px; }
+
+.loader-icon-wrap {
+  position: relative;
+}
+.loader-icon-glow {
+  position: absolute; inset: -16px;
+  background: rgba(201,162,39,0.08);
+  border-radius: 50%;
+  filter: blur(24px);
+  animation: loaderGlowPulse 3s ease-in-out infinite;
+}
+@keyframes loaderGlowPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+.loader-icon-box {
+  position: relative;
+  width: auto; height: 96px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 18px;
+  border: 1px solid rgba(201,162,39,0.18);
+  background: rgba(26,27,33,0.85);
+  backdrop-filter: blur(8px);
+  animation: loaderFloat 6s ease-in-out infinite;
+}
+@keyframes loaderFloat {
+  0%,100%{ transform: translateY(0); }
+  50%{ transform: translateY(-10px); }
+}
+.loader-heart {
+  font-size: 48px;
+  color: #ecc246;
+  text-shadow: 0 0 24px rgba(201,162,39,0.5);
+  line-height: 1;
+  user-select: none;
+}
+
+.loader-brand { text-align: center; }
+.loader-brand-name {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(28px, 6vw, 48px);
+  font-weight: 700;
+  color: #ecc246;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-shadow: 0 0 24px rgba(201,162,39,0.4);
+}
+.loader-brand-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(209,197,175,0.5);
+  margin-top: 6px;
+}
+
+.loader-progress-wrap { width: clamp(240px, 60vw, 320px); }
+.loader-track {
+  height: 2px; width: 100%;
+  background: rgba(255,255,255,0.06);
+  border-radius: 99px;
+  overflow: hidden;
+  position: relative;
+}
+.loader-bar {
+  position: absolute; top: 0; left: 0; height: 100%;
+  background: #7dd7c2;
+  box-shadow: 0 0 12px rgba(125,215,194,0.4);
+  border-radius: 99px;
+  animation: loaderPulse 3s cubic-bezier(0.65,0,0.35,1) infinite;
+}
+@keyframes loaderPulse {
+  0%   { width: 0%;   opacity: 0.5; }
+  50%  { width: 70%;  opacity: 1;   }
+  100% { width: 100%; opacity: 0;   }
+}
+.loader-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; letter-spacing: 0.06em;
+}
+.loader-meta-left { color: rgba(125,215,194,0.7); display: flex; align-items: center; gap: 7px; }
+.loader-meta-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #7dd7c2;
+  animation: dotBlink 1.2s ease-in-out infinite;
+}
+@keyframes dotBlink { 0%,100%{opacity:0.4} 50%{opacity:1} }
+.loader-meta-pct { color: rgba(209,197,175,0.35); }
+
+.loader-footer {
+  position: absolute; bottom: 40px; left: 0; right: 0;
+  text-align: center; z-index: 2;
+}
+.loader-tagline {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(14px, 2.5vw, 18px);
+  color: rgba(209,197,175,0.3);
+  font-style: italic;
+  font-weight: 400;
+}
+.loader-badges {
+  display: flex; justify-content: center; gap: 36px;
+  margin-top: 20px; opacity: 0.18;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; letter-spacing: 0.08em;
+}
+.loader-badge { display: flex; align-items: center; gap: 6px; }
+
+/* ══════════════════════════════════════════
+   AUTH PAGE — blended redesign
+══════════════════════════════════════════ */
+.auth-wrap {
+  min-height: 100vh;
+  display: flex;
+  background: #0d0f14;
+  position: relative;
+  overflow: hidden;
+  padding-top: var(--safe-top);
+}
+.auth-bg {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(201,162,39,0.1) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(26,127,110,0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 80%, rgba(109,63,168,0.05) 0%, transparent 40%);
+  background-color: #0d0f14;
+}
+.auth-bg::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(45,55,72,0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(45,55,72,0.08) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.auth-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(20px,5vw,40px);
+  position: relative; z-index: 1;
+  gap: 28px;
+}
+.auth-brand { text-align: center; }
+.auth-brand-icon {
+  width: auto; height: 72px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 16px;
+  border: 1px solid rgba(201,162,39,0.2);
+  background: rgba(26,27,33,0.9);
+  margin: 0 auto 18px;
+  box-shadow: 0 0 32px rgba(201,162,39,0.12);
+}
+.auth-brand-heart {
+  font-size: 34px;
+  color: #ecc246;
+  text-shadow: 0 0 16px rgba(201,162,39,0.5);
+  line-height: 1;
+}
+.auth-brand h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 5vw, 1.9rem);
+  font-weight: 700;
+  color: #ecc246;
+  letter-spacing: -0.02em; line-height: 1.15;
+  text-shadow: 0 0 20px rgba(201,162,39,0.35);
+}
+.auth-brand h1 span {
+  color: rgba(209,197,175,0.65);
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(0.65rem, 2vw, 0.78rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-top: 6px;
+  text-shadow: none;
+  font-weight: 400;
+}
+.auth-brand p { color: rgba(209,197,175,0.4); margin-top: 8px; font-size: var(--text-sm); }
+
+.auth-card {
+  background: #1a1d2e;
+  border: 1px solid rgba(77,70,53,0.45);
+  border-radius: var(--radius-xl);
+  padding: clamp(20px,5vw,32px);
+  width: 100%; max-width: 440px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+}
+.auth-tabs {
+  display: flex; gap: 4px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 10px; padding: 4px;
+  margin-bottom: 22px;
+}
+.auth-tab {
+  flex: 1;
+  padding: 10px;
+  min-height: var(--tap-min);
+  text-align: center;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: rgba(209,197,175,0.45);
+  transition: all var(--transition);
+  border: none; background: none;
+}
+.auth-tab.active {
+  background: rgba(201,162,39,0.15);
+  color: #ecc246;
+  box-shadow: 0 1px 6px rgba(201,162,39,0.15);
+}
+
+/* Override form inputs for dark auth card */
+.auth-card label { color: rgba(209,197,175,0.55); font-family: 'JetBrains Mono',monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+.auth-card input,
+.auth-card select,
+.auth-card textarea {
+  background: #111318;
+  border: 1px solid rgba(77,70,53,0.5);
+  color: #e2e2e9;
+  border-radius: var(--radius);
+}
+.auth-card input::placeholder { color: rgba(153,144,123,0.5); }
+.auth-card input:focus,
+.auth-card select:focus,
+.auth-card textarea:focus {
+  border-color: #ecc246;
+  box-shadow: 0 0 0 3px rgba(236,194,70,0.12);
+  outline: none;
+}
+
+/* Forgot password link */
+.auth-card .auth-forgot {
+  color: rgba(209,197,175,0.4);
+}
+.auth-card .auth-forgot:hover { color: #ecc246; }
+
+/* Auth corner marks */
+.auth-corner { position:absolute; z-index:2; opacity:0.25; }
+.auth-corner--tl { top:24px; left:24px; }
+.auth-corner--tr { top:24px; right:24px; text-align:right; }
+.auth-corner--bl { bottom:24px; left:24px; }
+.auth-corner--br { bottom:24px; right:24px; text-align:right; }
+.auth-corner-h { width:40px; height:1px; background:#4d4635; display:block; }
+.auth-corner-v { width:1px; height:40px; background:#4d4635; display:block; }
 </style>
 </head>
 <body>
+<!-- ══ LOADING SCREEN ══ -->
+<div id="sabnahis-loader">
+  <div class="loader-grid-overlay"></div>
+  <div class="loader-corner loader-corner--tl"><span class="loader-corner-h" style="margin-bottom:12px;display:block;"></span><span class="loader-corner-v"></span></div>
+  <div class="loader-corner loader-corner--tr"><span class="loader-corner-h" style="margin-bottom:12px;display:block;margin-left:auto;"></span><span class="loader-corner-v" style="margin-left:auto;"></span></div>
+  <div class="loader-corner loader-corner--bl"><span class="loader-corner-v"></span><span class="loader-corner-h" style="margin-top:12px;display:block;"></span></div>
+  <div class="loader-corner loader-corner--br"><span class="loader-corner-v" style="margin-left:auto;"></span><span class="loader-corner-h" style="margin-top:12px;display:block;margin-left:auto;"></span></div>
+  <div class="loader-body">
+    <div class="loader-icon-wrap">
+      <div class="loader-icon-glow"></div>
+      <div class="loader-icon-box" style="flex-direction:row;gap:10px;width:auto;padding:0 16px;"><img src="LOGO.png" alt="Logo 1" style="width:48px;height:48px;object-fit:contain;border-radius:6px;"/><img src="LOGO2.png" alt="Logo 2" style="width:48px;height:48px;object-fit:contain;border-radius:6px;"/></div>
+    </div>
+    <div class="loader-brand">
+      <div class="loader-brand-name">SABNAHIS STE</div>
+      <div class="loader-brand-sub">Advanced Research Environment</div>
+    </div>
+    <div class="loader-progress-wrap">
+      <div class="loader-track"><div class="loader-bar"></div></div>
+      <div class="loader-meta">
+        <span class="loader-meta-left"><span class="loader-meta-dot"></span>Securing Node Connection</span>
+        <span class="loader-meta-pct" id="loader-pct">0%</span>
+      </div>
+    </div>
+  </div>
+  <div class="loader-footer">
+    <div class="loader-tagline">Securing the Future of STEM Research</div>
+    <div class="loader-badges">
+      <div class="loader-badge">&#128274; AES-256</div>
+      <div class="loader-badge">&#128452; STE-9920</div>
+      <div class="loader-badge">&#9000; V.4.2.0</div>
+    </div>
+  </div>
+</div>
 <div id="root"></div>
 <script>
 // Block right-click context menu everywhere except inputs and APA citation box
@@ -1547,10 +1792,10 @@ const API = {
     try {
       const cred = await auth.signInWithEmailAndPassword(email.trim(), password);
       const snap = await db.collection('users').doc(cred.user.uid).get();
-      if (!snap.exists) { await auth.signOut(); throw new Error('User profile not found. Please contact your administrator.'); }
+      if (!snap.exists) { await auth.signOut(); throw new Error('User profile not found. Please contact your teacher.'); }
       const data = snap.data();
-      if (data.status==='pending')  { await auth.signOut(); throw new Error('Your account is awaiting admin approval. Please check back later.'); }
-      if (data.status==='rejected') { await auth.signOut(); throw new Error('Your registration was rejected. Please contact your administrator.'); }
+      if (data.status==='pending')  { await auth.signOut(); throw new Error('Your account is awaiting teacher approval. Please check back later.'); }
+      if (data.status==='rejected') { await auth.signOut(); throw new Error('Your registration was rejected. Please contact your teacher.'); }
       // Apply any pending on-site password reset
       if (data._pwReset) {
         try {
@@ -1565,7 +1810,7 @@ const API = {
       const code = e.code || '';
       if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') throw new Error('Incorrect email or password. Please try again.');
       if (code === 'auth/invalid-email') throw new Error('Please enter a valid email address.');
-      if (code === 'auth/user-disabled') throw new Error('This account has been disabled. Contact your administrator.');
+      if (code === 'auth/user-disabled') throw new Error('This account has been disabled. Contact your teacher.');
       if (code === 'auth/too-many-requests') throw new Error('Too many failed attempts. Please wait a few minutes and try again.');
       if (code === 'auth/network-request-failed') throw new Error('Network error. Please check your internet connection and try again.');
       if (code === 'auth/unauthorized-domain') throw new Error('This domain is not authorized for login. The admin must add this domain in Firebase Console → Authentication → Settings → Authorized Domains.');
@@ -1728,6 +1973,41 @@ const API = {
     }).catch(()=>{});
   },
 
+  // ── Announcements ──────────────────────────────────────
+  /* FIRESTORE RULE NEEDED — add this to your Firestore rules:
+     match /announcements/{doc} {
+       allow read: if request.auth != null;
+       allow write: if request.auth != null
+         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+     }
+  */
+  async getAnnouncements(limitN=20) {
+    try {
+      const snap = await db.collection('announcements').orderBy('createdAt','desc').limit(limitN).get();
+      return snap.docs.map(d=>({id:d.id,...d.data()}));
+    } catch(e) {
+      console.warn('Announcements read failed — check Firestore rules:', e.message);
+      return [];
+    }
+  },
+  async createAnnouncement({ title, body, priority, authorId, authorName }) {
+    if(!title.trim()) throw new Error('Title is required.');
+    if(!body.trim())  throw new Error('Message is required.');
+    await db.collection('announcements').add({
+      title:title.trim(), body:body.trim(),
+      priority:priority||'normal',
+      authorId, authorName,
+      createdAt:new Date().toISOString(),
+      pinned:priority==='urgent'
+    });
+  },
+  async deleteAnnouncement(id) {
+    await db.collection('announcements').doc(id).delete();
+  },
+  async pinAnnouncement(id, pinned) {
+    await db.collection('announcements').doc(id).update({ pinned });
+  },
+
   async getLastRead(userId) {
     const snap = await db.collection('users').doc(userId).collection('lastRead').doc('current').get();
     return snap.exists ? snap.data() : null;
@@ -1752,15 +2032,17 @@ const API = {
 
   async getStudyLogs(id) {
     try {
-      const [vSnap, dSnap] = await Promise.all([
+      const [vSnap, dSnap, cSnap] = await Promise.all([
         db.collection('studies').doc(id).collection('views').orderBy('timestamp','desc').get(),
-        db.collection('studies').doc(id).collection('downloads').orderBy('timestamp','desc').get()
+        db.collection('studies').doc(id).collection('downloads').orderBy('timestamp','desc').get(),
+        db.collection('studies').doc(id).collection('citations').orderBy('timestamp','desc').get()
       ]);
       return {
         views: vSnap.docs.map(d => d.data()),
-        downloads: dSnap.docs.map(d => d.data())
+        downloads: dSnap.docs.map(d => d.data()),
+        citations: cSnap.docs.map(d => d.data())
       };
-    } catch { return { views: [], downloads: [] }; }
+    } catch { return { views: [], downloads: [], citations: [] }; }
   },
 
   async getUsers({ role='student', status='', search='' }={}) {
@@ -1829,8 +2111,9 @@ const API = {
         totalStudies:     studies.length,
         totalViews:       studies.reduce((a,s)=>a+(s.viewCount||0),0),
         totalDownloads:   studies.reduce((a,s)=>a+(s.downloadCount||0),0),
+        totalCitations:   studies.reduce((a,s)=>a+(s.citationCount||0),0),
       };
-    } catch { return {totalStudents:0,approvedStudents:0,pendingStudents:0,totalStudies:0,totalViews:0,totalDownloads:0}; }
+    } catch { return {totalStudents:0,approvedStudents:0,pendingStudents:0,totalStudies:0,totalViews:0,totalDownloads:0,totalCitations:0}; }
   },
 
   async saveSecurityQuestion(uid, secQ, secA) {
@@ -2420,6 +2703,7 @@ const Ico = {
   up:     ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>,
   users:  ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   tag:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
+  bell:   ()=><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>,
   bot:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="11"/><line x1="8" y1="15" x2="8" y2="15" strokeWidth="3" strokeLinecap="round"/><line x1="12" y1="15" x2="12" y2="15" strokeWidth="3" strokeLinecap="round"/><line x1="16" y1="15" x2="16" y2="15" strokeWidth="3" strokeLinecap="round"/></svg>,
   search: ()=><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" style={{flexShrink:0,opacity:0.5}}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   dl:     ()=><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" style={{flexShrink:0}}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
@@ -2462,11 +2746,33 @@ function Modal({ title, onClose, children, wide }) {
   );
 }
 
-function APABox({ study }) {
+function APABox({ study, currentUser }) {
   const [copied,setCopied]=useState(false);
   const apa=generateAPA(study);
-  const copy=()=>navigator.clipboard?.writeText(apa).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
-  return <div className="apa-box">{apa}<button className="apa-cp" onClick={copy}>{copied?'✓ Copied':'Copy'}</button></div>;
+  const copy=()=>navigator.clipboard?.writeText(apa).then(()=>{
+    setCopied(true);
+    setTimeout(()=>setCopied(false),2000);
+    // track citation count + log who cited
+    db.collection('studies').doc(study.id).update({
+      citationCount: firebase.firestore.FieldValue.increment(1)
+    }).catch(()=>{});
+    if(currentUser){
+      db.collection('studies').doc(study.id).collection('citations').add({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userEmail: currentUser.email,
+        institution: currentUser.institution||'',
+        department: currentUser.department||'',
+        timestamp: new Date().toISOString()
+      }).catch(()=>{});
+    }
+  });
+  return (
+    <div>
+      <div className="apa-box">{apa}<button className="apa-cp" onClick={copy}>{copied?'✓ Copied':'Copy'}</button></div>
+      {(study.citationCount||0)>0&&<div style={{fontSize:'0.7rem',color:'var(--muted)',marginTop:4,textAlign:'right'}}>📋 Cited {study.citationCount} time{study.citationCount!==1?'s':''}</div>}
+    </div>
+  );
 }
 
 function CatPicker({ selected, onChange, max=2, cats=[] }) {
@@ -2552,7 +2858,7 @@ function ForgotModal({ onClose }) {
     setLoading(false);
   };
 
-  const titles={'email':'Reset Your Password','question':'Security Question','newpw':'Set New Password','done':'Password Updated'};
+  const titles={announcements:'Announcements','email':'Reset Your Password','question':'Security Question','newpw':'Set New Password','done':'Password Updated'};
 
   return (
     <Modal title={titles[step]} onClose={onClose}>
@@ -2710,7 +3016,7 @@ function AuthPage({ onLogin }) {
     setErr('');
     if(form.password!==form.confirm){setErr('Passwords do not match.');return;}
     setLoading(true);
-    try{await API.register(form);setOk('Registration submitted! Wait for admin approval before logging in.');setTab('login');setForm(f=>({...f,password:'',confirm:''}));}
+    try{await API.register(form);setOk('Registration submitted! Wait for teacher approval before logging in.');setTab('login');setForm(f=>({...f,password:'',confirm:''}));}
     catch(e){setErr(e.message);}
     setLoading(false);
   };
@@ -2718,13 +3024,14 @@ function AuthPage({ onLogin }) {
   return (
     <div className="auth-wrap">
       <div className="auth-bg"/>
-      <div style={{position:'absolute',top:16,right:16,display:'flex',gap:4,zIndex:10}}>
-        <button className="theme-toggle" onClick={()=>theme!=='light'&&toggleTheme()} style={theme==='light'?{background:'rgba(201,162,39,0.22)',color:'var(--gold-light)',border:'1px solid rgba(201,162,39,0.4)'}:{}} aria-pressed={theme==='light'}>☀ Light</button>
-        <button className="theme-toggle" onClick={()=>theme!=='dark'&&toggleTheme()} style={theme==='dark'?{background:'rgba(201,162,39,0.22)',color:'var(--gold-light)',border:'1px solid rgba(201,162,39,0.4)'}:{}} aria-pressed={theme==='dark'}>☾ Dark</button>
-      </div>
+      {/* Corner marks */}
+      <div className="auth-corner auth-corner--tl"><span className="auth-corner-h" style={{marginBottom:12,display:'block'}}></span><span className="auth-corner-v" style={{display:'block'}}></span></div>
+      <div className="auth-corner auth-corner--tr"><span className="auth-corner-h" style={{marginBottom:12,display:'block',marginLeft:'auto'}}></span><span className="auth-corner-v" style={{display:'block',marginLeft:'auto'}}></span></div>
+      <div className="auth-corner auth-corner--bl"><span className="auth-corner-v" style={{display:'block'}}></span><span className="auth-corner-h" style={{marginTop:12,display:'block'}}></span></div>
+      <div className="auth-corner auth-corner--br"><span className="auth-corner-v" style={{display:'block',marginLeft:'auto'}}></span><span className="auth-corner-h" style={{marginTop:12,display:'block',marginLeft:'auto'}}></span></div>
       <div className="auth-inner">
         <div className="auth-brand">
-          <SchoolLogoZone context="login"/>
+          <div className="auth-brand-icon" style={{flexDirection:'row',gap:'8px',width:'auto',padding:'0 14px'}}><img src="LOGO.png" alt="Logo 1" style={{width:'34px',height:'34px',objectFit:'contain',borderRadius:'6px'}}/><img src="LOGO2.png" alt="Logo 2" style={{width:'34px',height:'34px',objectFit:'contain',borderRadius:'6px'}}/></div>
           <h1>SABNAHIS<span>STE Research Portal</span></h1>
           <p>Research Repository for SABNAHIS STE Students</p>
         </div>
@@ -2739,8 +3046,8 @@ function AuthPage({ onLogin }) {
           {tab==='login'?(<>
             <div className="fg"><label htmlFor="login-email">Email</label><input id="login-email" type="email" placeholder="your@email.com" value={form.email} onChange={e=>sf('email',e.target.value)} autoComplete="email"/></div>
             <div className="fg"><label htmlFor="login-pw">Password</label><input id="login-pw" type="password" placeholder="••••••••" value={form.password} onChange={e=>sf('password',e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()} autoComplete="current-password"/></div>
-            <button className="btn btn-gold btn-full" style={{marginBottom:12,height:46}} onClick={login} disabled={loading}>{loading?<><span className="spin spin-dark"/>Signing in…</>:'Sign In'}</button>
-            <button style={{width:'100%',textAlign:'center',background:'none',border:'none',color:'var(--muted)',fontSize:'0.82rem',cursor:'pointer',padding:'6px'}} onClick={()=>setShowForgot(true)}>Forgot your password?</button>
+            <button className="btn btn-gold btn-full" style={{marginBottom:12,height:46}} onClick={login} disabled={loading}>{loading?<><span className="spin spin-gold"/>Signing in…</>:'Sign In'}</button>
+            <button className="auth-forgot" style={{width:'100%',textAlign:'center',background:'none',border:'none',fontSize:'0.82rem',cursor:'pointer',padding:'6px',transition:'color 0.2s'}} onClick={()=>setShowForgot(true)}>Forgot your password?</button>
           </>):(<>
             <div className="fg"><label htmlFor="reg-name">Full Name *</label><input id="reg-name" placeholder="Juan dela Cruz" value={form.name} onChange={e=>sf('name',e.target.value)} autoComplete="name"/></div>
             <div className="fr">
@@ -2754,7 +3061,7 @@ function AuthPage({ onLogin }) {
             </div>
             <div className="fg"><label htmlFor="reg-sq">Security Question</label><select id="reg-sq" value={form.secQ} onChange={e=>sf('secQ',e.target.value)}>{SEC_QS.map(q=><option key={q}>{q}</option>)}</select></div>
             <div className="fg"><label htmlFor="reg-sa">Security Answer *</label><input id="reg-sa" placeholder="Your answer" value={form.secA} onChange={e=>sf('secA',e.target.value)}/></div>
-            <button className="btn btn-gold btn-full" style={{height:46}} onClick={register} disabled={loading}>{loading?<><span className="spin spin-dark"/>Registering…</>:'Register Account'}</button>
+            <button className="btn btn-gold btn-full" style={{height:46}} onClick={register} disabled={loading}>{loading?<><span className="spin spin-gold"/>Registering…</>:'Register Account'}</button>
           </>)}
         </div>
       </div>
@@ -2799,6 +3106,7 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
       <div style={{display:'flex',gap:18,flexWrap:'wrap',marginBottom:16}}>
         <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.eye/>{study.viewCount||0} views</span>
         <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.dl/>{study.downloadCount||0} downloads</span>
+        <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}>📋 {study.citationCount||0} citations</span>
         <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.cal/>{study.year}</span>
       </div>
       <div className="ds" style={{marginBottom:16}}>
@@ -2816,7 +3124,7 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
       )}
       <div style={{marginBottom:16}}>
         <div style={{fontSize:'0.72rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.8px',color:'var(--muted)',marginBottom:7}}>APA Citation</div>
-        <APABox study={study}/>
+        <APABox study={study} currentUser={currentUser}/>
       </div>
       {gdriveUrl&&(
         <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--teal-light)',border:'1.5px solid var(--teal)',borderRadius:'var(--radius)',marginBottom:16}}>
@@ -3329,6 +3637,7 @@ function StudiesPage({ currentUser }) {
               <div className="sc-meta">
                 <span><Ico.eye/>{study.viewCount||0}</span>
                 <span><Ico.dl/>{study.downloadCount||0}</span>
+                <span title={`${study.citationCount||0} citation${(study.citationCount||0)!==1?'s':''}`}>📋{study.citationCount||0}</span>
                 <span><Ico.cal/>{study.year}</span>
                 {(study.gdrive||study.file)&&<span title="Google Drive file attached" style={{color:'var(--teal)'}}>🔗 Drive</span>}
                 {(study.favoriteCount||0)>0&&<span title="Bookmarked by students" style={{color:'var(--purple)'}}>📌{study.favoriteCount}</span>}
@@ -3583,7 +3892,7 @@ I have **${s.length}** ${s.length===1?'study':'studies'} loaded. Use the **mode 
       {/* No key warning for non-admins */}
       {!groqKey && !isAdmin && (
         <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--gold-bg)',border:'1.5px solid var(--gold)',borderRadius:'var(--radius)',marginBottom:14,fontSize:'var(--text-sm)',color:'var(--gold)'}}>
-          ⚠️ AI is running in local mode. Ask your administrator to set up the Groq API key.
+          ⚠️ AI is running in local mode. Ask your teacher to set up the Groq API key.
         </div>
       )}
 
@@ -3772,7 +4081,7 @@ I have **${s.length}** ${s.length===1?'study':'studies'} loaded. Use the **mode 
 
 
 // ══════════════════════════════════════════════════════════════════
-//  STUDY HISTORY MODAL — shows viewer/downloader logs to uploader
+//  STUDY HISTORY MODAL — shows viewer/downloader/citer logs to uploader
 // ══════════════════════════════════════════════════════════════════
 function StudyHistoryModal({ study, onClose }) {
   const [logs, setLogs] = useState(null);
@@ -3792,12 +4101,13 @@ function StudyHistoryModal({ study, onClose }) {
 
   const getYear = ts => ts ? new Date(ts).getFullYear() : null;
 
-  // Get all unique years across both views and downloads
+  // Get all unique years across views, downloads, and citations
   const allYears = useMemo(() => {
     if (!logs) return [];
     const yrs = new Set([
       ...logs.views.map(l => getYear(l.timestamp)),
-      ...logs.downloads.map(l => getYear(l.timestamp))
+      ...logs.downloads.map(l => getYear(l.timestamp)),
+      ...logs.citations.map(l => getYear(l.timestamp))
     ].filter(Boolean));
     return [...yrs].sort((a,b) => b - a);
   }, [logs]);
@@ -3811,20 +4121,31 @@ function StudyHistoryModal({ study, onClose }) {
 
   // Group current list by year for display
   const groupedByYear = useMemo(() => {
-    if (selectedYear !== 'all') return null; // flat view when year filter active
+    if (selectedYear !== 'all') return null;
     const groups = {};
     currentList.forEach(log => {
       const yr = getYear(log.timestamp) || 'Unknown';
       if (!groups[yr]) groups[yr] = [];
       groups[yr].push(log);
     });
-    // Sort years descending
     return Object.entries(groups).sort((a,b) => b[0] - a[0]);
   }, [currentList, selectedYear]);
 
   const uniqueStudents = logs
-    ? [...new Set([...logs.views.map(l=>l.userId),...logs.downloads.map(l=>l.userId)])].length
+    ? [...new Set([
+        ...logs.views.map(l=>l.userId),
+        ...logs.downloads.map(l=>l.userId),
+        ...logs.citations.map(l=>l.userId)
+      ].filter(Boolean))].length
     : null;
+
+  const TAB_BTN = (id, icon, label, count) => (
+    <button
+      style={{flex:1,padding:'8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'var(--text-sm)',fontWeight:500,transition:'all var(--transition)',background:tab===id?'var(--white)':'transparent',color:tab===id?'var(--ink)':'var(--muted)',boxShadow:tab===id?'0 1px 4px rgba(0,0,0,0.08)':'none'}}
+      onClick={()=>{setTab(id);setSelectedYear('all');}}>
+      {icon} {label} {logs?`(${count})`:''}
+    </button>
+  );
 
   const LogRow = ({ log, i }) => (
     <tr key={i}>
@@ -3858,6 +4179,9 @@ function StudyHistoryModal({ study, onClose }) {
     </thead>
   );
 
+  const emptyIcon = tab==='views'?'👁':tab==='downloads'?'⬇':'📋';
+  const emptyLabel = tab==='views'?'views':tab==='downloads'?'downloads':'citations';
+
   return (
     <Modal title="Study Activity History" onClose={onClose} wide>
       {/* Study info */}
@@ -3868,38 +4192,31 @@ function StudyHistoryModal({ study, onClose }) {
 
       {/* Summary stats */}
       <div style={{display:'flex',gap:10,marginBottom:18,flexWrap:'wrap'}}>
-        <div style={{flex:1,minWidth:110,background:'var(--teal-light)',border:'1px solid var(--teal)',borderRadius:'var(--radius)',padding:'12px 16px',textAlign:'center'}}>
+        <div style={{flex:1,minWidth:100,background:'var(--teal-light)',border:'1px solid var(--teal)',borderRadius:'var(--radius)',padding:'12px 16px',textAlign:'center'}}>
           <div style={{fontFamily:'var(--font-display)',fontSize:'1.5rem',fontWeight:700,color:'var(--teal)'}}>{study.viewCount||0}</div>
           <div style={{fontSize:'var(--text-xs)',color:'var(--teal)',fontWeight:500}}>Total Views</div>
         </div>
-        <div style={{flex:1,minWidth:110,background:'var(--blue-light)',border:'1px solid var(--blue)',borderRadius:'var(--radius)',padding:'12px 16px',textAlign:'center'}}>
+        <div style={{flex:1,minWidth:100,background:'var(--blue-light)',border:'1px solid var(--blue)',borderRadius:'var(--radius)',padding:'12px 16px',textAlign:'center'}}>
           <div style={{fontFamily:'var(--font-display)',fontSize:'1.5rem',fontWeight:700,color:'var(--blue)'}}>{study.downloadCount||0}</div>
           <div style={{fontSize:'var(--text-xs)',color:'var(--blue)',fontWeight:500}}>Total Downloads</div>
         </div>
-        <div style={{flex:1,minWidth:110,background:'var(--gold-bg)',border:'1px solid var(--gold)',borderRadius:'var(--radius)',padding:'12px 16px',textAlign:'center'}}>
+        <div style={{flex:1,minWidth:100,background:'var(--purple-light)',border:'1px solid var(--purple)',borderRadius:'var(--radius)',padding:'12px 16px',textAlign:'center'}}>
+          <div style={{fontFamily:'var(--font-display)',fontSize:'1.5rem',fontWeight:700,color:'var(--purple)'}}>{study.citationCount||0}</div>
+          <div style={{fontSize:'var(--text-xs)',color:'var(--purple)',fontWeight:500}}>Total Citations</div>
+        </div>
+        <div style={{flex:1,minWidth:100,background:'var(--gold-bg)',border:'1px solid var(--gold)',borderRadius:'var(--radius)',padding:'12px 16px',textAlign:'center'}}>
           <div style={{fontFamily:'var(--font-display)',fontSize:'1.5rem',fontWeight:700,color:'var(--gold)'}}>{uniqueStudents ?? '—'}</div>
           <div style={{fontSize:'var(--text-xs)',color:'var(--gold)',fontWeight:500}}>Unique Students</div>
-        </div>
-        <div style={{flex:1,minWidth:110,background:'var(--purple-light)',border:'1px solid var(--purple)',borderRadius:'var(--radius)',padding:'12px 16px',textAlign:'center'}}>
-          <div style={{fontFamily:'var(--font-display)',fontSize:'1.5rem',fontWeight:700,color:'var(--purple)'}}>{allYears.length||0}</div>
-          <div style={{fontSize:'var(--text-xs)',color:'var(--purple)',fontWeight:500}}>Active Years</div>
         </div>
       </div>
 
       {/* Controls row: tabs + year filter */}
       <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
         {/* Tab switcher */}
-        <div style={{display:'flex',gap:4,background:'var(--surface)',borderRadius:8,padding:4,flex:1,minWidth:220}}>
-          <button
-            style={{flex:1,padding:'8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'var(--text-sm)',fontWeight:500,transition:'all var(--transition)',background:tab==='views'?'var(--white)':'transparent',color:tab==='views'?'var(--ink)':'var(--muted)',boxShadow:tab==='views'?'0 1px 4px rgba(0,0,0,0.08)':'none'}}
-            onClick={()=>setTab('views')}>
-            👁 Viewers {logs?`(${logs.views.length})`:''}
-          </button>
-          <button
-            style={{flex:1,padding:'8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'var(--font-body)',fontSize:'var(--text-sm)',fontWeight:500,transition:'all var(--transition)',background:tab==='downloads'?'var(--white)':'transparent',color:tab==='downloads'?'var(--ink)':'var(--muted)',boxShadow:tab==='downloads'?'0 1px 4px rgba(0,0,0,0.08)':'none'}}
-            onClick={()=>setTab('downloads')}>
-            ⬇ Downloaders {logs?`(${logs.downloads.length})`:''}
-          </button>
+        <div style={{display:'flex',gap:4,background:'var(--surface)',borderRadius:8,padding:4,flex:1,minWidth:260}}>
+          {TAB_BTN('views',   '👁',  'Viewers',    logs?.views.length    ?? 0)}
+          {TAB_BTN('downloads','⬇', 'Downloaders', logs?.downloads.length ?? 0)}
+          {TAB_BTN('citations','📋','Citers',      logs?.citations.length ?? 0)}
         </div>
 
         {/* Year filter */}
@@ -3923,6 +4240,7 @@ function StudyHistoryModal({ study, onClose }) {
           {allYears.map(yr => {
             const vCount = logs.views.filter(l=>getYear(l.timestamp)===yr).length;
             const dCount = logs.downloads.filter(l=>getYear(l.timestamp)===yr).length;
+            const cCount = logs.citations.filter(l=>getYear(l.timestamp)===yr).length;
             return (
               <button
                 key={yr}
@@ -3931,6 +4249,7 @@ function StudyHistoryModal({ study, onClose }) {
                 <span style={{fontWeight:700,color:'var(--purple)'}}>{yr}</span>
                 <span style={{color:'var(--teal)'}}>👁 {vCount}</span>
                 <span style={{color:'var(--blue)'}}>⬇ {dCount}</span>
+                <span style={{color:'var(--purple)'}}>📋 {cCount}</span>
               </button>
             );
           })}
@@ -3956,12 +4275,11 @@ function StudyHistoryModal({ study, onClose }) {
         </div>
       ) : currentList.length === 0 ? (
         <div className="empty" style={{padding:'28px 20px'}}>
-          <div className="empty-ico">{tab==='views'?'👁':'⬇'}</div>
-          <h3>No {tab==='views'?'views':'downloads'}{selectedYear!=='all'?` in ${selectedYear}`:''}</h3>
-          <p>{selectedYear!=='all'?`Try selecting a different year or "All Years".`:`No one has ${tab==='views'?'viewed':'downloaded'} this study yet.`}</p>
+          <div className="empty-ico">{emptyIcon}</div>
+          <h3>No {emptyLabel}{selectedYear!=='all'?` in ${selectedYear}`:''}</h3>
+          <p>{selectedYear!=='all'?`Try selecting a different year or "All Years".`:`No one has ${tab==='views'?'viewed':tab==='downloads'?'downloaded':'cited'} this study yet.`}</p>
         </div>
       ) : selectedYear !== 'all' ? (
-        /* Flat table when a specific year is selected */
         <div className="tw">
           <table>
             <TableHead/>
@@ -3971,11 +4289,9 @@ function StudyHistoryModal({ study, onClose }) {
           </table>
         </div>
       ) : (
-        /* Grouped by year tables */
         <div style={{display:'flex',flexDirection:'column',gap:18}}>
           {groupedByYear.map(([yr, entries]) => (
             <div key={yr}>
-              {/* Year header */}
               <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
                 <div style={{background:'var(--purple)',color:'#fff',borderRadius:6,padding:'3px 12px',fontSize:'var(--text-xs)',fontWeight:700,flexShrink:0}}>
                   📅 {yr}
@@ -3983,7 +4299,6 @@ function StudyHistoryModal({ study, onClose }) {
                 <div style={{height:1,flex:1,background:'var(--border)'}}/>
                 <span style={{fontSize:'var(--text-xs)',color:'var(--muted)',flexShrink:0}}>{entries.length} record{entries.length!==1?'s':''}</span>
               </div>
-              {/* Table for this year */}
               <div className="tw">
                 <table>
                   <TableHead/>
@@ -4045,6 +4360,7 @@ function StudentDash({ currentUser }) {
         <div className="stat gold"><div className="stat-lbl">My Studies</div><div className="stat-val">{myStudies.length}</div><div className="stat-sub">Uploaded</div></div>
         <div className="stat teal"><div className="stat-lbl">Total Views</div><div className="stat-val">{myStudies.reduce((a,s)=>a+(s.viewCount||0),0)}</div><div className="stat-sub">Across all my studies</div></div>
         <div className="stat blue"><div className="stat-lbl">Downloads</div><div className="stat-val">{myStudies.reduce((a,s)=>a+(s.downloadCount||0),0)}</div><div className="stat-sub">Total</div></div>
+        <div className="stat pur"><div className="stat-lbl">Citations</div><div className="stat-val">{myStudies.reduce((a,s)=>a+(s.citationCount||0),0)}</div><div className="stat-sub">APA copies</div></div>
         <div className="stat slate"><div className="stat-lbl">Bookmarks</div><div className="stat-val">{favorites.length}</div><div className="stat-sub">Saved studies</div></div>
       </div>
 
@@ -4105,7 +4421,7 @@ function StudentDash({ currentUser }) {
           <div className="empty" style={{padding:'36px 20px'}}><div className="empty-ico">📄</div><h3>No studies yet</h3><p>Upload your first research study to get started.</p><button className="btn btn-gold mt12" onClick={()=>setShowUpload(true)}><Ico.up/> Upload Your First Study</button></div>
         ):(
           <div className="tw"><table>
-            <thead><tr><th>Title</th><th>Categories</th><th>Year</th><th>Views</th><th>Downloads</th><th>Uploaded</th><th>Activity</th></tr></thead>
+            <thead><tr><th>Title</th><th>Categories</th><th>Year</th><th>Views</th><th>Downloads</th><th>Citations</th><th>Uploaded</th><th>Activity</th></tr></thead>
             <tbody>{myStudies.map(s=><tr key={s.id} style={{cursor:'default'}}>
               <td style={{maxWidth:230}}><div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></td>
               <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{(s.categories||[]).map(c=><span key={c} className="badge" style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.66rem'}}>{c}</span>)}</div></td>
@@ -4122,15 +4438,20 @@ function StudentDash({ currentUser }) {
                   {s.downloadCount||0}
                 </span>
               </td>
+              <td>
+                <span style={{display:'flex',alignItems:'center',gap:4,color:'var(--purple)'}}>
+                  📋 {s.citationCount||0}
+                </span>
+              </td>
               <td style={{whiteSpace:'nowrap'}}>{fmtDate(s.createdAt)}</td>
               <td>
                 <button
                   className="btn btn-ol btn-sm"
                   style={{display:'flex',alignItems:'center',gap:5,fontSize:'0.72rem',padding:'5px 10px',minHeight:32}}
                   onClick={()=>setHistoryStudy(s)}
-                  title="View who viewed and downloaded this study">
+                  title="View who viewed, downloaded, and cited this study">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  Who viewed
+                  Activity
                 </button>
               </td>
             </tr>)}</tbody>
@@ -4152,7 +4473,7 @@ function AdminDash({ currentUser }) {
   const [recent,setRecent]=useState([]);
 
   const load=async()=>{
-    const [s,p,r]=await Promise.all([API.getStats(),API.getUsers({role:'student',status:'pending'}),API.getStudies({status:'',perPage:5})]);
+    const [s,p,r]=await Promise.all([API.getStats(),API.getUsers({role:'student',status:'pending'}),API.getStudies({status:'',perPage:50})]);
     setStats(s);setPending(p);setRecent(r.data);
   };
   useEffect(()=>{load();},[]);
@@ -4165,7 +4486,7 @@ function AdminDash({ currentUser }) {
     <div>
       <div style={{marginBottom:22}}>
         <h2 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-2xl)',marginBottom:3}}>
-          Welcome back, Teacher {currentUser?.name?.split(' ')[0] || 'Admin'} 👋
+          Welcome back, Teacher {currentUser?.name?.split(' ')[0] || 'Teacher'} 👋
         </h2>
         <p className="muted">Here's your system overview for today.</p>
       </div>
@@ -4175,6 +4496,7 @@ function AdminDash({ currentUser }) {
         <div className="stat teal"><div className="stat-lbl">Studies</div><div className="stat-val">{stats.totalStudies}</div><div className="stat-sub">In repository</div></div>
         <div className="stat blue"><div className="stat-lbl">Total Views</div><div className="stat-val">{stats.totalViews}</div><div className="stat-sub">All time</div></div>
         <div className="stat pur"><div className="stat-lbl">Downloads</div><div className="stat-val">{stats.totalDownloads}</div><div className="stat-sub">All time</div></div>
+        <div className="stat slate"><div className="stat-lbl">Citations</div><div className="stat-val">{stats.totalCitations||0}</div><div className="stat-sub">APA copies</div></div>
       </div>
       {pending.length>0&&<div className="card" style={{marginBottom:18,borderLeft:'4px solid var(--gold)'}}>
         <div className="card-hd"><span className="card-title">⏳ Pending Approvals</span><span className="badge badge-pend">{pending.length} waiting</span></div>
@@ -4192,6 +4514,55 @@ function AdminDash({ currentUser }) {
           </tr>)}</tbody>
         </table></div>
       </div>}
+      {/* Analytics */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:14,marginBottom:14}}>
+        {/* Category breakdown */}
+        <div className="card">
+          <div className="card-hd"><span className="card-title">📊 Studies by Category</span></div>
+          {(()=>{
+            const cats={};
+            recent.forEach(s=>(s.categories||[]).forEach(c=>cats[c]=(cats[c]||0)+1));
+            const allStats=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,6);
+            const max=allStats[0]?.[1]||1;
+            return allStats.length===0?<p className="muted" style={{fontSize:'0.82rem'}}>No data yet.</p>:(
+              <div style={{display:'flex',flexDirection:'column',gap:7,marginTop:4}}>
+                {allStats.map(([cat,count])=>(
+                  <div key={cat}>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.75rem',marginBottom:3}}>
+                      <span style={{fontWeight:500,color:'var(--ink)'}}>{cat}</span>
+                      <span style={{color:'var(--muted)'}}>{count}</span>
+                    </div>
+                    <div style={{height:6,background:'var(--border)',borderRadius:99,overflow:'hidden'}}>
+                      <div style={{height:'100%',width:`${(count/max)*100}%`,background:'var(--gold)',borderRadius:99,transition:'width .5s'}}/>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
+        {/* Top studies */}
+        <div className="card">
+          <div className="card-hd"><span className="card-title">🔥 Most Viewed Studies</span></div>
+          {(()=>{
+            const top=[...recent].sort((a,b)=>(b.viewCount||0)-(a.viewCount||0)).slice(0,5);
+            return top.length===0?<p className="muted" style={{fontSize:'0.82rem'}}>No data yet.</p>:(
+              <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:4}}>
+                {top.map((s,i)=>(
+                  <div key={s.id} style={{display:'flex',gap:10,alignItems:'center'}}>
+                    <div style={{width:22,height:22,borderRadius:'50%',background:i===0?'var(--gold)':i===1?'var(--teal)':'var(--border)',color:i<2?'#fff':'var(--muted)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.68rem',fontWeight:700,flexShrink:0}}>{i+1}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:'0.78rem',fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div>
+                      <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>{s.viewCount||0} views · {s.downloadCount||0} downloads</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
       <div className="card">
         <div className="card-hd"><span className="card-title">Recent Uploads</span></div>
         {recent.length===0?<p className="muted">No studies yet.</p>
@@ -4217,17 +4588,44 @@ function AdminUsers() {
   const [search,setSearch]=useState('');
   const [students,setStudents]=useState([]);
   const [loading,setLoading]=useState(true);
+  const [selected,setSelected]=useState(new Set());
+  const [bulkLoading,setBulkLoading]=useState(false);
 
-  const load=async()=>{setLoading(true);const res=await API.getUsers({role:'student',status:filter==='all'?'':filter,search});setStudents(res);setLoading(false);};
+  const load=async()=>{setLoading(true);const res=await API.getUsers({role:'student',status:filter==='all'?'':filter,search});setStudents(res);setSelected(new Set());setLoading(false);};
   useEffect(()=>{load();},[filter,search]);
 
   const upd=async(id,status)=>{await API.updateUserStatus(id,status);toast.ok(`Account ${status}.`);load();};
   const del=async id=>{if(!confirm('Delete this user and all their studies?'))return;await API.deleteUser(id);toast.ok('User deleted.');load();};
 
+  const toggleSelect=id=>setSelected(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});
+  const toggleAll=()=>setSelected(s=>s.size===students.length?new Set():new Set(students.map(u=>u.id)));
+
+  const bulkAction=async(status)=>{
+    if(!selected.size){toast.err('Select at least one student.');return;}
+    if(!confirm(`${status==='approved'?'Approve':'Reject'} ${selected.size} student${selected.size!==1?'s':''}?`))return;
+    setBulkLoading(true);
+    await Promise.all([...selected].map(id=>API.updateUserStatus(id,status)));
+    toast.ok(`${selected.size} account${selected.size!==1?'s':''} ${status}.`);
+    setBulkLoading(false);
+    load();
+  };
+
+  const exportCSV=()=>{
+    const rows=[['Name','Email','School','Section','Status','Uploads','Registered']];
+    students.forEach(u=>rows.push([u.name,u.email,u.institution||'',u.department||'',u.status,u.uploadCount||0,fmtDate(u.createdAt)]));
+    const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+    a.download='students.csv';a.click();
+    toast.ok('Students exported!');
+  };
+
   return (
     <div>
-      <div style={{marginBottom:18}}><h2 className="sec-title" style={{marginBottom:1}}>User Management</h2><p className="muted">{students.length} students</p></div>
-      <div className="fb" style={{marginBottom:18}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:10,marginBottom:18}}>
+        <div><h2 className="sec-title" style={{marginBottom:1}}>User Management</h2><p className="muted">{students.length} students</p></div>
+        <button className="btn btn-ol btn-sm" onClick={exportCSV} title="Export to CSV">⬇ Export CSV</button>
+      </div>
+      <div className="fb" style={{marginBottom:14}}>
         <div className="sb" style={{flex:1,minWidth:180}}><Ico.search/><input placeholder="Search by name, email, or school…" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search users"/></div>
         <select value={filter} onChange={e=>setFilter(e.target.value)} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by status">
           <option value="all">All Status</option>
@@ -4236,12 +4634,24 @@ function AdminUsers() {
           <option value="rejected">Rejected</option>
         </select>
       </div>
+      {selected.size>0&&(
+        <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--gold-bg)',border:'1px solid var(--gold)',borderRadius:'var(--radius)',marginBottom:12,flexWrap:'wrap'}}>
+          <span style={{fontSize:'0.82rem',fontWeight:600,color:'var(--gold)',flex:1}}>{selected.size} student{selected.size!==1?'s':''} selected</span>
+          <button className="btn btn-grn btn-sm" onClick={()=>bulkAction('approved')} disabled={bulkLoading}>{bulkLoading?<span className="spin" style={{width:12,height:12}}/>:<><Ico.chk/> Approve All</>}</button>
+          <button className="btn btn-ol btn-sm" onClick={()=>bulkAction('rejected')} disabled={bulkLoading}>✕ Reject All</button>
+          <button className="btn btn-ol btn-sm" onClick={()=>setSelected(new Set())}>Clear</button>
+        </div>
+      )}
       <div className="card">
         {loading?<div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
         :students.length===0?<div className="empty" style={{padding:'36px 0'}}><div className="empty-ico">👤</div><h3>No users found</h3></div>
         :<div className="tw"><table>
-          <thead><tr><th>Student</th><th>School / Section</th><th>Status</th><th>Uploads</th><th>Registered</th><th>Actions</th></tr></thead>
-          <tbody>{students.map(u=><tr key={u.id}>
+          <thead><tr>
+            <th style={{width:36}}><input type="checkbox" checked={selected.size===students.length&&students.length>0} onChange={toggleAll} style={{accentColor:'var(--gold)'}}/></th>
+            <th>Student</th><th>School / Section</th><th>Status</th><th>Uploads</th><th>Registered</th><th>Actions</th>
+          </tr></thead>
+          <tbody>{students.map(u=><tr key={u.id} style={{background:selected.has(u.id)?'var(--gold-bg)':''}}>
+            <td><input type="checkbox" checked={selected.has(u.id)} onChange={()=>toggleSelect(u.id)} style={{accentColor:'var(--gold)'}}/></td>
             <td><div style={{display:'flex',alignItems:'center',gap:9}}>
               <div className="avatar" style={{width:32,height:32,fontSize:'0.72rem',background:'var(--ink-3)',flexShrink:0}}>{initials(u.name)}</div>
               <div><div style={{fontWeight:500}}>{u.name}</div><div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{u.email}</div></div>
@@ -4338,7 +4748,16 @@ function AdminStudies() {
 
   return (
     <div>
-      <div style={{marginBottom:18}}><h2 className="sec-title" style={{marginBottom:1}}>Manage Studies</h2><p className="muted">{studies.length} studies</p></div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:10,marginBottom:18}}>
+        <div><h2 className="sec-title" style={{marginBottom:1}}>Manage Studies</h2><p className="muted">{studies.length} studies</p></div>
+        <button className="btn btn-ol btn-sm" onClick={()=>{
+          const rows=[['Title','Authors','Categories','Year','Uploader','Views','Downloads','Citations','Drive Link','Uploaded']];
+          studies.forEach(s=>rows.push([s.title,(s.authors||[]).join('; '),(s.categories||[]).join('; '),s.year,s.uploadedByName,s.viewCount||0,s.downloadCount||0,s.citationCount||0,(s.gdrive?.driveUrl||s.file?.driveUrl||''),fmtDate(s.createdAt)]));
+          const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+          const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+          a.download='studies.csv';a.click();toast.ok('Studies exported!');
+        }}>⬇ Export CSV</button>
+      </div>
       <div className="fb" style={{marginBottom:16}}>
         <div className="sb" style={{flex:1,minWidth:200}}>
           <Ico.search/>
@@ -4350,13 +4769,14 @@ function AdminStudies() {
         {loading?<div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
         :studies.length===0?<div className="empty" style={{padding:'36px 0'}}><div className="empty-ico">📚</div><h3>No studies yet</h3></div>
         :<div className="tw"><table>
-          <thead><tr><th>Title</th><th>Authors</th><th>Categories</th><th>Uploader</th><th>Views</th><th>Dls</th><th>Latest Activity</th><th>Date</th><th style={{position:'sticky',right:0,background:'var(--white)',zIndex:2}}>Actions</th></tr></thead>
+          <thead><tr><th>Title</th><th>Authors</th><th>Categories</th><th>Uploader</th><th>Views</th><th>Dls</th><th>Citations</th><th>Latest Activity</th><th>Date</th><th style={{position:'sticky',right:0,background:'var(--white)',zIndex:2}}>Actions</th></tr></thead>
           <tbody>{studies.map(s=><tr key={s.id}>
             <td style={{maxWidth:190}}><div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></td>
             <td style={{fontSize:'0.78rem'}}>{(s.authors||[]).join(', ')}</td>
             <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{(s.categories||[]).map(c=><span key={c} className="badge" style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.63rem'}}>{c}</span>)}</div></td>
             <td style={{fontSize:'0.82rem'}}>{s.uploadedByName}</td>
             <td>{s.viewCount||0}</td><td>{s.downloadCount||0}</td>
+            <td><span style={{color:'var(--purple)',fontWeight:500}}>📋 {s.citationCount||0}</span></td>
             <td><ActivityCell sid={s.id}/></td>
             <td style={{whiteSpace:'nowrap'}}>{fmtDate(s.createdAt)}</td>
             <td style={{position:'sticky',right:0,background:'var(--white)',zIndex:1}}><div style={{display:'flex',gap:5}}>
@@ -4651,7 +5071,7 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
       {!isAdmin && (
         <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--blue-light)',border:'1.5px solid var(--blue)',borderRadius:'var(--radius)',marginBottom:18,fontSize:'var(--text-sm)',color:'var(--blue)'}}>
           <Ico.award/>
-          <span>This page showcases research studies that have received awards or formal recognition. New entries are added by the administrator.</span>
+          <span>This page showcases research studies that have received awards or formal recognition. New entries are added by a teacher.</span>
         </div>
       )}
 
@@ -4740,7 +5160,7 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
       {showForm && isAdmin && (
         <Modal title={editId ? 'Edit Recognition' : 'Add Recognized Study'} onClose={()=>setShowForm(false)} wide>
           <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--blue-light)',border:'1px solid var(--blue)',borderRadius:'var(--radius)',marginBottom:18,fontSize:'var(--text-sm)',color:'var(--blue)'}}>
-            ℹ️ Only admins can add or edit entries. This listing is visible to all users.
+            ℹ️ Only teachers can add or edit entries. This listing is visible to all users.
           </div>
           <div className="fg"><label>Study Title *</label><input placeholder="Full title of the recognized research study" value={form.title} onChange={e=>sf('title',e.target.value)} autoFocus/></div>
           <div className="fg"><label>Author(s) * <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></label><input placeholder="e.g. Juan dela Cruz, Maria Santos" value={form.authors} onChange={e=>sf('authors',e.target.value)}/></div>
@@ -4772,6 +5192,220 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+//  ANNOUNCEMENTS PAGE
+// ══════════════════════════════════════════════════════════════════
+function AnnouncementsPage({ currentUser }) {
+  const isTeacher = currentUser.role === 'admin';
+  const [announcements, setAnnouncements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [priority, setPriority] = useState('normal');
+  const [submitting, setSubmitting] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const data = await API.getAnnouncements();
+    // pinned first, then by date
+    data.sort((a,b)=>{
+      if(a.pinned&&!b.pinned) return -1;
+      if(!a.pinned&&b.pinned) return 1;
+      return new Date(b.createdAt)-new Date(a.createdAt);
+    });
+    setAnnouncements(data);
+    setLoading(false);
+  };
+  useEffect(()=>{ load(); },[]);
+
+  const submit = async () => {
+    setSubmitting(true);
+    try {
+      await API.createAnnouncement({ title, body, priority, authorId:currentUser.id, authorName:currentUser.name });
+      toast.ok('Announcement posted!');
+      setTitle(''); setBody(''); setPriority('normal'); setShowForm(false);
+      load();
+    } catch(e) { toast.err(e.message); }
+    setSubmitting(false);
+  };
+
+  const del = async id => {
+    if(!confirm('Delete this announcement?')) return;
+    await API.deleteAnnouncement(id);
+    toast.ok('Deleted.');
+    load();
+  };
+
+  const togglePin = async (id, pinned) => {
+    await API.pinAnnouncement(id, !pinned);
+    load();
+  };
+
+  const priorityStyle = p => ({
+    urgent:   {
+      accent: '#ef4444', bg: 'linear-gradient(135deg,#fef2f2 0%,#fff5f5 100%)',
+      bgDark: 'linear-gradient(135deg,rgba(239,68,68,0.12) 0%,rgba(239,68,68,0.06) 100%)',
+      border: 'rgba(239,68,68,0.3)', icon: '🚨', label: 'Urgent',
+      tagBg: '#ef4444', tagColor: '#fff',
+    },
+    important: {
+      accent: '#f59e0b', bg: 'linear-gradient(135deg,#fffbeb 0%,#fefce8 100%)',
+      bgDark: 'linear-gradient(135deg,rgba(245,158,11,0.12) 0%,rgba(245,158,11,0.06) 100%)',
+      border: 'rgba(245,158,11,0.35)', icon: '⚠️', label: 'Important',
+      tagBg: '#f59e0b', tagColor: '#fff',
+    },
+    normal:    {
+      accent: '#3b82f6', bg: 'linear-gradient(135deg,#eff6ff 0%,#f0f9ff 100%)',
+      bgDark: 'linear-gradient(135deg,rgba(59,130,246,0.1) 0%,rgba(59,130,246,0.05) 100%)',
+      border: 'rgba(59,130,246,0.25)', icon: '📢', label: 'Notice',
+      tagBg: '#3b82f6', tagColor: '#fff',
+    },
+  }[p||'normal']);
+
+  return (
+    <div>
+      <div className="page-hd">
+        <div className="page-hd-left">
+          <h2>Announcements</h2>
+          <p className="muted">{announcements.length} announcement{announcements.length!==1?'s':''}</p>
+        </div>
+        {isTeacher&&(
+          <button className="btn btn-gold" onClick={()=>setShowForm(s=>!s)}>
+            {showForm?'✕ Cancel':'📢 Post Announcement'}
+          </button>
+        )}
+      </div>
+
+      {/* Post form — teachers only */}
+      {isTeacher&&showForm&&(
+        <div className="card" style={{marginBottom:20,border:'1.5px solid var(--gold)'}}>
+          <div style={{fontWeight:600,fontSize:'var(--text-sm)',marginBottom:14,color:'var(--gold)'}}>📢 New Announcement</div>
+          <div className="fg">
+            <label>Title *</label>
+            <input placeholder="Announcement title…" value={title} onChange={e=>setTitle(e.target.value)} autoFocus/>
+          </div>
+          <div className="fg">
+            <label style={{display:'flex',justifyContent:'space-between'}}>
+              <span>Message *</span>
+              <span style={{fontWeight:300,color:body.length>800?'var(--red)':'var(--muted)',fontSize:'0.75rem'}}>{body.length} chars</span>
+            </label>
+            <textarea placeholder="Write your announcement here…" value={body} onChange={e=>setBody(e.target.value)} style={{minHeight:100}}/>
+          </div>
+          <div className="fg">
+            <label>Priority</label>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+              {['normal','important','urgent'].map(p=>{
+                const s=priorityStyle(p);
+                return(
+                  <button key={p} onClick={()=>setPriority(p)}
+                    style={{padding:'7px 16px',borderRadius:99,border:`1.5px solid ${priority===p?s.accent:'var(--border)'}`,
+                      background:priority===p?s.tagBg:'none',color:priority===p?s.tagColor:'var(--muted)',
+                      cursor:'pointer',fontSize:'0.78rem',fontWeight:priority===p?600:400,transition:'all .2s',display:'flex',alignItems:'center',gap:5}}>
+                    {s.icon} {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div style={{display:'flex',gap:9,justifyContent:'flex-end',marginTop:4}}>
+            <button className="btn btn-ol" onClick={()=>setShowForm(false)}>Cancel</button>
+            <button className="btn btn-gold" onClick={submit} disabled={submitting||!title.trim()||!body.trim()}>
+              {submitting?<><span className="spin spin-dark"/>Posting…</>:'Post Announcement'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* List */}
+      {loading?(
+        <div className="empty"><span className="spin"/></div>
+      ):announcements.length===0?(
+        <div className="empty">
+          <div className="empty-ico">📢</div>
+          <h3>No announcements yet</h3>
+          <p>{isTeacher?'Post the first announcement above.':'Check back later for updates from your teachers.'}</p>
+        </div>
+      ):(
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          {announcements.map(a=>{
+            const s=priorityStyle(a.priority);
+            return(
+              <div key={a.id} style={{
+                background:'var(--surface)',
+                borderRadius:12,
+                border:'1px solid var(--border)',
+                overflow:'hidden',
+                boxShadow:'0 2px 8px rgba(0,0,0,0.06)',
+                display:'flex',
+                transition:'box-shadow .2s',
+              }}>
+                {/* Left accent bar */}
+                <div style={{width:5,flexShrink:0,background:s.accent,borderRadius:'0'}}/>
+
+                <div style={{flex:1,padding:'16px 18px'}}>
+                  {/* Top row — tag + pin + date */}
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
+                    <span style={{
+                      display:'inline-flex',alignItems:'center',gap:4,
+                      background:s.tagBg,color:s.tagColor,
+                      fontSize:'0.68rem',fontWeight:700,letterSpacing:'0.5px',textTransform:'uppercase',
+                      padding:'3px 10px',borderRadius:99
+                    }}>{s.icon} {s.label}</span>
+                    {a.pinned&&<span style={{
+                      display:'inline-flex',alignItems:'center',gap:3,
+                      background:'var(--purple-light)',color:'var(--purple)',
+                      fontSize:'0.68rem',fontWeight:600,padding:'3px 9px',borderRadius:99
+                    }}>📌 Pinned</span>}
+                    <span style={{marginLeft:'auto',fontSize:'0.72rem',color:'var(--muted)'}}>{fmtDate(a.createdAt)}</span>
+                  </div>
+
+                  {/* Title */}
+                  <h3 style={{
+                    fontFamily:'var(--font-display)',fontSize:'1.1rem',fontWeight:700,
+                    marginBottom:8,color:'var(--ink)',lineHeight:1.3
+                  }}>{a.title}</h3>
+
+                  {/* Body */}
+                  <p style={{
+                    fontSize:'var(--text-sm)',color:'var(--muted)',
+                    lineHeight:1.65,whiteSpace:'pre-wrap',marginBottom:12
+                  }}>{a.body}</p>
+
+                  {/* Footer */}
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,
+                    borderTop:'1px solid var(--border)',paddingTop:10}}>
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      <div style={{
+                        width:26,height:26,borderRadius:'50%',
+                        background:s.accent,color:'#fff',
+                        display:'flex',alignItems:'center',justifyContent:'center',
+                        fontWeight:700,fontSize:'0.68rem',flexShrink:0
+                      }}>{a.authorName?.charAt(0).toUpperCase()}</div>
+                      <div>
+                        <div style={{fontSize:'0.75rem',fontWeight:600,color:'var(--ink)'}}>{a.authorName}</div>
+                        <div style={{fontSize:'0.65rem',color:'var(--muted)'}}>Teacher</div>
+                      </div>
+                    </div>
+                    {isTeacher&&(
+                      <div style={{display:'flex',gap:6}}>
+                        <button className="btn btn-ol btn-sm" onClick={()=>togglePin(a.id,a.pinned)}>
+                          {a.pinned?'Unpin':'📌 Pin'}
+                        </button>
+                        <button className="btn btn-red btn-sm" onClick={()=>del(a.id)}>Delete</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
 //  SIDEBAR
 // ══════════════════════════════════════════════════════════════════
 const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, onLogout, pendingCount=0, isOpen, onClose, theme, toggleTheme }) {
@@ -4783,12 +5417,14 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
     {id:'categories',label:'Categories',icon:<Ico.tag/>},
     {id:'repository',label:'Repository',icon:<Ico.search/>},
     {id:'recognized',label:'Recognized Studies',icon:<Ico.award/>},
+    {id:'announcements',label:'Announcements',icon:<Ico.bell/>},
     {id:'chatbot',label:'AI Assistant',icon:<Ico.bot/>},
   ];
   const studentNav=[
     {id:'dashboard',label:'Dashboard',icon:<Ico.home/>},
     {id:'repository',label:'Browse Studies',icon:<Ico.book/>},
     {id:'recognized',label:'Recognized Studies',icon:<Ico.award/>},
+    {id:'announcements',label:'Announcements',icon:<Ico.bell/>},
     {id:'chatbot',label:'AI Assistant',icon:<Ico.bot/>},
   ];
   const nav = isAdmin ? adminNav : studentNav;
@@ -4805,9 +5441,12 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
               <p>INNOVATE. ENGINEER. DISCOVER.</p>
             </div>
           </div>
+          <button className="sidebar-close-btn" onClick={onClose} aria-label="Close sidebar" style={{display:'none'}}>
+            <Ico.X/>
+          </button>
         </div>
         <div className="sidebar-nav">
-          <div className="nav-label" role="heading" aria-level="3">{isAdmin?'Administration':'Navigation'}</div>
+          <div className="nav-label" role="heading" aria-level="3">{isAdmin?'Teacher Panel':'Navigation'}</div>
           {nav.map(item=>(
             <button key={item.id}
               className={`nav-item${activeTab===item.id?' active':''}`}
@@ -4823,7 +5462,7 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
             <div className="avatar" aria-hidden="true">{initials(currentUser.name)}</div>
             <div className="user-info">
               <strong title={currentUser.name}>{currentUser.name}</strong>
-              <span>{currentUser.role}</span>
+              <span>{currentUser.role==='admin'?'Teacher':'Student'}</span>
             </div>
           </div>
           <div style={{display:'flex',gap:5,marginTop:8}}>
@@ -4980,6 +5619,19 @@ function App() {
   const [showSecQ,setShowSecQ]=useState(false);
   const [theme,toggleTheme]=useTheme();
 
+  // ── Keyboard shortcuts ─────────────────────────────────
+  useEffect(()=>{
+    const handler=e=>{
+      if(e.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){
+        e.preventDefault();
+        const sb=document.querySelector('.sb input');
+        if(sb){setActiveTab('repository');setTimeout(()=>sb.focus(),100);}
+      }
+    };
+    window.addEventListener('keydown',handler);
+    return()=>window.removeEventListener('keydown',handler);
+  },[]);
+
   useEffect(()=>{
     let unsub=()=>{};
     try{
@@ -5013,16 +5665,17 @@ function App() {
     return ()=>{try{unsub();}catch{}};
   },[]);
 
-  const titles={dashboard:'Dashboard',users:'User Management','studies-admin':'Manage Studies',categories:'Manage Categories',repository:'Research Repository',chatbot:'AI Research Assistant',recognized:'Recognized Studies'};
+  const titles={dashboard:'Dashboard',users:'User Management',announcements:'Announcements','studies-admin':'Manage Studies',categories:'Manage Categories',repository:'Research Repository',chatbot:'AI Research Assistant',recognized:'Recognized Studies'};
 
   if(!authChecked){
-    return (
-      <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'var(--ink)',gap:16}}>
-        <div style={{fontFamily:'var(--font-display)',fontSize:'1.3rem',color:'var(--gold)',letterSpacing:'-0.5px'}}>SABNAHIS STE Research Portal</div>
-        <span className="spin" style={{width:28,height:28,border:'3px solid rgba(201,162,39,0.25)',borderTopColor:'var(--gold)'}}/>
-        <p style={{color:'rgba(255,255,255,0.35)',fontSize:'0.8rem'}}>Connecting to database…</p>
-      </div>
-    );
+    // Loading screen is the HTML element; return null so React mounts nothing yet
+    return null;
+  }
+
+  // Once auth is checked, dismiss the branded loader
+  if(typeof window.sabnahisLoaderDone==='function'){
+    window.sabnahisLoaderDone();
+    window.sabnahisLoaderDone=null;
   }
 
   if(initError){
@@ -5059,6 +5712,7 @@ function App() {
       case 'categories':    return isAdmin?<AdminCats/>:null;
       case 'repository':    return <StudiesPage currentUser={currentUser}/>;
       case 'recognized':    return <RecognizedStudiesPage currentUser={currentUser} isAdmin={isAdmin}/>;
+      case 'announcements': return <AnnouncementsPage currentUser={currentUser}/>
       case 'chatbot':       return <ChatPage currentUser={currentUser}/>;
       default:              return null;
     }
@@ -5066,7 +5720,7 @@ function App() {
 
   const mobNav = isAdmin
     ? [{id:'dashboard',label:'Home',icon:<Ico.home/>},{id:'repository',label:'Studies',icon:<Ico.book/>},{id:'recognized',label:'Recognized',icon:<Ico.award/>},{id:'chatbot',label:'AI Chat',icon:<Ico.bot/>},{id:'users',label:'Users',icon:<Ico.users/>}]
-    : [{id:'dashboard',label:'Home',icon:<Ico.home/>},{id:'repository',label:'Studies',icon:<Ico.book/>},{id:'recognized',label:'Recognized',icon:<Ico.award/>},{id:'chatbot',label:'AI Chat',icon:<Ico.bot/>}];
+    : [{id:'dashboard',label:'Home',icon:<Ico.home/>},{id:'repository',label:'Studies',icon:<Ico.book/>},{id:'announcements',label:'Notices',icon:<Ico.bell/>},{id:'chatbot',label:'AI Chat',icon:<Ico.bot/>}];
 
   return (
     <ToastProvider>
@@ -5086,7 +5740,7 @@ function App() {
           {/* Desktop topbar */}
           <div className="topbar">
             <span className="topbar-title">{titles[activeTab]||'Dashboard'}</span>
-            <span className={`badge${isAdmin?' badge-admin':' badge-appr'}`}>{isAdmin?'⚙ Admin':'🎓 Student'}</span>
+            <span className={`badge${isAdmin?' badge-teacher':' badge-appr'}`}>{isAdmin?'⚙ Teacher':'🎓 Student'}</span>
             <div style={{display:'flex',gap:4,marginLeft:8}}>
               <button className="topbar-theme-toggle" onClick={()=>theme!=='light'&&toggleTheme()} style={theme==='light'?{borderColor:'var(--gold)',color:'var(--gold)',background:'var(--gold-bg)',fontWeight:600}:{}} aria-pressed={theme==='light'}>☀ Light</button>
               <button className="topbar-theme-toggle" onClick={()=>theme!=='dark'&&toggleTheme()} style={theme==='dark'?{borderColor:'var(--gold)',color:'var(--gold)',background:'var(--gold-bg)',fontWeight:600}:{}} aria-pressed={theme==='dark'}>☾ Dark</button>
@@ -5146,6 +5800,35 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+<script>
+// ── Loading screen counter + dismiss ──────────────────────────────
+(function() {
+  var pctEl = document.getElementById('loader-pct');
+  var progress = 0;
+  var interval = setInterval(function() {
+    var inc = Math.random() > 0.8 ? 0.5 : 1.8;
+    progress = Math.min(progress + inc, 100);
+    if (pctEl) pctEl.textContent = Math.floor(progress) + '%';
+    if (progress >= 100) clearInterval(interval);
+  }, 80);
+
+  // Parallax on mouse
+  document.addEventListener('mousemove', function(e) {
+    var body = document.querySelector('.loader-body');
+    if (!body) return;
+    var x = (e.clientX - window.innerWidth  / 2) / 60;
+    var y = (e.clientY - window.innerHeight / 2) / 60;
+    body.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+  });
+
+  // Expose dismiss so React can call it
+  window.sabnahisLoaderDone = function() {
+    var el = document.getElementById('sabnahis-loader');
+    if (el) { el.classList.add('fade-out'); setTimeout(function(){ el.remove(); }, 700); }
+  };
+})();
 </script>
 </body>
 </html>
