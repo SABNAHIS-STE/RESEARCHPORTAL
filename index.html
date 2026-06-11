@@ -8,55 +8,104 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <title>SABNAHIS STE Research Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <style>
 /* ══════════════════════════════════════════
-   DESIGN TOKENS
+   STITCH DESIGN SYSTEM — MATERIAL 3 TOKENS
 ══════════════════════════════════════════ */
 :root {
-  /* Colors */
-  --ink:#0d0f14; --ink-2:#1e2130; --ink-3:#2e3250;
-  --slate:#4a5174; --muted:#7c85a8;
-  --border:#e2e5f0; --surface:#f5f6fa; --white:#ffffff;
-  --gold:#c9a227; --gold-light:#f0d882; --gold-bg:#fdf8ec;
-  --teal:#1a7f6e; --teal-light:#e6f5f2;
-  --red:#c0392b; --red-light:#fdf0ee;
-  --green:#1a7f4a; --green-light:#e6f5ee;
-  --blue:#1a5fa8; --blue-light:#e6f0fd;
-  --purple:#6d3fa8; --purple-light:#f3eeff;
+  /* Material 3 Color Roles — Light */
+  --md-primary: #755b00;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #c9a227;
+  --md-on-primary-container: #4b3a00;
+  --md-primary-fixed: #ffe08e;
+  --md-primary-fixed-dim: #ecc246;
+  --md-secondary: #006b5c;
+  --md-on-secondary: #ffffff;
+  --md-secondary-container: #99f3de;
+  --md-on-secondary-container: #007261;
+  --md-tertiary: #3f5aaa;
+  --md-on-tertiary: #ffffff;
+  --md-tertiary-container: #89a3f9;
+  --md-on-tertiary-container: #163686;
+  --md-surface: #f9f9ff;
+  --md-on-surface: #1a1b21;
+  --md-surface-variant: #e2e2e9;
+  --md-on-surface-variant: #4d4635;
+  --md-surface-container-lowest: #ffffff;
+  --md-surface-container-low: #f3f3fa;
+  --md-surface-container: #ededf5;
+  --md-surface-container-high: #e8e7ef;
+  --md-surface-container-highest: #e2e2e9;
+  --md-outline: #7f7663;
+  --md-outline-variant: #d1c5af;
+  --md-background: #f9f9ff;
+  --md-on-background: #1a1b21;
+  --md-inverse-surface: #2e3036;
+  --md-inverse-on-surface: #f0f0f8;
+  --md-error: #ba1a1a;
+  --md-error-container: #ffdad6;
+  --md-on-error: #ffffff;
+  --md-on-error-container: #93000a;
 
-  /* Shape */
-  --radius: 10px;
+  /* Legacy aliases — mapped to Stitch tokens */
+  --ink: var(--md-on-surface);
+  --ink-2: #2d2f36;
+  --ink-3: var(--md-on-surface-variant);
+  --slate: #4d4635;
+  --muted: var(--md-outline);
+  --border: var(--md-outline-variant);
+  --surface: var(--md-surface);
+  --white: var(--md-surface-container-lowest);
+  --gold: var(--md-primary-container);
+  --gold-light: var(--md-primary-fixed-dim);
+  --gold-bg: #fdf8ec;
+  --teal: var(--md-secondary);
+  --teal-light: #e6f5f2;
+  --red: var(--md-error);
+  --red-light: var(--md-error-container);
+  --green: #1a7f4a;
+  --green-light: #e6f5ee;
+  --blue: var(--md-tertiary);
+  --blue-light: #dbe1ff;
+  --purple: #6d3fa8;
+  --purple-light: #f3eeff;
+
+  /* Shape — Stitch uses rounder radii */
+  --radius: 12px;
   --radius-lg: 16px;
-  --radius-xl: 22px;
+  --radius-xl: 24px;
 
   /* Elevation */
-  --shadow: 0 2px 12px rgba(13,15,20,0.08);
-  --shadow-lg: 0 8px 32px rgba(13,15,20,0.12);
-  --shadow-xl: 0 24px 64px rgba(13,15,20,0.18);
+  --shadow: 0px 4px 20px rgba(13,15,20,0.04);
+  --shadow-lg: 0 8px 32px rgba(13,15,20,0.08);
+  --shadow-xl: 0 24px 64px rgba(13,15,20,0.14);
 
-  /* Typography */
+  /* Typography — Stitch triple-stack */
   --font-display: 'Playfair Display', Georgia, serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Fluid scale */
-  --text-xs:  clamp(0.65rem, 1.8vw, 0.72rem);
-  --text-sm:  clamp(0.78rem, 2.2vw, 0.875rem);
-  --text-base:clamp(0.875rem, 2.5vw, 1rem);
-  --text-lg:  clamp(1rem, 3vw, 1.15rem);
+  --text-xs:  clamp(0.65rem, 1.8vw, 0.75rem);
+  --text-sm:  clamp(0.8rem, 2.2vw, 0.875rem);
+  --text-base:clamp(0.9rem, 2.5vw, 1rem);
+  --text-lg:  clamp(1rem, 3vw, 1.125rem);
   --text-xl:  clamp(1.1rem, 3.5vw, 1.35rem);
-  --text-2xl: clamp(1.25rem, 4.5vw, 1.65rem);
+  --text-2xl: clamp(1.3rem, 4.5vw, 1.75rem);
 
   /* Motion */
   --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
   --spring: 0.3s cubic-bezier(0.34,1.56,0.64,1);
 
   /* Layout */
-  --sidebar-w: 260px;
-  --topbar-h: 58px;
-  --mob-header-h: 54px;
-  --mob-nav-h: 62px;
+  --sidebar-w: 268px;
+  --topbar-h: 64px;
+  --mob-header-h: 56px;
+  --mob-nav-h: 64px;
 
   /* Safe areas */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -67,45 +116,92 @@
   /* Touch targets */
   --tap-min: 44px;
 
-  /* Sidebar (light mode defaults) */
-  --sidebar-bg: #ffffff;
-  --sidebar-border: #e2e5f0;
-  --sidebar-text: #4a5174;
-  --sidebar-text-strong: #0d0f14;
-  --sidebar-text-sub: #7c85a8;
+  /* Sidebar tokens — light */
+  --sidebar-bg: var(--md-surface-container-lowest);
+  --sidebar-border: var(--md-outline-variant);
+  --sidebar-text: var(--md-on-surface-variant);
+  --sidebar-text-strong: var(--md-on-surface);
+  --sidebar-text-sub: var(--md-outline);
   --sidebar-text-label: #9ca3be;
-  --sidebar-item-hover-bg: #f5f6fa;
-  --sidebar-item-hover-text: #0d0f14;
+  --sidebar-item-hover-bg: var(--md-surface-container-low);
+  --sidebar-item-hover-text: var(--md-on-surface);
   --sidebar-item-active-bg: #fdf8ec;
 }
 
 /* ══════════════════════════════════════════
-   DARK MODE TOKENS
+   STITCH DARK MODE TOKENS
 ══════════════════════════════════════════ */
 [data-theme="dark"] {
-  --ink:#e8eaf2; --ink-2:#cdd0e0; --ink-3:#b0b5cc;
-  --slate:#8891b0; --muted:#6a7090;
-  --border:#2a2e42; --surface:#12141c; --white:#1a1d2e;
-  --gold:#e0b830; --gold-light:#f5e080; --gold-bg:#1e1a08;
-  --teal:#22a98e; --teal-light:#0d2520;
-  --red:#e05447; --red-light:#1f0f0d;
-  --green:#27a862; --green-light:#0d1f14;
-  --blue:#3b82d4; --blue-light:#0d1826;
-  --purple:#9b65e0; --purple-light:#1a0f2e;
-  --shadow: 0 2px 12px rgba(0,0,0,0.3);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,0.45);
-  --shadow-xl: 0 24px 64px rgba(0,0,0,0.6);
+  --md-primary: #ecc246;
+  --md-on-primary: #3d2e00;
+  --md-primary-container: #584400;
+  --md-on-primary-container: #ffe08e;
+  --md-primary-fixed: #ffe08e;
+  --md-primary-fixed-dim: #ecc246;
+  --md-secondary: #7dd7c2;
+  --md-on-secondary: #00382f;
+  --md-secondary-container: #005145;
+  --md-on-secondary-container: #99f3de;
+  --md-tertiary: #b5c4ff;
+  --md-on-tertiary: #00174d;
+  --md-tertiary-container: #244191;
+  --md-on-tertiary-container: #dbe1ff;
+  --md-surface: #111318;
+  --md-on-surface: #e2e2e9;
+  --md-surface-variant: #33353a;
+  --md-on-surface-variant: #d1c5af;
+  --md-surface-container-lowest: #0c0e13;
+  --md-surface-container-low: #1a1b21;
+  --md-surface-container: #1e1f25;
+  --md-surface-container-high: #282a2f;
+  --md-surface-container-highest: #33353a;
+  --md-outline: #99907b;
+  --md-outline-variant: #4d4635;
+  --md-background: #111318;
+  --md-on-background: #e2e2e9;
+  --md-inverse-surface: #e2e2e9;
+  --md-inverse-on-surface: #2e3036;
+  --md-error: #ffb4ab;
+  --md-error-container: #93000a;
+  --md-on-error: #690005;
+  --md-on-error-container: #ffdad6;
+
+  /* Legacy overrides */
+  --ink: var(--md-on-surface);
+  --ink-2: #cdd0e0;
+  --ink-3: var(--md-on-surface-variant);
+  --slate: #8891b0;
+  --muted: var(--md-outline);
+  --border: var(--md-outline-variant);
+  --surface: var(--md-surface);
+  --white: var(--md-surface-container-low);
+  --gold: var(--md-primary);
+  --gold-light: var(--md-primary-fixed);
+  --gold-bg: rgba(236,194,70,0.12);
+  --teal: var(--md-secondary);
+  --teal-light: rgba(125,215,194,0.12);
+  --red: var(--md-error);
+  --red-light: rgba(255,180,171,0.12);
+  --green: #27a862;
+  --green-light: rgba(39,168,98,0.12);
+  --blue: var(--md-tertiary);
+  --blue-light: rgba(181,196,255,0.12);
+  --purple: #9b65e0;
+  --purple-light: rgba(155,101,224,0.12);
+  --shadow: 0 2px 12px rgba(0,0,0,0.35);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+  --shadow-xl: 0 24px 64px rgba(0,0,0,0.65);
 
   /* Sidebar dark */
-  --sidebar-bg: #1a1d2e;
-  --sidebar-border: rgba(255,255,255,0.06);
+  --sidebar-bg: var(--md-surface-container-low);
+  --sidebar-border: var(--md-outline-variant);
   --sidebar-text: rgba(255,255,255,0.5);
-  --sidebar-text-strong: #e8eaf2;
-  --sidebar-text-sub: rgba(255,255,255,0.32);
+  --sidebar-text-strong: var(--md-on-surface);
+  --sidebar-text-sub: rgba(255,255,255,0.35);
   --sidebar-text-label: rgba(255,255,255,0.22);
-  --sidebar-item-hover-bg: rgba(255,255,255,0.06);
-  --sidebar-item-hover-text: #e8eaf2;
-  --sidebar-item-active-bg: rgba(224,184,48,0.14);
+  --sidebar-item-hover-bg: var(--md-surface-container-high);
+  --sidebar-item-hover-text: var(--md-on-surface);
+  --sidebar-item-active-bg: rgba(236,194,70,0.14);
 }
 /* ── Reviews ────────────────────────────── */
 .review-list { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
