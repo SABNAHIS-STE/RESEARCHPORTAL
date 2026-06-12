@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -4949,7 +4949,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
 
       <div style={{display:'flex',gap:9,justifyContent:'flex-end',flexWrap:'wrap'}}>
         <button className="btn btn-ol" onClick={confirmClose}>
-          {(form.title.trim()||form.authors.trim()||form.abstract.trim()) ? '💾 Save & Close' : 'Cancel'}
+          {(form.title.trim()||authorTags.length>1||form.abstract.trim()) ? '💾 Save & Close' : 'Cancel'}
         </button>
         <button className="btn btn-gold" onClick={submit} disabled={loading||!!titleDupe||(plagResults[0]?.score>=0.5)}>{loading?<><span className="spin spin-dark"/>Uploading…</>:<><Ico.up/> Upload Study</>}</button>
       </div>
