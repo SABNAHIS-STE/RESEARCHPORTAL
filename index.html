@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -109,6 +109,110 @@
 }
 /* ── Reviews ────────────────────────────── */
 .review-list { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+
+/* ── Announcement Popup ──────── */
+.ann-popup-overlay {
+  position:fixed; inset:0; background:rgba(15,23,42,0.55);
+  display:flex; align-items:center; justify-content:center;
+  z-index:2000; padding:16px; animation:fIn .15s ease;
+  backdrop-filter:blur(2px);
+}
+.ann-popup-card {
+  background:var(--white); border-radius:var(--radius-lg);
+  border:1.5px solid var(--border); box-shadow:var(--shadow-xl);
+  width:100%; max-width:440px; overflow:hidden;
+  animation:fIn .2s ease;
+}
+.ann-popup-hd {
+  display:flex; align-items:center; gap:9px;
+  padding:14px 18px; border-bottom:1.5px solid var(--border);
+}
+.ann-popup-icon { font-size:1.3rem; }
+.ann-popup-label { font-weight:700; font-size:0.85rem; letter-spacing:0.3px; text-transform:uppercase; flex:1; }
+.ann-popup-count { font-size:0.72rem; color:var(--muted); font-weight:600; }
+.ann-popup-body { padding:18px 20px; }
+.ann-popup-title { font-family:var(--font-display); font-size:1.05rem; color:var(--ink); margin-bottom:8px; }
+.ann-popup-text { font-size:0.88rem; color:var(--ink-2); line-height:1.55; white-space:pre-wrap; word-break:break-word; }
+.ann-popup-meta { font-size:0.75rem; color:var(--muted); margin-top:12px; font-style:italic; }
+.ann-popup-ft {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:14px 18px; border-top:1px solid var(--border); background:var(--surface);
+  flex-wrap:wrap;
+}
+.ann-popup-checkbox {
+  display:flex; align-items:center; gap:6px;
+  font-size:0.8rem; color:var(--muted); cursor:pointer; user-select:none;
+}
+.ann-popup-checkbox input { width:15px; height:15px; cursor:pointer; accent-color:var(--gold); }
+
+
+.notif-bell-wrap { position:relative; }
+.notif-bell-btn {
+  position:relative;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  color: var(--ink-3);
+  border-radius: 99px;
+  padding: 5px 11px;
+  font-size: 0.82rem;
+  font-family: var(--font-body);
+  cursor: pointer;
+  display: flex; align-items: center; gap: 5px;
+  transition: all var(--transition);
+  min-height: 32px;
+}
+.notif-bell-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-bg); }
+.notif-bell-btn.has-unread { border-color: var(--teal); color: var(--teal); }
+.notif-dot {
+  position:absolute; top:-4px; right:-4px;
+  background:var(--red); color:#fff;
+  border-radius:99px; min-width:18px; height:18px;
+  font-size:0.62rem; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  padding:0 4px; border:2px solid var(--white);
+  pointer-events:none;
+}
+.notif-dropdown {
+  position:absolute; top:calc(100% + 9px); right:0;
+  width:340px; max-width:calc(100vw - 24px);
+  background:var(--white); border:1.5px solid var(--border);
+  border-radius:var(--radius-lg); box-shadow:var(--shadow-xl);
+  z-index:500; overflow:hidden;
+  animation:fIn .15s ease;
+}
+.notif-dropdown-hd {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:11px 14px 9px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+.notif-dropdown-hd span { font-size:0.75rem; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:var(--muted); }
+.notif-mark-all { background:none; border:none; cursor:pointer; font-size:0.72rem; color:var(--teal); font-family:var(--font-body); padding:2px 6px; border-radius:4px; transition:all var(--transition); }
+.notif-mark-all:hover { background:var(--teal-light); }
+.notif-list { max-height:340px; overflow-y:auto; overscroll-behavior:contain; }
+.notif-item {
+  display:flex; align-items:flex-start; gap:10px;
+  padding:11px 14px; cursor:pointer;
+  border-bottom:1px solid var(--border);
+  transition:background var(--transition);
+  position:relative;
+}
+.notif-item:last-child { border-bottom:none; }
+.notif-item:hover { background:var(--surface); }
+.notif-item.unread { background:var(--teal-light); }
+.notif-item.unread:hover { background:rgba(26,127,110,0.12); }
+.notif-icon { font-size:1.3rem; flex-shrink:0; margin-top:1px; }
+.notif-body { flex:1; min-width:0; }
+.notif-title { font-size:0.8rem; font-weight:600; color:var(--ink); line-height:1.35; margin-bottom:2px; word-break:break-word; }
+.notif-sub { font-size:0.71rem; color:var(--muted); }
+.notif-time { font-size:0.65rem; color:var(--muted); margin-top:3px; }
+.notif-unread-dot { width:7px; height:7px; border-radius:50%; background:var(--teal); flex-shrink:0; margin-top:5px; }
+.notif-dismiss { background:none; border:none; cursor:pointer; color:var(--muted); font-size:0.85rem; padding:2px 4px; border-radius:4px; opacity:0; transition:opacity var(--transition), background var(--transition); }
+.notif-item:hover .notif-dismiss { opacity:1; }
+.notif-dismiss:hover { background:var(--red-light); color:var(--red); }
+.notif-empty { padding:24px; text-align:center; color:var(--muted); font-size:0.82rem; }
+.notif-footer { padding:9px 14px; border-top:1px solid var(--border); background:var(--surface); text-align:center; font-size:0.72rem; color:var(--muted); }
+
 
 /* ── Teacher Feedback ───────────────────────────────── */
 .tf-grade-badge {
@@ -2327,6 +2431,26 @@ const API = {
         secQ: secQ||SEC_QS[0], secA: secA.trim().toLowerCase(),
         uploadCount: 0, createdAt: new Date().toISOString()
       });
+      // ── Notify all admins/teachers of the new registration ──────
+      try {
+        const adminSnap = await db.collection('users').where('role','==','admin').get();
+        const notifBatch = db.batch();
+        adminSnap.docs.forEach(adminDoc => {
+          const ref = db.collection('users').doc(adminDoc.id).collection('studyNotifications').doc();
+          notifBatch.set(ref, {
+            type: 'new_registration',
+            userId: cred.user.uid,
+            studentName: name.trim(),
+            studentEmail: email.toLowerCase(),
+            institution: institution?.trim()||'',
+            gradeLevel: gradeLevel||'', section: section?.trim()||'',
+            createdAt: new Date().toISOString(),
+            read: false,
+          });
+        });
+        await notifBatch.commit();
+        Cache.invalidate('studyNotifications');
+      } catch(e) { console.warn('Registration notification write failed:', e.message); }
       await auth.signOut();
     } finally {
       window._registering = false;
@@ -2426,10 +2550,64 @@ const API = {
     await db.collection('users').doc(uploadedBy).update({
       uploadCount: firebase.firestore.FieldValue.increment(1)
     });
+    // ── Notify all admins of the new submission ──────────────────
+    try {
+      const adminSnap = await db.collection('users').where('role','==','admin').get();
+      const notifBatch = db.batch();
+      adminSnap.docs.forEach(adminDoc => {
+        const ref = db.collection('users').doc(adminDoc.id).collection('studyNotifications').doc();
+        notifBatch.set(ref, {
+          type: 'new_study',
+          studyTitle: title.trim(),
+          submittedBy: uploadedByName,
+          submittedByUid: uploadedBy,
+          categories,
+          createdAt: new Date().toISOString(),
+          read: false,
+        });
+      });
+      await notifBatch.commit();
+      Cache.invalidate('studyNotifications');
+    } catch(e) { console.warn('Notification write failed:', e.message); }
     Cache.invalidate('studies', 'allStudies', 'stats');
   },
 
   async deleteStudy(id) { await db.collection('studies').doc(id).delete(); Cache.invalidate('studies', 'allStudies', 'stats'); },
+
+  // ── Admin Study Notifications ───────────────────────────
+  async getStudyNotifications(adminUid, limitN=20) {
+    try {
+      const snap = await db.collection('users').doc(adminUid).collection('studyNotifications')
+        .orderBy('createdAt','desc').limit(limitN).get();
+      return snap.docs.map(d=>({id:d.id,...d.data()}));
+    } catch { return []; }
+  },
+  async getUnreadStudyNotificationCount(adminUid) {
+    try {
+      const snap = await db.collection('users').doc(adminUid).collection('studyNotifications')
+        .where('read','==',false).get();
+      return snap.size;
+    } catch { return 0; }
+  },
+  async markStudyNotificationRead(adminUid, notifId) {
+    try {
+      await db.collection('users').doc(adminUid).collection('studyNotifications').doc(notifId).update({ read: true });
+    } catch {}
+  },
+  async markAllStudyNotificationsRead(adminUid) {
+    try {
+      const snap = await db.collection('users').doc(adminUid).collection('studyNotifications').where('read','==',false).get();
+      if (snap.empty) return;
+      const batch = db.batch();
+      snap.docs.forEach(d => batch.update(d.ref, { read: true }));
+      await batch.commit();
+    } catch {}
+  },
+  async deleteStudyNotification(adminUid, notifId) {
+    try {
+      await db.collection('users').doc(adminUid).collection('studyNotifications').doc(notifId).delete();
+    } catch {}
+  },
 
   // ── Favorites ──────────────────────────────────────────
   async getFavorites(userId) {
@@ -7433,6 +7611,163 @@ function AnnouncementsPage({ currentUser }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+//  ADMIN STUDY NOTIFICATION BELL
+// ══════════════════════════════════════════════════════════════════
+function AdminNotifBell({ currentUser, count, onCountChange }) {
+  const [open, setOpen] = useState(false);
+  const [notifs, setNotifs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const wrapRef = useRef(null);
+
+  // Close on outside click
+  useEffect(()=>{
+    if (!open) return;
+    const handler = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const data = await API.getStudyNotifications(currentUser.id, 20);
+    setNotifs(data);
+    setLoading(false);
+  }, [currentUser.id]);
+
+  const openPanel = () => {
+    setOpen(o => !o);
+    if (!open) load();
+  };
+
+  const markAll = async () => {
+    await API.markAllStudyNotificationsRead(currentUser.id);
+    setNotifs(n => n.map(x => ({...x, read: true})));
+    onCountChange(0);
+  };
+
+  const markOne = async (notif) => {
+    if (!notif.read) {
+      await API.markStudyNotificationRead(currentUser.id, notif.id);
+      setNotifs(n => n.map(x => x.id===notif.id ? {...x, read:true} : x));
+      onCountChange(Math.max(0, count - 1));
+    }
+  };
+
+  const dismiss = async (e, notif) => {
+    e.stopPropagation();
+    await API.deleteStudyNotification(currentUser.id, notif.id);
+    const wasUnread = !notif.read;
+    setNotifs(n => n.filter(x => x.id !== notif.id));
+    if (wasUnread) onCountChange(Math.max(0, count - 1));
+  };
+
+  const decide = async (e, notif, status) => {
+    e.stopPropagation();
+    try {
+      await API.updateUserStatus(notif.userId, status);
+      toast.ok(`${notif.studentName} ${status}.`);
+    } catch(err) {
+      toast.err(err.message||'Action failed.');
+    }
+    await dismiss(e, notif);
+  };
+
+  const fmtRelTime = iso => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs/24)}d ago`;
+  };
+
+  const unread = notifs.filter(n => !n.read).length;
+
+  return (
+    <div className="notif-bell-wrap" ref={wrapRef}>
+      <button
+        className={`notif-bell-btn${count > 0 ? ' has-unread' : ''}`}
+        onClick={openPanel}
+        aria-label={`Notifications${count > 0 ? `, ${count} unread` : ''}`}
+        title="Notifications">
+        📬
+        {count > 0 && (
+          <span className="notif-dot" aria-hidden="true">{count > 9 ? '9+' : count}</span>
+        )}
+      </button>
+
+      {open && (
+        <div className="notif-dropdown" role="dialog" aria-label="Notifications">
+          <div className="notif-dropdown-hd">
+            <span>📬 Notifications</span>
+            {unread > 0 && (
+              <button className="notif-mark-all" onClick={markAll}>Mark all read</button>
+            )}
+          </div>
+
+          <div className="notif-list">
+            {loading ? (
+              <div className="notif-empty"><span className="spin"/></div>
+            ) : notifs.length === 0 ? (
+              <div className="notif-empty">No notifications yet.</div>
+            ) : notifs.map(n => (
+              <div
+                key={n.id}
+                className={`notif-item${!n.read ? ' unread' : ''}`}
+                onClick={() => markOne(n)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => e.key === 'Enter' && markOne(n)}>
+                <div className="notif-icon">{n.type==='new_registration' ? '🧑‍🎓' : '📄'}</div>
+                <div className="notif-body">
+                  {n.type==='new_registration' ? (
+                    <>
+                      <div className="notif-title">New registration: {n.studentName}</div>
+                      <div className="notif-sub">{n.studentEmail}</div>
+                      {(n.institution||n.gradeLevel||n.section) && (
+                        <div className="notif-sub" style={{marginTop:2}}>
+                          {[n.institution, n.gradeLevel, n.section].filter(Boolean).join(' · ')}
+                        </div>
+                      )}
+                      <div style={{display:'flex',gap:6,marginTop:6}}>
+                        <button className="btn btn-grn btn-sm" style={{minHeight:26,padding:'3px 8px',fontSize:'0.7rem'}} onClick={e=>decide(e,n,'approved')}><Ico.chk/> Approve</button>
+                        <button className="btn btn-red btn-sm" style={{minHeight:26,padding:'3px 8px',fontSize:'0.7rem'}} onClick={e=>decide(e,n,'rejected')}><Ico.X/> Reject</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="notif-title">"{n.studyTitle}"</div>
+                      <div className="notif-sub">by {n.submittedBy}</div>
+                      {n.categories?.length > 0 && (
+                        <div className="notif-sub" style={{marginTop:2}}>
+                          {n.categories.slice(0,2).map(c=>(
+                            <span key={c} style={{display:'inline-block',background:'var(--teal-light)',color:'var(--teal)',borderRadius:99,padding:'1px 7px',fontSize:'0.65rem',fontWeight:600,marginRight:4}}>{c}</span>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <div className="notif-time">{fmtRelTime(n.createdAt)}</div>
+                </div>
+                {!n.read && <div className="notif-unread-dot" aria-hidden="true"/>}
+                <button className="notif-dismiss" onClick={e=>dismiss(e,n)} aria-label="Dismiss notification" title="Dismiss">✕</button>
+              </div>
+            ))}
+          </div>
+
+          {notifs.length > 0 && (
+            <div className="notif-footer">
+              {notifs.length} notification{notifs.length !== 1 ? 's' : ''} · Dismissed items are removed permanently
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
 //  SIDEBAR
 // ══════════════════════════════════════════════════════════════════
 const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, onLogout, pendingCount=0, isOpen, onClose, theme, toggleTheme }) {
@@ -7640,16 +7975,104 @@ function SetSecurityQuestionModal({ user, onDone }) {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  ANNOUNCEMENT POPUP (urgent / important — once per session)
+// ══════════════════════════════════════════════════════════════════
+const ANNOUNCE_DISMISS_KEY = 'sabnahis_dismissed_announcements';
+
+function AnnouncementPopup({ currentUser }) {
+  const [queue, setQueue] = useState([]);
+  const [idx, setIdx] = useState(0);
+  const [dontShow, setDontShow] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await API.getAnnouncements();
+        let dismissed = [];
+        try { dismissed = JSON.parse(localStorage.getItem(ANNOUNCE_DISMISS_KEY) || '[]'); } catch {}
+        const relevant = data
+          .filter(a => a.priority === 'urgent' || a.priority === 'important')
+          .filter(a => !dismissed.includes(a.id))
+          .sort((a,b) => (a.priority==='urgent'?0:1) - (b.priority==='urgent'?0:1) || new Date(b.createdAt)-new Date(a.createdAt));
+        if (active && relevant.length) setQueue(relevant);
+      } catch {}
+    })();
+    return () => { active = false; };
+  }, [currentUser?.id]);
+
+  if (!queue.length || idx >= queue.length) return null;
+
+  const a = queue[idx];
+  const isUrgent = a.priority === 'urgent';
+  const icon = isUrgent ? '🚨' : '⚠️';
+  const label = isUrgent ? 'Urgent Announcement' : 'Important Announcement';
+  const accent = isUrgent ? '#ef4444' : '#f59e0b';
+  const bg = isUrgent
+    ? 'linear-gradient(135deg,#fef2f2 0%,#fff5f5 100%)'
+    : 'linear-gradient(135deg,#fffbeb 0%,#fefce8 100%)';
+
+  const close = () => {
+    if (dontShow) {
+      try {
+        const dismissed = JSON.parse(localStorage.getItem(ANNOUNCE_DISMISS_KEY) || '[]');
+        if (!dismissed.includes(a.id)) dismissed.push(a.id);
+        localStorage.setItem(ANNOUNCE_DISMISS_KEY, JSON.stringify(dismissed));
+      } catch {}
+    }
+    setDontShow(false);
+    setIdx(i => i + 1);
+  };
+
+  return (
+    <div className="ann-popup-overlay" role="dialog" aria-modal="true" aria-label={label}>
+      <div className="ann-popup-card" style={{borderColor: accent}}>
+        <div className="ann-popup-hd" style={{background: bg, borderColor: accent}}>
+          <span className="ann-popup-icon">{icon}</span>
+          <span className="ann-popup-label" style={{color: accent}}>{label}</span>
+          {queue.length > 1 && (
+            <span className="ann-popup-count">{idx+1} / {queue.length}</span>
+          )}
+        </div>
+        <div className="ann-popup-body">
+          <h3 className="ann-popup-title">{a.title}</h3>
+          <p className="ann-popup-text">{a.body}</p>
+          <p className="ann-popup-meta">— {a.authorName}</p>
+        </div>
+        <div className="ann-popup-ft">
+          <label className="ann-popup-checkbox">
+            <input type="checkbox" checked={dontShow} onChange={e=>setDontShow(e.target.checked)} />
+            Don't show this again
+          </label>
+          <button className="btn btn-gold" onClick={close}>
+            {idx + 1 < queue.length ? 'Next' : 'Got it'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [currentUser,setCurrentUser]=useState(null);
   const [authChecked,setAuthChecked]=useState(false);
   const [loaderDone,setLoaderDone]=useState(false);
   const [activeTab,setActiveTab]=useState('dashboard');
   const [pendingCount,setPendingCount]=useState(0);
+  const [studyNotifCount,setStudyNotifCount]=useState(0);
   const [initError,setInitError]=useState('');
   const [sidebarOpen,setSidebarOpen]=useState(false);
   const [showSecQ,setShowSecQ]=useState(false);
   const [theme,toggleTheme]=useTheme();
+
+  // ── Poll study notification count every 30s for admins ────────
+  useEffect(()=>{
+    if(!currentUser||currentUser.role!=='admin') return;
+    const poll=()=>API.getUnreadStudyNotificationCount(currentUser.id).then(n=>setStudyNotifCount(n)).catch(()=>{});
+    const id=setInterval(poll,30_000);
+    return()=>clearInterval(id);
+  },[currentUser]);
 
   // ── Keyboard shortcuts ─────────────────────────────────
   useEffect(()=>{
@@ -7677,6 +8100,7 @@ function App() {
               if(!profile.secQ||!profile.secA||!profile.secQ.trim()||!profile.secA.trim()) setShowSecQ(true);
               if(profile.role==='admin'){
                 API.getUsers({role:'student',status:'pending'}).then(p=>setPendingCount(p.length)).catch(()=>{});
+                API.getUnreadStudyNotificationCount(fbUser.uid).then(n=>setStudyNotifCount(n)).catch(()=>{});
               }
             } else {
               await auth.signOut().catch(()=>{});
@@ -7731,6 +8155,7 @@ function App() {
           setCurrentUser(user);
           if(!user.secQ||!user.secA||!user.secQ.trim()||!user.secA.trim()) setShowSecQ(true);
           if(user.role==='admin') API.getUsers({role:'student',status:'pending'}).then(p=>setPendingCount(p.length)).catch(()=>{});
+          if(user.role==='admin') API.getUnreadStudyNotificationCount(user.id).then(n=>setStudyNotifCount(n)).catch(()=>{});
         }}/>
       </ToastProvider>
     );
@@ -7775,7 +8200,8 @@ function App() {
           <div className="topbar">
             <span className="topbar-title">{titles[activeTab]||'Dashboard'}</span>
             <span className={`badge${isAdmin?' badge-teacher':' badge-appr'}`}>{isAdmin?'⚙ Teacher':'🎓 Student'}</span>
-            <div style={{display:'flex',gap:4,marginLeft:8}}>
+            <div style={{display:'flex',gap:4,marginLeft:8,alignItems:'center'}}>
+              {isAdmin && <AdminNotifBell currentUser={currentUser} count={studyNotifCount} onCountChange={setStudyNotifCount}/>}
               <button className="topbar-theme-toggle" onClick={()=>theme!=='light'&&toggleTheme()} style={theme==='light'?{borderColor:'var(--gold)',color:'var(--gold)',background:'var(--gold-bg)',fontWeight:600}:{}} aria-pressed={theme==='light'}>☀ Light</button>
               <button className="topbar-theme-toggle" onClick={()=>theme!=='dark'&&toggleTheme()} style={theme==='dark'?{borderColor:'var(--gold)',color:'var(--gold)',background:'var(--gold-bg)',fontWeight:600}:{}} aria-pressed={theme==='dark'}>☾ Dark</button>
             </div>
@@ -7788,6 +8214,7 @@ function App() {
             </button>
             <span className="mob-header-title">SABNAHIS STE</span>
             <div style={{display:'flex',gap:4,alignItems:'center'}}>
+              {isAdmin && <AdminNotifBell currentUser={currentUser} count={studyNotifCount} onCountChange={setStudyNotifCount}/>}
               <button className="theme-toggle" onClick={()=>theme!=='light'&&toggleTheme()} style={theme==='light'?{background:'rgba(201,162,39,0.25)',color:'var(--gold-light)',border:'1px solid rgba(201,162,39,0.4)'}:{}} aria-pressed={theme==='light'}>☀</button>
               <button className="theme-toggle" onClick={()=>theme!=='dark'&&toggleTheme()} style={theme==='dark'?{background:'rgba(201,162,39,0.25)',color:'var(--gold-light)',border:'1px solid rgba(201,162,39,0.4)'}:{}} aria-pressed={theme==='dark'}>☾</button>
             </div>
@@ -7829,6 +8256,7 @@ function App() {
         </nav>
       </div>
       {showSecQ&&<SetSecurityQuestionModal user={currentUser} onDone={()=>setShowSecQ(false)}/>}
+      <AnnouncementPopup currentUser={currentUser}/>
     </ToastProvider>
   );
 }
