@@ -109,6 +109,24 @@
 }
 /* ── Reviews ────────────────────────────── */
 .review-list { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+
+/* ── Teacher Feedback ───────────────────────────────── */
+.tf-grade-badge {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 14px; border-radius:99px;
+  font-weight:700; font-size:0.85rem; letter-spacing:0.3px;
+}
+.tf-grade-A  { background:linear-gradient(135deg,#d1fae5,#a7f3d0); color:#065f46; border:1.5px solid #6ee7b7; }
+.tf-grade-B  { background:linear-gradient(135deg,#dbeafe,#bfdbfe); color:#1e40af; border:1.5px solid #93c5fd; }
+.tf-grade-C  { background:linear-gradient(135deg,#fef9c3,#fde68a); color:#92400e; border:1.5px solid #fbbf24; }
+.tf-grade-D  { background:linear-gradient(135deg,#ffedd5,#fed7aa); color:#9a3412; border:1.5px solid #fb923c; }
+.tf-grade-F  { background:linear-gradient(135deg,#fee2e2,#fecaca); color:#991b1b; border:1.5px solid #f87171; }
+.tf-card { background:var(--surface); border:1.5px solid var(--teal); border-radius:var(--radius); padding:16px 18px; position:relative; }
+.tf-criteria { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0; }
+.tf-criterion { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:9px 12px; }
+.tf-criterion-label { font-size:0.68rem; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); margin-bottom:4px; }
+.tf-criterion-score { font-size:1.1rem; font-weight:700; color:var(--teal); }
+@media(max-width:500px){ .tf-criteria{ grid-template-columns:1fr 1fr; } }
 .review-item { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; }
 .review-header { display:flex; align-items:center; gap:9px; margin-bottom:5px; flex-wrap:wrap; }
 .review-avatar { width:30px; height:30px; border-radius:50%; background:var(--teal); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.75rem; flex-shrink:0; }
@@ -202,6 +220,48 @@
   transition: all var(--transition);
 }
 .gdrive-preview .gdrive-remove:hover { background: rgba(26,127,110,0.15); }
+
+/* ── Search History Dropdown ─────────────── */
+.search-history-wrap { position: relative; flex: 1; min-width: 200px; }
+.search-history-dropdown {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  background: var(--white); border: 1.5px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  z-index: 200; overflow: hidden;
+  animation: fIn .15s ease;
+}
+.search-history-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 12px 5px;
+  font-size: 0.65rem; font-weight: 700; letter-spacing: 0.8px;
+  text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.search-history-clear {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.7rem; color: var(--muted); padding: 0;
+  font-family: var(--font-body);
+  transition: color var(--transition);
+}
+.search-history-clear:hover { color: var(--red); }
+.search-history-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 12px;
+  cursor: pointer; font-size: var(--text-sm);
+  color: var(--ink-3); transition: background var(--transition);
+  border: none; background: none; width: 100%; text-align: left;
+  font-family: var(--font-body);
+}
+.search-history-item:hover { background: var(--surface); color: var(--ink); }
+.search-history-item svg { opacity: 0.4; flex-shrink: 0; }
+.shi-del {
+  margin-left: auto; padding: 1px 5px; border-radius: 4px;
+  font-size: 0.75rem; color: var(--muted); opacity: 0;
+  transition: opacity var(--transition), background var(--transition);
+  background: none; border: none; cursor: pointer; font-family: var(--font-body);
+}
+.search-history-item:hover .shi-del { opacity: 1; }
+.shi-del:hover { background: var(--red-light) !important; color: var(--red) !important; }
 
 /* ── QoL: keyboard shortcut badge ────────── */
 .kbd-hint {
@@ -625,8 +685,84 @@ textarea { resize: vertical; min-height: 90px; }
 .card-title { font-family:var(--font-display); font-size:var(--text-base); font-weight:600; color:var(--ink); }
 
 /* ══════════════════════════════════════════
-   STATS
+   SKELETON LOADERS
 ══════════════════════════════════════════ */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+.skel {
+  background: linear-gradient(90deg,
+    var(--border) 25%,
+    var(--surface) 50%,
+    var(--border) 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+[data-theme="dark"] .skel {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.06) 25%,
+    rgba(255,255,255,0.12) 50%,
+    rgba(255,255,255,0.06) 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* Study card skeleton */
+.sc-skel {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: clamp(14px,3.5vw,20px);
+  display: flex; flex-direction: column; gap: 10px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  position: relative;
+}
+.sc-skel::before {
+  content: '';
+  position: absolute; top:0; left:0; right:0; height:3px;
+  background: var(--border);
+}
+.skel-cat   { height:20px; width:90px; border-radius:99px; }
+.skel-title { height:16px; border-radius:5px; }
+.skel-title.w80 { width:80%; }
+.skel-title.w60 { width:60%; }
+.skel-author { height:13px; width:55%; border-radius:5px; }
+.skel-abs-line { height:12px; border-radius:5px; }
+.skel-abs-line.w100 { width:100%; }
+.skel-abs-line.w90  { width:90%; }
+.skel-abs-line.w70  { width:70%; }
+.skel-meta  { display:flex; gap:10px; align-items:center; margin-top:4px; }
+.skel-meta-item { height:13px; width:36px; border-radius:5px; }
+.skel-meta-item.wide { width:64px; }
+
+/* Stat card skeleton */
+.stat-skel {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: clamp(14px,3vw,18px);
+  display: flex; flex-direction: column; gap: 8px;
+  border-left: 4px solid var(--border);
+}
+.skel-stat-lbl  { height:11px; width:70%; border-radius:5px; }
+.skel-stat-val  { height:32px; width:50%; border-radius:6px; }
+.skel-stat-sub  { height:10px; width:80%; border-radius:5px; }
+
+/* Page header skeleton */
+.skel-page-hd {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:18px; flex-wrap:wrap; gap:10px;
+}
+.skel-page-title { height:22px; width:200px; border-radius:6px; }
+.skel-page-sub   { height:13px; width:140px; border-radius:5px; margin-top:6px; }
+.skel-btn        { height:38px; width:130px; border-radius:var(--radius); }
+
+
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
@@ -680,7 +816,10 @@ textarea { resize: vertical; min-height: 90px; }
 .sc-cat { font-size:var(--text-xs); font-weight:600; padding:2px 7px; border-radius:4px; background:var(--gold-bg); color:var(--gold); }
 .sc-title { font-family:var(--font-display); font-size:clamp(0.88rem,2.5vw,0.97rem); font-weight:600; color:var(--ink); line-height:1.4; }
 .sc-authors { font-size:var(--text-xs); color:var(--muted); }
-.sc-abs { font-size:var(--text-sm); color:var(--slate); line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.sc-abs { font-size:var(--text-sm); color:var(--slate); line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; transition:all .25s ease; }
+.sc-abs.expanded { display:block; -webkit-line-clamp:unset; overflow:visible; }
+.sc-abs-toggle { background:none; border:none; cursor:pointer; font-size:var(--text-xs); color:var(--teal); font-family:var(--font-body); font-weight:600; padding:2px 0; margin-top:3px; display:inline-flex; align-items:center; gap:3px; transition:color var(--transition); }
+.sc-abs-toggle:hover { color:var(--gold); }
 .sc-meta { display:flex; align-items:center; gap:10px; font-size:var(--text-xs); color:var(--muted); flex-wrap:wrap; margin-top:auto; }
 .sc-meta span { display:flex; align-items:center; gap:3px; }
 
@@ -723,6 +862,36 @@ tr:hover td { background: var(--surface); }
 .sb:focus-within { border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,0.1); }
 .sb input { border:none; background:none; padding:9px 0; flex:1; outline:none; font-size:var(--text-sm); }
 .fb { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+
+/* ══════════════════════════════════════════
+   DRAFT BANNER
+══════════════════════════════════════════ */
+.draft-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--gold-bg);
+  border: 1.5px solid var(--gold);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-size: var(--text-sm);
+  color: var(--gold);
+  animation: draftIn .3s var(--spring);
+}
+@keyframes draftIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+.draft-banner-icon { font-size: 1.05rem; flex-shrink: 0; }
+.draft-banner-text { flex: 1; }
+.draft-banner-text strong { color: var(--gold); font-weight: 700; }
+.draft-banner-text span { display: block; font-size: var(--text-xs); color: var(--muted); margin-top: 2px; }
+.draft-status {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: var(--text-xs); color: var(--muted);
+  padding: 3px 8px; border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: all .25s;
+}
+.draft-status.saving { color: var(--gold); border-color: var(--gold); }
+.draft-status.saved  { color: var(--green); border-color: var(--green); }
 
 /* ══════════════════════════════════════════
    UPLOAD ZONE
@@ -879,6 +1048,70 @@ tr:hover td { background: var(--surface); }
 .sd-title { font-family:var(--font-display); font-size:clamp(1.15rem,4vw,1.5rem); font-weight:700; color:var(--ink); line-height:1.3; margin-bottom:10px; }
 .sd-auth  { font-size:var(--text-base); color:var(--slate); margin-bottom:14px; }
 .kw { display:inline-block; padding:2px 9px; background:var(--surface); border:1px solid var(--border); border-radius:99px; font-size:var(--text-xs); color:var(--slate); margin:2px; }
+
+/* ── Co-author tag input ────────────────── */
+.author-field {
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+  border:1.5px solid var(--border); border-radius:var(--radius);
+  padding:7px 10px; background:var(--white); cursor:text;
+  transition:border-color var(--transition), box-shadow var(--transition);
+  min-height:var(--tap-min);
+}
+.author-field:focus-within { border-color:var(--teal); box-shadow:0 0 0 3px rgba(26,127,110,0.12); }
+.author-tag {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:3px 10px 3px 8px; border-radius:99px;
+  font-size:var(--text-xs); font-weight:600; line-height:1.4;
+  background:var(--teal-light); color:var(--teal);
+  border:1px solid rgba(26,127,110,0.3);
+  white-space:nowrap; max-width:220px;
+  animation:tagIn .18s var(--spring);
+}
+.author-tag.registered { background:var(--blue-light); color:var(--blue); border-color:rgba(26,95,168,0.25); }
+.author-tag.self { background:var(--gold-bg); color:var(--gold); border-color:rgba(201,162,39,0.3); }
+@keyframes tagIn { from{opacity:0;transform:scale(.8)} to{opacity:1;transform:scale(1)} }
+.author-tag-avatar {
+  width:16px; height:16px; border-radius:50%; background:currentColor; opacity:0.2;
+  display:flex; align-items:center; justify-content:center; font-size:0.55rem; font-weight:900;
+  flex-shrink:0; position:relative;
+}
+.author-tag-avatar span { position:absolute; color:var(--teal); opacity:5; font-weight:700; }
+.author-tag.registered .author-tag-avatar span { color:var(--blue); }
+.author-tag.self .author-tag-avatar span { color:var(--gold); }
+.author-tag-remove {
+  background:none; border:none; cursor:pointer; padding:0; line-height:1;
+  color:currentColor; opacity:0.55; font-size:0.75rem; display:flex; align-items:center;
+  transition:opacity .15s;
+}
+.author-tag-remove:hover { opacity:1; }
+.author-tag-input {
+  border:none; outline:none; background:transparent; font-family:var(--font-body);
+  font-size:var(--text-sm); color:var(--ink); min-width:140px; flex:1; padding:2px 0;
+}
+.author-dropdown {
+  position:absolute; left:0; right:0; top:calc(100% + 4px);
+  background:var(--white); border:1.5px solid var(--border);
+  border-radius:var(--radius); box-shadow:var(--shadow-lg);
+  z-index:300; max-height:220px; overflow-y:auto;
+  animation:sUp .15s var(--spring);
+}
+.author-dropdown-item {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 12px; cursor:pointer; transition:background .12s;
+  font-size:var(--text-sm);
+}
+.author-dropdown-item:hover, .author-dropdown-item.active { background:var(--surface); }
+.author-dropdown-item.no-match { color:var(--muted); cursor:default; font-style:italic; }
+.author-dropdown-avatar {
+  width:28px; height:28px; border-radius:50%; flex-shrink:0;
+  background:linear-gradient(135deg,var(--teal),var(--blue));
+  color:#fff; display:flex; align-items:center; justify-content:center;
+  font-size:0.65rem; font-weight:700;
+}
+.author-dropdown-info { flex:1; min-width:0; }
+.author-dropdown-name { font-weight:600; color:var(--ink); }
+.author-dropdown-sub { font-size:var(--text-xs); color:var(--muted); }
+.author-dropdown-badge { font-size:0.62rem; padding:1px 6px; border-radius:99px; background:var(--blue-light); color:var(--blue); font-weight:600; flex-shrink:0; }
 .ds h4 { font-size:var(--text-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:var(--muted); margin-bottom:7px; }
 .ds p  { color:var(--ink-3); font-size:var(--text-sm); line-height:1.7; }
 .apa-box {
@@ -1606,6 +1839,105 @@ tr:hover td { background: var(--surface); }
 .auth-corner--br { bottom:24px; right:24px; text-align:right; }
 .auth-corner-h { width:40px; height:1px; background:#4d4635; display:block; }
 .auth-corner-v { width:1px; height:40px; background:#4d4635; display:block; }
+
+/* ══════════════════════════════════════════
+   TOOLTIPS
+══════════════════════════════════════════ */
+/* Attribute-based tooltips via [data-tip] */
+[data-tip] {
+  position: relative;
+}
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.88);
+  white-space: nowrap;
+  background: var(--ink);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 4px 9px;
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 9999;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+  letter-spacing: 0.01em;
+  max-width: 220px;
+  white-space: normal;
+  text-align: center;
+}
+[data-tip]::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.88);
+  border: 5px solid transparent;
+  border-top-color: var(--ink);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 9999;
+}
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+[data-tip]:hover::before,
+[data-tip]:focus-visible::before {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+/* Tip below variant */
+[data-tip-pos="bottom"]::after {
+  bottom: auto;
+  top: calc(100% + 7px);
+}
+[data-tip-pos="bottom"]::before {
+  bottom: auto;
+  top: calc(100% + 2px);
+  border-top-color: transparent;
+  border-bottom-color: var(--ink);
+}
+/* Tip left-anchored (for right-edge buttons) */
+[data-tip-pos="left"]::after {
+  left: auto;
+  right: 0;
+  transform: translateX(0) scale(0.88);
+}
+[data-tip-pos="left"]:hover::after,
+[data-tip-pos="left"]:focus-visible::after {
+  transform: translateX(0) scale(1);
+}
+[data-tip-pos="left"]::before {
+  left: auto;
+  right: 14px;
+  transform: scale(0.88);
+}
+[data-tip-pos="left"]:hover::before,
+[data-tip-pos="left"]:focus-visible::before {
+  transform: scale(1);
+}
+/* Dark mode inversion */
+[data-theme="dark"] [data-tip]::after {
+  background: #e8eaf2;
+  color: #0d0f14;
+  box-shadow: 0 3px 14px rgba(0,0,0,0.5);
+}
+[data-theme="dark"] [data-tip]::before {
+  border-top-color: #e8eaf2;
+}
+[data-theme="dark"] [data-tip-pos="bottom"]::before {
+  border-top-color: transparent;
+  border-bottom-color: #e8eaf2;
+}
 </style>
 </head>
 <body>
@@ -1909,8 +2241,78 @@ const DEFAULT_CATS = [
 // ══════════════════════════════════════════════════════════════════
 //  FIREBASE API
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+//  API CACHE — in-memory, TTL-based, with in-flight deduplication
+// ══════════════════════════════════════════════════════════════════
+const Cache = (() => {
+  const store   = new Map(); // key → { value, expiresAt }
+  const inflight = new Map(); // key → Promise  (dedup concurrent calls)
+
+  const TTL = {
+    studies:     30_000,   // 30s  — repository list (changes on upload/delete)
+    allStudies:  30_000,   // 30s  — chat AI context
+    categories:  120_000,  // 2 min — rarely changes
+    stats:       20_000,   // 20s  — admin dashboard numbers
+    users:       20_000,   // 20s  — user management list
+    favorites:   15_000,   // 15s  — per-user bookmarks
+    lastRead:    60_000,   // 1 min — per-user last-opened
+    reviews:     20_000,   // 20s  — per-study reviews
+    tfeedback:   30_000,   // 30s  — per-study teacher feedback
+    announcements:30_000,  // 30s  — announcements list
+    recognized:  30_000,   // 30s  — recognized studies
+    profile:     60_000,   // 1 min — user profile
+  };
+
+  return {
+    // Return cached value if still fresh, otherwise null
+    get(key) {
+      const entry = store.get(key);
+      if (!entry) return null;
+      if (Date.now() > entry.expiresAt) { store.delete(key); return null; }
+      return entry.value;
+    },
+
+    // Store a value with a given TTL type
+    set(key, value, ttlType) {
+      store.set(key, { value, expiresAt: Date.now() + (TTL[ttlType] || 20_000) });
+    },
+
+    // Invalidate keys matching a prefix or exact key
+    invalidate(...prefixes) {
+      for (const prefix of prefixes) {
+        for (const key of store.keys()) {
+          if (key === prefix || key.startsWith(prefix + ':')) store.delete(key);
+        }
+      }
+    },
+
+    // Wrap an async fn with cache + in-flight dedup
+    async wrap(key, ttlType, fn) {
+      const cached = this.get(key);
+      if (cached !== null) return cached;
+      if (inflight.has(key)) return inflight.get(key);
+      const promise = fn().then(result => {
+        this.set(key, result, ttlType);
+        inflight.delete(key);
+        return result;
+      }).catch(err => {
+        inflight.delete(key);
+        throw err;
+      });
+      inflight.set(key, promise);
+      return promise;
+    },
+
+    // Clear everything (e.g. on logout)
+    clear() { store.clear(); inflight.clear(); },
+
+    // Debug: how many entries are live
+    size() { return store.size; },
+  };
+})();
+
 const API = {
-  async register({ name, email, password, institution, department, secQ, secA }) {
+  async register({ name, email, password, institution, gradeLevel, section, secQ, secA }) {
     if (!name||!email||!password) throw new Error('Name, email and password are required.');
     if (password.length < 8)       throw new Error('Password must be at least 8 characters.');
     if (!secA?.trim())             throw new Error('Security answer is required.');
@@ -1920,7 +2322,7 @@ const API = {
       await db.collection('users').doc(cred.user.uid).set({
         name: name.trim(), email: email.toLowerCase(),
         role: 'student', status: 'pending',
-        institution: institution?.trim()||'', department: department?.trim()||'',
+        institution: institution?.trim()||'', gradeLevel: gradeLevel||'', section: section?.trim()||'',
         secQ: secQ||SEC_QS[0], secA: secA.trim().toLowerCase(),
         uploadCount: 0, createdAt: new Date().toISOString()
       });
@@ -1960,7 +2362,7 @@ const API = {
     }
   },
 
-  async logout() { await auth.signOut(); },
+  async logout() { await auth.signOut(); Cache.clear(); },
 
   async getProfile(uid) {
     try {
@@ -1972,8 +2374,12 @@ const API = {
 
   async getStudies({ search='', category='', year='', uploadedBy='', status='active', page=1, perPage=6 }={}) {
     try {
-      const snap = await db.collection('studies').orderBy('createdAt','desc').get();
-      let items = snap.docs.map(d=>({id:d.id,...d.data()}));
+      // Fetch raw list once and cache it; filtering/pagination happens in-memory
+      const allRaw = await Cache.wrap('studies:raw', 'studies', async () => {
+        const snap = await db.collection('studies').orderBy('createdAt','desc').get();
+        return snap.docs.map(d=>({id:d.id,...d.data()}));
+      });
+      let items = [...allRaw];
       if (status)     items = items.filter(s=>s.status===status);
       if (uploadedBy) items = items.filter(s=>s.uploadedBy===uploadedBy);
       if (category)   items = items.filter(s=>(s.categories||[]).includes(category));
@@ -1988,13 +2394,15 @@ const API = {
   },
 
   async getAllStudies() {
-    try {
-      const snap = await db.collection('studies').orderBy('createdAt','desc').get();
-      return snap.docs.map(d=>({id:d.id,...d.data()})).filter(s=>s.status==='active');
-    } catch { return []; }
+    return Cache.wrap('allStudies', 'allStudies', async () => {
+      try {
+        const snap = await db.collection('studies').orderBy('createdAt','desc').get();
+        return snap.docs.map(d=>({id:d.id,...d.data()})).filter(s=>s.status==='active');
+      } catch { return []; }
+    });
   },
 
-  async createStudy({ title, authors, abstract, keywords, categories, year, gdrive, uploadedBy, uploadedByName }) {
+  async createStudy({ title, authors, coAuthors, abstract, keywords, categories, year, gdrive, uploadedBy, uploadedByName }) {
     if (!title||!abstract)   throw new Error('Title and abstract are required.');
     if (!authors?.length)    throw new Error('At least one author is required.');
     if (!categories?.length) throw new Error('At least one category is required.');
@@ -2007,7 +2415,7 @@ const API = {
     if (!existing.empty) throw new Error(`⚠️ A study with this title already exists: "${existing.docs[0].data().title}"`);
 
     await db.collection('studies').add({
-      title:title.trim(), titleNorm: normalized, authors, abstract:abstract.trim(),
+      title:title.trim(), titleNorm: normalized, authors, coAuthors:coAuthors||[], abstract:abstract.trim(),
       keywords:keywords||[], categories,
       year:parseInt(year)||new Date().getFullYear(),
       gdrive:gdrive||null, uploadedBy, uploadedByName,
@@ -2017,14 +2425,17 @@ const API = {
     await db.collection('users').doc(uploadedBy).update({
       uploadCount: firebase.firestore.FieldValue.increment(1)
     });
+    Cache.invalidate('studies', 'allStudies', 'stats');
   },
 
-  async deleteStudy(id) { await db.collection('studies').doc(id).delete(); },
+  async deleteStudy(id) { await db.collection('studies').doc(id).delete(); Cache.invalidate('studies', 'allStudies', 'stats'); },
 
   // ── Favorites ──────────────────────────────────────────
   async getFavorites(userId) {
-    const snap = await db.collection('users').doc(userId).collection('favorites').orderBy('savedAt','desc').get();
-    return snap.docs.map(d=>({id:d.id,...d.data()}));
+    return Cache.wrap(`favorites:${userId}`, 'favorites', async () => {
+      const snap = await db.collection('users').doc(userId).collection('favorites').orderBy('savedAt','desc').get();
+      return snap.docs.map(d=>({id:d.id,...d.data()}));
+    });
   },
   async addFavorite(userId, study) {
     const BOOKMARK_LIMIT = 10;
@@ -2035,13 +2446,13 @@ const API = {
       categories:study.categories||[], year:study.year,
       savedAt:new Date().toISOString()
     });
-    // also write to study's favoriteBy subcollection so author can see
     await db.collection('studies').doc(study.id).collection('favoriteBy').doc(userId).set({
       userId, savedAt:new Date().toISOString()
     });
     await db.collection('studies').doc(study.id).update({
       favoriteCount: firebase.firestore.FieldValue.increment(1)
     }).catch(()=>{});
+    Cache.invalidate(`favorites:${userId}`, 'studies', 'allStudies');
   },
   async removeFavorite(userId, studyId) {
     await db.collection('users').doc(userId).collection('favorites').doc(studyId).delete();
@@ -2049,6 +2460,7 @@ const API = {
     await db.collection('studies').doc(studyId).update({
       favoriteCount: firebase.firestore.FieldValue.increment(-1)
     }).catch(()=>{});
+    Cache.invalidate(`favorites:${userId}`, 'studies', 'allStudies');
   },
   async isFavorited(userId, studyId) {
     const snap = await db.collection('users').doc(userId).collection('favorites').doc(studyId).get();
@@ -2071,20 +2483,61 @@ const API = {
       abstract:study.abstract||'',
       openedAt:new Date().toISOString()
     });
+    Cache.invalidate(`lastRead:${userId}`);
   },
+  // ── Teacher Feedback ───────────────────────────────────
+  async getTeacherFeedback(studyId) {
+    return Cache.wrap(`tfeedback:${studyId}`, 'tfeedback', async () => {
+      const snap = await db.collection('studies').doc(studyId).collection('teacherFeedback').limit(1).get();
+      return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() };
+    });
+  },
+  async submitTeacherFeedback(studyId, { teacherId, teacherName, grade, criteria, comments, recommendations }) {
+    if (!grade) throw new Error('Please select a grade.');
+    if (!comments.trim()) throw new Error('Overall feedback is required.');
+    const totalScore = Object.values(criteria).reduce((a,b)=>a+(b||0),0);
+    await db.collection('studies').doc(studyId).collection('teacherFeedback').doc(teacherId).set({
+      teacherId, teacherName, grade, criteria, totalScore,
+      comments: comments.trim(),
+      recommendations: recommendations.trim(),
+      gradedAt: new Date().toISOString()
+    });
+    await db.collection('studies').doc(studyId).update({
+      teacherGrade: grade, teacherScore: totalScore,
+      gradedBy: teacherName, gradedAt: new Date().toISOString()
+    }).catch(()=>{});
+    Cache.invalidate(`tfeedback:${studyId}`, 'studies', 'allStudies');
+  },
+  async deleteTeacherFeedback(studyId, teacherId) {
+    await db.collection('studies').doc(studyId).collection('teacherFeedback').doc(teacherId).delete();
+    await db.collection('studies').doc(studyId).update({
+      teacherGrade: firebase.firestore.FieldValue.delete(),
+      teacherScore: firebase.firestore.FieldValue.delete(),
+      gradedBy: firebase.firestore.FieldValue.delete(),
+      gradedAt: firebase.firestore.FieldValue.delete()
+    }).catch(()=>{});
+    Cache.invalidate(`tfeedback:${studyId}`, 'studies', 'allStudies');
+  },
+
   // ── Reviews ────────────────────────────────────────────
   async getReviews(studyId, limitN=5) {
-    const snap = await db.collection('studies').doc(studyId)
-      .collection('reviews').orderBy('createdAt','desc').limit(limitN).get();
-    return snap.docs.map(d=>({id:d.id,...d.data()}));
+    return Cache.wrap(`reviews:${studyId}:${limitN}`, 'reviews', async () => {
+      const snap = await db.collection('studies').doc(studyId)
+        .collection('reviews').orderBy('createdAt','desc').limit(limitN).get();
+      return snap.docs.map(d=>({id:d.id,...d.data()}));
+    });
   },
   async getReviewsCount(studyId) {
-    const snap = await db.collection('studies').doc(studyId).collection('reviews').get();
-    return snap.size;
+    return Cache.wrap(`reviews:count:${studyId}`, 'reviews', async () => {
+      const snap = await db.collection('studies').doc(studyId).collection('reviews').get();
+      return snap.size;
+    });
   },
   async getUserReview(studyId, userId) {
-    const snap = await db.collection('studies').doc(studyId).collection('reviews').doc(userId).get();
-    return snap.exists ? {id:snap.id,...snap.data()} : null;
+    return Cache.wrap(`reviews:user:${studyId}:${userId}`, 'reviews', async () => {
+      const snap = await db.collection('studies').doc(studyId).collection('reviews').doc(userId).get();
+      return snap.exists ? {id:snap.id,...snap.data()} : null;
+    });
   },
   async submitReview(studyId, userId, userName, userInstitution, rating, comment) {
     if(!rating||rating<1||rating>5) throw new Error('Please select a rating.');
@@ -2095,7 +2548,6 @@ const API = {
       rating, comment:comment.trim(),
       createdAt:new Date().toISOString()
     });
-    // update avg rating on study doc
     const allSnap = await db.collection('studies').doc(studyId).collection('reviews').get();
     const ratings = allSnap.docs.map(d=>d.data().rating||0);
     const avg = ratings.reduce((a,b)=>a+b,0)/ratings.length;
@@ -2103,6 +2555,7 @@ const API = {
       avgRating: Math.round(avg*10)/10,
       reviewCount: ratings.length
     }).catch(()=>{});
+    Cache.invalidate(`reviews:${studyId}`, 'studies', 'allStudies');
   },
   async deleteReview(studyId, userId) {
     await db.collection('studies').doc(studyId).collection('reviews').doc(userId).delete();
@@ -2113,6 +2566,7 @@ const API = {
       avgRating: ratings.length ? Math.round(avg*10)/10 : 0,
       reviewCount: ratings.length
     }).catch(()=>{});
+    Cache.invalidate(`reviews:${studyId}`, 'studies', 'allStudies');
   },
 
   // ── Announcements ──────────────────────────────────────
@@ -2124,6 +2578,7 @@ const API = {
      }
   */
   async getAnnouncements(limitN=20) {
+    return Cache.wrap(`announcements:${limitN}`, 'announcements', async () => {
     try {
       const snap = await db.collection('announcements').orderBy('createdAt','desc').limit(limitN).get();
       const now = new Date();
@@ -2149,6 +2604,7 @@ const API = {
       console.warn('Announcements read failed — check Firestore rules:', e.message);
       return [];
     }
+    }); // end Cache.wrap
   },
   async createAnnouncement({ title, body, priority, authorId, authorName, durationHours }) {
     if(!title.trim()) throw new Error('Title is required.');
@@ -2165,17 +2621,22 @@ const API = {
       durationHours: hours,
       pinned:priority==='urgent'
     });
+    Cache.invalidate('announcements');
   },
   async deleteAnnouncement(id) {
     await db.collection('announcements').doc(id).delete();
+    Cache.invalidate('announcements');
   },
   async pinAnnouncement(id, pinned) {
     await db.collection('announcements').doc(id).update({ pinned });
+    Cache.invalidate('announcements');
   },
 
   async getLastRead(userId) {
-    const snap = await db.collection('users').doc(userId).collection('lastRead').doc('current').get();
-    return snap.exists ? snap.data() : null;
+    return Cache.wrap(`lastRead:${userId}`, 'lastRead', async () => {
+      const snap = await db.collection('users').doc(userId).collection('lastRead').doc('current').get();
+      return snap.exists ? snap.data() : null;
+    });
   },
 
   async trackStudy(id, field, user) {
@@ -2192,6 +2653,7 @@ const API = {
           timestamp: new Date().toISOString()
         });
       }
+      Cache.invalidate('studies:raw', 'allStudies', 'stats');
     } catch(e) { console.error('trackStudy error:', e); }
   },
 
@@ -2211,19 +2673,32 @@ const API = {
   },
 
   async getUsers({ role='student', status='', search='' }={}) {
-    try {
-      const snap = await db.collection('users').where('role','==',role).get();
-      let users = snap.docs.map(d=>({id:d.id,...d.data()}));
-      if (status) users = users.filter(u=>u.status===status);
+    // Only cache unfiltered admin list; filtered views are derived in-memory
+    return Cache.wrap(`users:${role}`, 'users', async () => {
+      try {
+        const snap = await db.collection('users').where('role','==',role).get();
+        return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+      } catch { return []; }
+    }).then(users => {
+      let filtered = users;
+      if (status) filtered = filtered.filter(u=>u.status===status);
       if (search) {
         const q = search.toLowerCase();
-        users = users.filter(u=>u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||(u.institution||'').toLowerCase().includes(q));
+        filtered = filtered.filter(u=>u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||(u.institution||'').toLowerCase().includes(q));
       }
-      return users.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-    } catch { return []; }
+      return filtered;
+    });
   },
 
-  async updateUserStatus(id, status) { await db.collection('users').doc(id).update({ status }); },
+  async updateUserStatus(id, status) {
+    await db.collection('users').doc(id).update({ status });
+    Cache.invalidate('users');
+  },
+
+  async updateUserGrade(id, gradeLevel, section) {
+    await db.collection('users').doc(id).update({ gradeLevel: gradeLevel||'', section: section?.trim()||'' });
+    Cache.invalidate('users');
+  },
 
   async deleteUser(id) {
     const snap = await db.collection('studies').where('uploadedBy','==',id).get();
@@ -2231,37 +2706,49 @@ const API = {
     snap.docs.forEach(d=>batch.delete(d.ref));
     batch.delete(db.collection('users').doc(id));
     await batch.commit();
+    Cache.invalidate('users', 'studies', 'allStudies', 'stats');
   },
 
   async getCategories() {
-    try {
-      const snap = await db.collection('config').doc('categories').get();
-      return snap.exists ? (snap.data().list||DEFAULT_CATS) : [...DEFAULT_CATS];
-    } catch { return [...DEFAULT_CATS]; }
+    return Cache.wrap('categories', 'categories', async () => {
+      try {
+        const snap = await db.collection('config').doc('categories').get();
+        return snap.exists ? (snap.data().list||DEFAULT_CATS) : [...DEFAULT_CATS];
+      } catch { return [...DEFAULT_CATS]; }
+    });
   },
 
-  async setCategories(cats) { await db.collection('config').doc('categories').set({ list: cats }); },
+  async setCategories(cats) {
+    await db.collection('config').doc('categories').set({ list: cats });
+    Cache.invalidate('categories');
+  },
 
   async getRecognizedStudies() {
-    try {
-      const snap = await db.collection('recognized_studies').orderBy('createdAt','desc').get();
-      return snap.docs.map(d=>({id:d.id,...d.data()}));
-    } catch { return []; }
+    return Cache.wrap('recognized', 'recognized', async () => {
+      try {
+        const snap = await db.collection('recognized_studies').orderBy('createdAt','desc').get();
+        return snap.docs.map(d=>({id:d.id,...d.data()}));
+      } catch { return []; }
+    });
   },
 
   async addRecognizedStudy(data) {
     await db.collection('recognized_studies').add({ ...data, createdAt: new Date().toISOString() });
+    Cache.invalidate('recognized');
   },
 
   async updateRecognizedStudy(id, data) {
     await db.collection('recognized_studies').doc(id).update({ ...data, updatedAt: new Date().toISOString() });
+    Cache.invalidate('recognized');
   },
 
   async deleteRecognizedStudy(id) {
     await db.collection('recognized_studies').doc(id).delete();
+    Cache.invalidate('recognized');
   },
 
   async getStats() {
+    return Cache.wrap('stats', 'stats', async () => {
     try {
       const [uSnap, sSnap] = await Promise.all([
         db.collection('users').where('role','==','student').get(),
@@ -2269,6 +2756,8 @@ const API = {
       ]);
       const users   = uSnap.docs.map(d=>d.data());
       const studies = sSnap.docs.map(d=>d.data());
+      const gradeBreakdown={};
+      users.forEach(u=>{ const g=u.gradeLevel||''; gradeBreakdown[g]=(gradeBreakdown[g]||0)+1; });
       return {
         totalStudents:    users.length,
         approvedStudents: users.filter(u=>u.status==='approved').length,
@@ -2277,8 +2766,10 @@ const API = {
         totalViews:       studies.reduce((a,s)=>a+(s.viewCount||0),0),
         totalDownloads:   studies.reduce((a,s)=>a+(s.downloadCount||0),0),
         totalCitations:   studies.reduce((a,s)=>a+(s.citationCount||0),0),
+        gradeBreakdown,
       };
-    } catch { return {totalStudents:0,approvedStudents:0,pendingStudents:0,totalStudies:0,totalViews:0,totalDownloads:0,totalCitations:0}; }
+    } catch { return {totalStudents:0,approvedStudents:0,pendingStudents:0,totalStudies:0,totalViews:0,totalDownloads:0,totalCitations:0,gradeBreakdown:{}}; }
+    }); // end Cache.wrap
   },
 
   async saveSecurityQuestion(uid, secQ, secA) {
@@ -2807,6 +3298,51 @@ What would you like to explore?`, citations:[], source:'local' };
 // ══════════════════════════════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+//  PLAGIARISM ENGINE — TF-IDF cosine similarity
+// ══════════════════════════════════════════════════════════════════
+const STOPWORDS = new Set(['the','a','an','and','or','but','in','on','at','to','for','of','with','by','from','as','is','was','are','were','be','been','being','have','has','had','do','does','did','will','would','could','should','may','might','can','this','that','these','those','it','its','we','our','they','their','i','my','he','she','his','her','us','which','who','what','when','where','how','all','also','into','than','then','so','if','not','no','up','out','about','over','such','through','more','other','very','just','because','between','after','before','during','while','study','research','paper','analysis','using','based','results','data','show','found','effect','used','new','two','one','first','second','three']);
+
+function tokenize(text) {
+  return (text||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>2&&!STOPWORDS.has(w));
+}
+function buildTF(tokens) {
+  const tf={};
+  tokens.forEach(t=>tf[t]=(tf[t]||0)+1);
+  const total=tokens.length||1;
+  Object.keys(tf).forEach(k=>tf[k]/=total);
+  return tf;
+}
+function cosineSimilarity(tfA,tfB) {
+  const keys=new Set([...Object.keys(tfA),...Object.keys(tfB)]);
+  let dot=0,magA=0,magB=0;
+  keys.forEach(k=>{const a=tfA[k]||0,b=tfB[k]||0;dot+=a*b;magA+=a*a;magB+=b*b;});
+  return (magA&&magB)?dot/(Math.sqrt(magA)*Math.sqrt(magB)):0;
+}
+function getSharedTerms(textA,textB) {
+  const wordsA=tokenize(textA),wordsB=new Set(tokenize(textB));
+  const freq={};
+  wordsA.filter(w=>wordsB.has(w)).forEach(w=>freq[w]=(freq[w]||0)+1);
+  return Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([w])=>w);
+}
+function checkPlagiarism(inputText,studies,excludeId=null) {
+  if(!inputText||inputText.trim().length<50) return [];
+  const tokensA=tokenize(inputText);
+  if(tokensA.length<10) return [];
+  const tfA=buildTF(tokensA);
+  return studies.filter(s=>s.id!==excludeId&&s.abstract).map(s=>{
+    const tfB=buildTF(tokenize(s.abstract));
+    const score=cosineSimilarity(tfA,tfB);
+    return {study:s,score,shared:getSharedTerms(inputText,s.abstract)};
+  }).filter(r=>r.score>0.08).sort((a,b)=>b.score-a.score).slice(0,5);
+}
+function plagiarismLevel(score) {
+  if(score>=0.5) return {label:'High Similarity',  color:'var(--red)',  bg:'var(--red-light)',  block:true};
+  if(score>=0.3) return {label:'Moderate Similarity',color:'#f59e0b',  bg:'#fef9c3',           block:false};
+  if(score>=0.15)return {label:'Low Similarity',   color:'var(--teal)',bg:'var(--teal-light)', block:false};
+  return              {label:'Minimal Similarity', color:'var(--green)',bg:'var(--green-light)',block:false};
+}
+
 const fmtDate  = d=>d?new Date(d).toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric'}):'—';
 const fmtBytes = b=>!b?'—':b<1048576?`${(b/1024).toFixed(1)} KB`:`${(b/1048576).toFixed(1)} MB`;
 const readingTime = text => { const w=(text||'').split(/\s+/).filter(Boolean).length; const m=Math.max(1,Math.round(w/200)); return m===1?'1 min read':`${m} min read`; };
@@ -3164,7 +3700,7 @@ function AuthPage({ onLogin }) {
   const [tab,setTab]=useState('login');
   const [rememberMe,setRememberMe]=useState(true);
   const [loading,setLoading]=useState(false);
-  const [form,setForm]=useState({name:'',email:'',password:'',confirm:'',institution:'',department:'',secQ:SEC_QS[0],secA:''});
+  const [form,setForm]=useState({name:'',email:'',password:'',confirm:'',institution:'',gradeLevel:'',section:'',secQ:SEC_QS[0],secA:''});
   const [err,setErr]=useState('');
   const [ok,setOk]=useState('');
   const [showForgot,setShowForgot]=useState(false);
@@ -3191,6 +3727,8 @@ function AuthPage({ onLogin }) {
   const register=async()=>{
     setErr('');
     if(form.password!==form.confirm){setErr('Passwords do not match.');return;}
+    if(!form.gradeLevel){setErr('Please select your grade level.');return;}
+    if(!form.section.trim()){setErr('Please enter your section.');return;}
     setLoading(true);
     try{await API.register(form);setOk('Registration submitted! Wait for teacher approval before logging in.');setTab('login');setForm(f=>({...f,password:'',confirm:''}));}
     catch(e){setErr(e.message);}
@@ -3226,9 +3764,16 @@ function AuthPage({ onLogin }) {
             <button className="auth-forgot" style={{width:'100%',textAlign:'center',background:'none',border:'none',fontSize:'0.82rem',cursor:'pointer',padding:'6px',transition:'color 0.2s'}} onClick={()=>setShowForgot(true)}>Forgot your password?</button>
           </>):(<>
             <div className="fg"><label htmlFor="reg-name">Full Name *</label><input id="reg-name" placeholder="Juan dela Cruz" value={form.name} onChange={e=>sf('name',e.target.value)} autoComplete="name"/></div>
+            <div className="fg"><label htmlFor="reg-inst">School / Institution</label><input id="reg-inst" placeholder="SABNAHIS" value={form.institution} onChange={e=>sf('institution',e.target.value)}/></div>
             <div className="fr">
-              <div className="fg"><label htmlFor="reg-inst">School / Institution</label><input id="reg-inst" placeholder="SABNAHIS" value={form.institution} onChange={e=>sf('institution',e.target.value)}/></div>
-              <div className="fg"><label htmlFor="reg-dept">Department / Grade</label><input id="reg-dept" placeholder="Grade 12 STEM" value={form.department} onChange={e=>sf('department',e.target.value)}/></div>
+              <div className="fg">
+                <label htmlFor="reg-grade">Grade Level *</label>
+                <select id="reg-grade" value={form.gradeLevel} onChange={e=>sf('gradeLevel',e.target.value)}>
+                  <option value="">— Select Grade —</option>
+                  {['8','9','10','11','12'].map(g=><option key={g} value={g}>Grade {g}</option>)}
+                </select>
+              </div>
+              <div className="fg"><label htmlFor="reg-section">Section *</label><input id="reg-section" placeholder="e.g. Rizal, STEM-A" value={form.section} onChange={e=>sf('section',e.target.value)}/></div>
             </div>
             <div className="fg"><label htmlFor="reg-email">Email *</label><input id="reg-email" type="email" placeholder="your@email.com" value={form.email} onChange={e=>sf('email',e.target.value)} autoComplete="email"/></div>
             <div className="fr">
@@ -3249,7 +3794,7 @@ function AuthPage({ onLogin }) {
 // ══════════════════════════════════════════════════════════════════
 //  STUDY DETAIL MODAL
 // ══════════════════════════════════════════════════════════════════
-function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
+function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[], onOpenStudy }) {
   const canDel = currentUser.role==='admin';
   const handleDL = () => { API.trackStudy(study.id,'downloadCount',currentUser); toast.ok('Download tracked!'); };
   const gdriveData = study.gdrive || study.file || null;
@@ -3259,7 +3804,12 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
   const [favLoading, setFavLoading] = useState(true);
   const [favBy, setFavBy] = useState([]);
   const [showFavBy, setShowFavBy] = useState(false);
+  const [absExpanded, setAbsExpanded] = useState(false);
   const isOwner = currentUser.id === study.uploadedBy;
+  const ABS_CLAMP = 60;
+  const absWords = (study.abstract||'').split(/\s+/).filter(Boolean);
+  const absIsLong = absWords.length > ABS_CLAMP;
+  const absPreview = absIsLong ? absWords.slice(0, ABS_CLAMP).join(' ') + '…' : study.abstract;
 
   useEffect(()=>{
     API.isFavorited(currentUser.id, study.id).then(v=>{setFaved(v);setFavLoading(false);});
@@ -3267,18 +3817,44 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
   },[]);
 
   const toggleFav = async () => {
-    setFavLoading(true);
+    // Optimistic update — flip state immediately, revert on failure
+    const prev = faved;
+    setFaved(!prev);
+    setFavLoading(false); // keep button responsive
     try {
-      if(faved){ await API.removeFavorite(currentUser.id, study.id); setFaved(false); toast.ok('Removed from bookmarks.'); }
-      else { await API.addFavorite(currentUser.id, study); setFaved(true); toast.ok('📌 Bookmarked!'); }
-    } catch(e){ toast.err(e.message); }
-    setFavLoading(false);
+      if(prev){ await API.removeFavorite(currentUser.id, study.id); toast.ok('Removed from bookmarks.'); }
+      else { await API.addFavorite(currentUser.id, study); toast.ok('📌 Bookmarked!'); }
+    } catch(e){ setFaved(prev); toast.err(e.message); } // revert on error
   };
   return (
     <Modal title="Study Details" onClose={onClose} wide>
       <div className="sc-cats" style={{marginBottom:12}}>{(study.categories||[]).map(c=><span key={c} className="sc-cat">{c}</span>)}</div>
       <h2 className="sd-title">{study.title}</h2>
-      <p className="sd-auth">By: {(study.authors||[]).join(', ')}</p>
+      <div className="sd-auth" style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:6,marginBottom:10}}>
+        <span style={{fontSize:'var(--text-xs)',color:'var(--muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.5px',flexShrink:0}}>Authors</span>
+        {(study.coAuthors && study.coAuthors.length > 0)
+          ? [
+              <span key="uploader" className="author-tag self" style={{fontSize:'var(--text-xs)'}}>
+                <span className="author-tag-avatar"><span>{(study.uploadedByName||study.authors[0]||'?').charAt(0).toUpperCase()}</span></span>
+                <span style={{overflow:'hidden',textOverflow:'ellipsis',maxWidth:160}}>{study.uploadedByName||study.authors[0]}</span>
+                <span style={{fontSize:'0.6rem',opacity:0.6,fontWeight:400,marginLeft:1}}>(owner)</span>
+              </span>,
+              ...study.coAuthors.map((ca,i)=>(
+                <span key={i} className={`author-tag${ca.registered?' registered':''}`} style={{fontSize:'var(--text-xs)'}}>
+                  <span className="author-tag-avatar"><span>{(ca.name||'?').charAt(0).toUpperCase()}</span></span>
+                  <span style={{overflow:'hidden',textOverflow:'ellipsis',maxWidth:160}}>{ca.name}</span>
+                  {!ca.registered&&<span style={{fontSize:'0.6rem',opacity:0.55,fontWeight:400,marginLeft:1}}>(ext.)</span>}
+                </span>
+              ))
+            ]
+          : (study.authors||[]).map((a,i)=>(
+              <span key={i} className={`author-tag${i===0?' self':''}`} style={{fontSize:'var(--text-xs)'}}>
+                <span className="author-tag-avatar"><span>{(a||'?').charAt(0).toUpperCase()}</span></span>
+                <span style={{overflow:'hidden',textOverflow:'ellipsis',maxWidth:160}}>{a}</span>
+              </span>
+            ))
+        }
+      </div>
       <div style={{display:'flex',gap:18,flexWrap:'wrap',marginBottom:16}}>
         <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.eye/>{study.viewCount||0} views</span>
         <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.dl/>{study.downloadCount||0} downloads</span>
@@ -3290,7 +3866,17 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
           Abstract
           <span style={{fontSize:'0.7rem',fontWeight:400,color:'var(--muted)',fontFamily:'var(--font-body)'}}>📖 {readingTime(study.abstract)}</span>
         </h4>
-        <p>{study.abstract}</p>
+        <p style={{lineHeight:1.7,color:'var(--ink-3)',fontSize:'var(--text-sm)',transition:'all .2s'}}>
+          {absIsLong && !absExpanded ? absPreview : study.abstract}
+        </p>
+        {absIsLong&&(
+          <button className="sc-abs-toggle" style={{marginTop:6}} onClick={()=>setAbsExpanded(v=>!v)} aria-expanded={absExpanded}>
+            {absExpanded
+              ? <><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 15 12 9 6 15"/></svg> Show less</>
+              : <><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg> Read full abstract</>
+            }
+          </button>
+        )}
       </div>
       {(study.keywords||[]).length>0&&(
         <div style={{marginBottom:16}}>
@@ -3322,6 +3908,7 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
           </div>
         </div>
       )}
+      <TeacherFeedbackSection study={study} currentUser={currentUser}/>
       <ReviewsSection study={study} currentUser={currentUser}/>
       {/* Favorited By — only visible to study owner */}
       {isOwner&&favBy.length>0&&(
@@ -3348,11 +3935,67 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete }) {
           className={faved?'btn btn-gold btn-sm':'btn btn-ol btn-sm'}
           onClick={toggleFav}
           disabled={favLoading}
-          title={faved?'Remove bookmark':'Bookmark this study'}>
+          data-tip={faved?'Remove bookmark':'Bookmark this study'}>
           {favLoading?<span className="spin" style={{width:13,height:13}}/>:<>{faved?'📌 Bookmarked':'🔖 Bookmark'}</>}
         </button>
-        {canDel&&<button className="btn btn-red btn-sm" onClick={()=>{onDelete(study.id);onClose();}}><Ico.trash/> Delete Study</button>}
+        {canDel&&<button className="btn btn-red btn-sm" data-tip="Permanently remove this study" onClick={()=>{onDelete(study.id);onClose();}}><Ico.trash/> Delete Study</button>}
       </div>
+      {/* ── Similar Studies ── */}
+      {(()=>{
+        const cats = study.categories || [];
+        const kws  = (study.keywords || []).map(k=>k.toLowerCase());
+        const similar = allStudies
+          .filter(s => s.id !== study.id)
+          .map(s => {
+            const sCats = s.categories || [];
+            const sKws  = (s.keywords || []).map(k=>k.toLowerCase());
+            const catScore = sCats.filter(c=>cats.includes(c)).length * 3;
+            const kwScore  = sKws.filter(k=>kws.includes(k)).length * 2;
+            return { ...s, _score: catScore + kwScore };
+          })
+          .filter(s => s._score > 0)
+          .sort((a,b) => b._score - a._score)
+          .slice(0, 4);
+
+        if (!similar.length) return null;
+        return (
+          <div style={{borderTop:'1px solid var(--border)',paddingTop:16,marginTop:16}}>
+            <div style={{fontSize:'0.72rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.8px',color:'var(--muted)',marginBottom:12}}>
+              📚 Similar Studies
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:9}}>
+              {similar.map(s=>(
+                <div key={s.id}
+                  onClick={()=>onOpenStudy&&onOpenStudy(s)}
+                  style={{display:'flex',gap:12,padding:'11px 14px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--radius)',cursor:'pointer',transition:'border-color .15s,box-shadow .15s'}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--gold)';e.currentTarget.style.boxShadow='0 2px 8px rgba(201,162,39,0.1)';}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.boxShadow='none';}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:5}}>
+                      {(s.categories||[]).filter(c=>cats.includes(c)).map(c=>(
+                        <span key={c} style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.62rem',fontWeight:600,padding:'1px 7px',borderRadius:99,border:'1px solid var(--gold)'}}>{c}</span>
+                      ))}
+                      {(s.categories||[]).filter(c=>!cats.includes(c)).map(c=>(
+                        <span key={c} style={{background:'var(--surface)',color:'var(--muted)',fontSize:'0.62rem',padding:'1px 7px',borderRadius:99,border:'1px solid var(--border)'}}>{c}</span>
+                      ))}
+                    </div>
+                    <div style={{fontWeight:600,fontSize:'0.85rem',lineHeight:1.35,marginBottom:3,color:'var(--ink)'}} title={s.title}>
+                      {s.title.length>90?s.title.slice(0,90)+'…':s.title}
+                    </div>
+                    <div style={{fontSize:'0.72rem',color:'var(--muted)',display:'flex',gap:10,flexWrap:'wrap'}}>
+                      <span>{(s.authors||[]).slice(0,2).join(', ')}{s.authors?.length>2?' et al.':''}</span>
+                      <span>{s.year}</span>
+                      <span><Ico.eye/>{s.viewCount||0}</span>
+                      {s.teacherGrade&&<span style={{color:'var(--teal)',fontWeight:600}}>✓ {s.teacherGrade}</span>}
+                    </div>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',color:'var(--muted)',fontSize:'0.8rem',flexShrink:0}}>›</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </Modal>
   );
 }
@@ -3375,6 +4018,270 @@ function SchoolLogoZone({ context }) {
     <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:10,marginBottom:16}}>
       {SCHOOL_LOGO_URL  && <img src={SCHOOL_LOGO_URL}  alt="School logo"  style={{width:72,height:72,borderRadius:12,objectFit:'contain'}}/>}
       {SCHOOL_LOGO_URL2 && <img src={SCHOOL_LOGO_URL2} alt="School logo 2" style={{width:72,height:72,borderRadius:12,objectFit:'contain'}}/>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  TEACHER FEEDBACK SECTION
+// ══════════════════════════════════════════════════════════════════
+const GRADE_LABELS = {
+  'A+': { label:'A+', desc:'Outstanding',  color:'#065f46' },
+  'A':  { label:'A',  desc:'Excellent',    color:'#065f46' },
+  'A-': { label:'A-', desc:'Very Good',    color:'#065f46' },
+  'B+': { label:'B+', desc:'Good',         color:'#1e40af' },
+  'B':  { label:'B',  desc:'Above Average',color:'#1e40af' },
+  'B-': { label:'B-', desc:'Average',      color:'#1e40af' },
+  'C+': { label:'C+', desc:'Below Average',color:'#92400e' },
+  'C':  { label:'C',  desc:'Satisfactory', color:'#92400e' },
+  'D':  { label:'D',  desc:'Needs Work',   color:'#9a3412' },
+  'F':  { label:'F',  desc:'Failing',      color:'#991b1b' },
+};
+
+const CRITERIA_LABELS = {
+  methodology:   { label:'Methodology',     max:25 },
+  relevance:     { label:'Relevance',       max:25 },
+  presentation:  { label:'Presentation',    max:25 },
+  originality:   { label:'Originality',     max:25 },
+};
+
+function ScoreInput({ label, max, value, onChange, readOnly }) {
+  return (
+    <div className="tf-criterion">
+      <div className="tf-criterion-label">{label} <span style={{color:'var(--muted)',fontWeight:400}}>/{max}</span></div>
+      {readOnly
+        ? <div className="tf-criterion-score">{value ?? '—'}</div>
+        : <input type="number" min="0" max={max} value={value||''} onChange={e=>onChange(Math.min(max,Math.max(0,Number(e.target.value))))}
+            style={{width:'100%',padding:'4px 8px',fontSize:'1rem',fontWeight:700,color:'var(--teal)',border:'1px solid var(--border)',borderRadius:6,background:'var(--bg)'}}/>
+      }
+    </div>
+  );
+}
+
+function TeacherFeedbackSection({ study, currentUser }) {
+  const isTeacher = currentUser.role === 'admin';
+  const isOwner   = currentUser.id === study.uploadedBy;
+  const [feedback, setFeedback] = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [grade, setGrade]       = useState('');
+  const [criteria, setCriteria] = useState({ methodology:0, relevance:0, presentation:0, originality:0 });
+  const [comments, setComments]     = useState('');
+  const [recommendations, setRecommendations] = useState('');
+
+  const totalScore = Object.values(criteria).reduce((a,b)=>a+(b||0),0);
+  const gradeLetterClass = grade ? `tf-grade-${grade.charAt(0)}` : '';
+
+  const load = async () => {
+    setLoading(true);
+    const fb = await API.getTeacherFeedback(study.id);
+    setFeedback(fb);
+    if(fb){ setGrade(fb.grade); setCriteria(fb.criteria||{}); setComments(fb.comments||''); setRecommendations(fb.recommendations||''); }
+    setLoading(false);
+  };
+  useEffect(()=>{ load(); },[]);
+
+  const submit = async () => {
+    setSubmitting(true);
+    try {
+      await API.submitTeacherFeedback(study.id, { teacherId:currentUser.id, teacherName:currentUser.name, grade, criteria, comments, recommendations });
+      toast.ok('Feedback submitted!');
+      setShowForm(false);
+      load();
+    } catch(e) { toast.err(e.message); }
+    setSubmitting(false);
+  };
+
+  const del = async () => {
+    if(!confirm('Remove this feedback?')) return;
+    await API.deleteTeacherFeedback(study.id, currentUser.id);
+    setFeedback(null); setGrade(''); setCriteria({methodology:0,relevance:0,presentation:0,originality:0}); setComments(''); setRecommendations('');
+    toast.ok('Feedback removed.');
+  };
+
+  const setCrit = (k,v) => setCriteria(c=>({...c,[k]:v}));
+
+  if(loading) return null;
+
+  // Students & owner: show feedback if exists
+  if (!isTeacher) {
+    if (!feedback) return (
+      <div style={{padding:'12px 0',borderTop:'1px solid var(--border)',marginTop:16}}>
+        <div style={{fontSize:'0.72rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.8px',color:'var(--muted)',marginBottom:6}}>Teacher Feedback</div>
+        <p style={{fontSize:'var(--text-sm)',color:'var(--muted)',fontStyle:'italic'}}>No teacher feedback yet.</p>
+      </div>
+    );
+    const gl = GRADE_LABELS[feedback.grade]||{};
+    return (
+      <div className="tf-card" style={{marginTop:16}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:12}}>
+          <div style={{fontSize:'0.72rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.8px',color:'var(--teal)'}}>📝 Teacher Feedback</div>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <span className={`tf-grade-badge tf-grade-${feedback.grade.charAt(0)}`}>{feedback.grade} — {gl.desc}</span>
+            <span style={{fontSize:'0.7rem',color:'var(--muted)'}}>{fmtDate(feedback.gradedAt)}</span>
+          </div>
+        </div>
+        <div className="tf-criteria">
+          {Object.entries(CRITERIA_LABELS).map(([k,{label,max}])=>(
+            <ScoreInput key={k} label={label} max={max} value={feedback.criteria?.[k]} readOnly/>
+          ))}
+        </div>
+        <div style={{background:'var(--bg)',borderRadius:6,padding:'2px 0',marginBottom:8}}>
+          <div style={{fontSize:'0.68rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.5px',color:'var(--muted)',marginBottom:4}}>Overall Score</div>
+          <div style={{fontSize:'1.4rem',fontWeight:700,color:'var(--teal)'}}>{feedback.totalScore}<span style={{fontSize:'0.8rem',color:'var(--muted)',fontWeight:400}}>/100</span></div>
+        </div>
+        <div style={{marginBottom:feedback.recommendations?10:0}}>
+          <div style={{fontSize:'0.68rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.5px',color:'var(--muted)',marginBottom:5}}>Comments</div>
+          <p style={{fontSize:'var(--text-sm)',color:'var(--ink)',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{feedback.comments}</p>
+        </div>
+        {feedback.recommendations&&(
+          <div style={{borderTop:'1px solid var(--border)',paddingTop:10,marginTop:4}}>
+            <div style={{fontSize:'0.68rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.5px',color:'var(--muted)',marginBottom:5}}>Recommendations</div>
+            <p style={{fontSize:'var(--text-sm)',color:'var(--ink)',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{feedback.recommendations}</p>
+          </div>
+        )}
+        <div style={{marginTop:10,fontSize:'0.72rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:5}}>
+          <div style={{width:20,height:20,borderRadius:'50%',background:'var(--teal)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.6rem',fontWeight:700,flexShrink:0}}>{feedback.teacherName?.charAt(0).toUpperCase()}</div>
+          {feedback.teacherName} · Teacher
+        </div>
+      </div>
+    );
+  }
+
+  // Plagiarism check for existing study (teacher only)
+  const [plagTeacher,setPlagTeacher]=useState(null);
+  const [plagTeacherLoading,setPlagTeacherLoading]=useState(false);
+  const runPlagCheck=async()=>{
+    setPlagTeacherLoading(true);
+    const allSnap=await API.getStudies({status:'active',perPage:200});
+    const results=checkPlagiarism(study.abstract,allSnap.data||[],study.id);
+    setPlagTeacher(results);
+    setPlagTeacherLoading(false);
+  };
+
+  // Teacher view
+  return (
+    <div style={{marginTop:16,borderTop:'1px solid var(--border)',paddingTop:14}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
+        <div style={{fontSize:'0.72rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.8px',color:'var(--teal)'}}>📝 Teacher Feedback</div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {!showForm&&(
+          <button className="btn btn-teal btn-sm" onClick={()=>setShowForm(true)}>
+            {feedback?'✏️ Edit Feedback':'+ Give Feedback'}
+          </button>
+          )}
+          <button className="btn btn-ol btn-sm" onClick={runPlagCheck} disabled={plagTeacherLoading}>
+            {plagTeacherLoading?<><span className="spin" style={{width:12,height:12}}/> Checking…</>:'🔍 Check Plagiarism'}
+          </button>
+        </div>
+        {plagTeacher!==null&&(
+          <div style={{marginTop:10,borderRadius:'var(--radius)',overflow:'hidden',border:`1.5px solid ${plagTeacher.length&&plagTeacher[0].score>=0.5?'var(--red)':plagTeacher.length&&plagTeacher[0].score>=0.3?'#f59e0b':'var(--green)'}`,marginBottom:10}}>
+            <div style={{padding:'8px 12px',background:plagTeacher.length&&plagTeacher[0].score>=0.5?'var(--red-light)':plagTeacher.length&&plagTeacher[0].score>=0.3?'#fef9c3':'var(--green-light)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <span style={{fontWeight:700,fontSize:'0.78rem',color:plagTeacher.length&&plagTeacher[0].score>=0.5?'var(--red)':plagTeacher.length&&plagTeacher[0].score>=0.3?'#92400e':'var(--green)'}}>
+                {plagTeacher.length===0?'✅ No significant similarity found':`${plagTeacher.length} similar ${plagTeacher.length===1?'study':'studies'} found`}
+              </span>
+              <button onClick={()=>setPlagTeacher(null)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',fontSize:'0.8rem'}}>✕</button>
+            </div>
+            {plagTeacher.length>0&&(
+              <div style={{background:'var(--surface)',padding:'10px 12px',display:'flex',flexDirection:'column',gap:7}}>
+                {plagTeacher.map((r,i)=>{
+                  const l=plagiarismLevel(r.score);
+                  return(
+                    <div key={i} style={{display:'flex',alignItems:'flex-start',gap:8}}>
+                      <div style={{minWidth:42,height:20,borderRadius:99,background:l.bg,border:`1px solid ${l.color}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:700,color:l.color,flexShrink:0}}>
+                        {Math.round(r.score*100)}%
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:'0.78rem',fontWeight:600,color:'var(--ink)'}}>{r.study.title.length>60?r.study.title.slice(0,60)+'…':r.study.title}</div>
+                        <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>{(r.study.authors||[]).slice(0,2).join(', ')} · {r.study.year}</div>
+                        {r.shared.length>0&&<div style={{marginTop:3,display:'flex',gap:3,flexWrap:'wrap'}}>{r.shared.map(w=><span key={w} style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.62rem',padding:'1px 6px',borderRadius:99,border:'1px solid var(--gold)'}}>{w}</span>)}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Existing feedback display for teacher */}
+      {feedback&&!showForm&&(
+        <div className="tf-card" style={{marginBottom:10}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
+            <span className={`tf-grade-badge tf-grade-${feedback.grade.charAt(0)}`}>{feedback.grade} — {(GRADE_LABELS[feedback.grade]||{}).desc}</span>
+            <span style={{fontSize:'0.7rem',color:'var(--muted)',marginLeft:'auto'}}>{fmtDate(feedback.gradedAt)}</span>
+            <button className="btn btn-red btn-sm" onClick={del}>Delete</button>
+          </div>
+          <div className="tf-criteria">
+            {Object.entries(CRITERIA_LABELS).map(([k,{label,max}])=>(
+              <ScoreInput key={k} label={label} max={max} value={feedback.criteria?.[k]} readOnly/>
+            ))}
+          </div>
+          <div style={{fontSize:'0.82rem',color:'var(--muted)',marginTop:6}}>Total: <strong style={{color:'var(--teal)'}}>{feedback.totalScore}/100</strong></div>
+        </div>
+      )}
+
+      {/* Feedback form */}
+      {showForm&&(
+        <div className="tf-card">
+          <div style={{fontWeight:600,fontSize:'var(--text-sm)',marginBottom:14,color:'var(--teal)'}}>
+            {feedback?'Edit Feedback':'Grade this Study'}
+          </div>
+
+          {/* Grade selector */}
+          <div className="fg" style={{marginBottom:12}}>
+            <label>Grade *</label>
+            <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+              {Object.keys(GRADE_LABELS).map(g=>(
+                <button key={g} onClick={()=>setGrade(g)}
+                  style={{padding:'5px 12px',borderRadius:6,border:`1.5px solid ${grade===g?GRADE_LABELS[g].color:'var(--border)'}`,
+                    background:grade===g?GRADE_LABELS[g].color:'none',
+                    color:grade===g?'#fff':GRADE_LABELS[g].color,
+                    cursor:'pointer',fontSize:'0.78rem',fontWeight:600,transition:'all .15s'}}>
+                  {g}
+                </button>
+              ))}
+            </div>
+            {grade&&<div style={{marginTop:6,fontSize:'0.78rem',color:'var(--muted)'}}>
+              <span className={`tf-grade-badge tf-grade-${grade.charAt(0)}`}>{grade} — {GRADE_LABELS[grade].desc}</span>
+            </div>}
+          </div>
+
+          {/* Criteria scores */}
+          <div className="fg" style={{marginBottom:12}}>
+            <label>Scoring Criteria (each out of their max, total: <strong style={{color:totalScore>=90?'var(--green)':totalScore>=75?'var(--teal)':totalScore>=60?'var(--gold)':'var(--red)'}}>{totalScore}/100</strong>)</label>
+            <div className="tf-criteria">
+              {Object.entries(CRITERIA_LABELS).map(([k,{label,max}])=>(
+                <ScoreInput key={k} label={label} max={max} value={criteria[k]||0} onChange={v=>setCrit(k,v)}/>
+              ))}
+            </div>
+          </div>
+
+          {/* Comments */}
+          <div className="fg">
+            <label style={{display:'flex',justifyContent:'space-between'}}>
+              <span>Overall Feedback *</span>
+              <span style={{fontWeight:300,color:'var(--muted)',fontSize:'0.75rem'}}>{comments.length} chars</span>
+            </label>
+            <textarea placeholder="Write detailed feedback about the study's strengths and weaknesses…" value={comments} onChange={e=>setComments(e.target.value)} style={{minHeight:90}}/>
+          </div>
+
+          {/* Recommendations */}
+          <div className="fg">
+            <label>Recommendations <span style={{fontWeight:300,color:'var(--muted)'}}>(optional)</span></label>
+            <textarea placeholder="What should the student improve or explore further?" value={recommendations} onChange={e=>setRecommendations(e.target.value)} style={{minHeight:60}}/>
+          </div>
+
+          <div style={{display:'flex',gap:9,justifyContent:'flex-end',flexWrap:'wrap'}}>
+            <button className="btn btn-ol" onClick={()=>setShowForm(false)}>Cancel</button>
+            <button className="btn btn-teal" onClick={submit} disabled={submitting||!grade||!comments.trim()}>
+              {submitting?<><span className="spin spin-dark"/>Saving…</>:'Submit Feedback'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3429,21 +4336,45 @@ function ReviewsSection({ study, currentUser }) {
 
   const submit = async () => {
     setSubmitting(true);
+    // Optimistic update — show review immediately before Firestore confirms
+    const prevReview = myReview;
+    const prevReviews = reviews;
+    const wasReview = !!myReview;
+    const optimisticReview = {
+      id: currentUser.id, userId: currentUser.id,
+      userName: currentUser.name, userInstitution: currentUser.institution||'',
+      rating, comment: comment.trim(), createdAt: new Date().toISOString(), _optimistic: true
+    };
+    setMyReview(optimisticReview);
+    setShowForm(false);
+    if(!wasReview) setReviews(r=>[optimisticReview, ...r.filter(x=>x.userId!==currentUser.id)]);
     try {
       await API.submitReview(study.id, currentUser.id, currentUser.name, currentUser.institution||'', rating, comment);
-      toast.ok(myReview ? 'Review updated!' : 'Review submitted!');
-      setShowForm(false);
-      load();
-    } catch(e) { toast.err(e.message); }
+      toast.ok(wasReview ? 'Review updated!' : 'Review submitted!');
+      load(); // sync to strip _optimistic flag
+    } catch(e) {
+      // Revert on failure
+      setMyReview(prevReview); setReviews(prevReviews); setShowForm(true);
+      toast.err(e.message);
+    }
     setSubmitting(false);
   };
 
   const del = async () => {
     if(!confirm('Delete your review?')) return;
-    await API.deleteReview(study.id, currentUser.id);
+    // Optimistic removal
+    const prevReview = myReview;
+    const prevReviews = reviews;
     setMyReview(null); setRating(0); setComment('');
-    toast.ok('Review deleted.');
-    load();
+    setReviews(r=>r.filter(x=>x.userId!==currentUser.id));
+    try {
+      await API.deleteReview(study.id, currentUser.id);
+      toast.ok('Review deleted.');
+      load();
+    } catch(e) {
+      setMyReview(prevReview); setReviews(prevReviews);
+      toast.err('Failed to delete review.');
+    }
   };
 
   const avgRating = study.avgRating || 0;
@@ -3501,7 +4432,7 @@ function ReviewsSection({ study, currentUser }) {
       ):(
         <>
           {myReview&&!showForm&&(
-            <div className="review-item review-own" style={{marginBottom:8}}>
+            <div className="review-item review-own" style={{marginBottom:8,opacity:myReview._optimistic?0.7:1,transition:'opacity 0.3s'}}>
               <div className="review-header">
                 <div className="review-avatar">{currentUser.name.charAt(0).toUpperCase()}</div>
                 <span className="review-name">{myReview.userName} <span style={{fontSize:'0.68rem',fontWeight:400,color:'var(--gold)'}}>· Your review</span></span>
@@ -3547,17 +4478,201 @@ function ReviewsSection({ study, currentUser }) {
 // ══════════════════════════════════════════════════════════════════
 //  UPLOAD MODAL
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+//  AUTHOR TAG INPUT — co-author tagging with user search
+// ══════════════════════════════════════════════════════════════════
+function AuthorTagInput({ tags, onChange, currentUser }) {
+  const [query, setQuery]         = useState('');
+  const [results, setResults]     = useState([]);
+  const [loading, setLoading]     = useState(false);
+  const [showDrop, setShowDrop]   = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const inputRef  = useRef(null);
+  const wrapRef   = useRef(null);
+  const searchRef = useRef(null);
+
+  // Fetch matching approved students whenever query changes
+  useEffect(()=>{
+    if (!query.trim()) { setResults([]); setShowDrop(false); return; }
+    setLoading(true);
+    clearTimeout(searchRef.current);
+    searchRef.current = setTimeout(async()=>{
+      try {
+        const all = await API.getUsers({ role:'student', status:'approved' });
+        const q   = query.toLowerCase();
+        const filtered = all
+          .filter(u => u.id !== currentUser.id)                        // exclude self (already first tag)
+          .filter(u => !tags.some(t => t.userId === u.id))             // exclude already-added
+          .filter(u => u.name.toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
+        setResults(filtered.slice(0, 8));
+        setShowDrop(true);
+      } catch { setResults([]); }
+      setLoading(false);
+    }, 280);
+  }, [query]);
+
+  // Close dropdown on outside click
+  useEffect(()=>{
+    const handler = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowDrop(false); };
+    document.addEventListener('mousedown', handler);
+    return ()=>document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const addRegistered = user => {
+    onChange([...tags, { name: user.name, userId: user.id, institution: user.institution||'', registered: true }]);
+    setQuery(''); setResults([]); setShowDrop(false); setActiveIdx(-1);
+    inputRef.current?.focus();
+  };
+
+  const addFreeText = () => {
+    const name = query.trim();
+    if (!name) return;
+    if (tags.some(t => t.name.toLowerCase() === name.toLowerCase())) { setQuery(''); return; }
+    onChange([...tags, { name, userId: null, registered: false }]);
+    setQuery(''); setResults([]); setShowDrop(false); setActiveIdx(-1);
+    inputRef.current?.focus();
+  };
+
+  const removeTag = idx => {
+    if (idx === 0) return; // can't remove uploader (self)
+    onChange(tags.filter((_,i)=>i!==idx));
+    inputRef.current?.focus();
+  };
+
+  const onKeyDown = e => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      if (activeIdx >= 0 && results[activeIdx]) addRegistered(results[activeIdx]);
+      else addFreeText();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault(); setActiveIdx(i=>Math.min(i+1, results.length-1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault(); setActiveIdx(i=>Math.max(i-1, -1));
+    } else if (e.key === 'Escape') {
+      setShowDrop(false); setActiveIdx(-1);
+    } else if (e.key === 'Backspace' && !query && tags.length > 1) {
+      removeTag(tags.length - 1);
+    }
+  };
+
+  return (
+    <div ref={wrapRef} style={{position:'relative'}}>
+      <div className="author-field" onClick={()=>inputRef.current?.focus()}>
+        {tags.map((tag, i)=>(
+          <span key={i} className={`author-tag${i===0?' self':tag.registered?' registered':''}`}>
+            <span className="author-tag-avatar">
+              <span>{tag.name.charAt(0).toUpperCase()}</span>
+            </span>
+            <span style={{overflow:'hidden',textOverflow:'ellipsis',maxWidth:160}}>{tag.name}</span>
+            {i===0
+              ? <span style={{fontSize:'0.6rem',opacity:0.6,fontWeight:400,marginLeft:1}}>(you)</span>
+              : <button className="author-tag-remove" onClick={e=>{e.stopPropagation();removeTag(i);}} aria-label={`Remove ${tag.name}`}>✕</button>
+            }
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          className="author-tag-input"
+          placeholder={tags.length<2?"Add co-author name or search…":"+ Add another…"}
+          value={query}
+          onChange={e=>{setQuery(e.target.value);setActiveIdx(-1);}}
+          onKeyDown={onKeyDown}
+          onFocus={()=>query&&setShowDrop(true)}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {loading&&<span className="spin" style={{width:12,height:12,flexShrink:0}}/>}
+      </div>
+
+      {/* Dropdown */}
+      {showDrop&&(results.length>0||query.trim())&&(
+        <div className="author-dropdown">
+          {results.map((u,i)=>(
+            <div key={u.id}
+              className={`author-dropdown-item${i===activeIdx?' active':''}`}
+              onMouseDown={e=>{e.preventDefault();addRegistered(u);}}>
+              <div className="author-dropdown-avatar">{u.name.charAt(0).toUpperCase()}</div>
+              <div className="author-dropdown-info">
+                <div className="author-dropdown-name">{u.name}</div>
+                {(u.institution||u.department)&&<div className="author-dropdown-sub">{[u.institution,u.department].filter(Boolean).join(' · ')}</div>}
+              </div>
+              <span className="author-dropdown-badge">Registered</span>
+            </div>
+          ))}
+          {query.trim()&&(
+            <div className="author-dropdown-item" style={{borderTop:results.length?'1px solid var(--border)':'none'}}
+              onMouseDown={e=>{e.preventDefault();addFreeText();}}>
+              <div className="author-dropdown-avatar" style={{background:'var(--slate)'}}>+</div>
+              <div className="author-dropdown-info">
+                <div className="author-dropdown-name">Add "<strong>{query.trim()}</strong>"</div>
+                <div className="author-dropdown-sub">as guest / external author</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <p style={{fontSize:'var(--text-xs)',color:'var(--muted)',marginTop:5}}>
+        Search registered students, or type a name and press <kbd style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:3,padding:'0 4px',fontFamily:'var(--font-mono)',fontSize:'0.65rem'}}>Enter</kbd> to add external authors.
+      </p>
+    </div>
+  );
+}
+
+// ── Draft helpers ────────────────────────────────────────────────
+const DRAFT_KEY = uid => `sabnahis_upload_draft_${uid}`;
+const loadDraft = uid => { try { const d=localStorage.getItem(DRAFT_KEY(uid)); return d?JSON.parse(d):null; } catch{ return null; } };
+const saveDraft = (uid,data) => { try { localStorage.setItem(DRAFT_KEY(uid),JSON.stringify({...data,_savedAt:Date.now()})); } catch{} };
+const clearDraft = uid => { try { localStorage.removeItem(DRAFT_KEY(uid)); } catch{} };
+
 function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
-  const [form,setForm]=useState({title:'',authors:'',abstract:'',keywords:'',year:String(new Date().getFullYear())});
-  const [selCats,setSelCats]=useState([]);
-  const [gdriveUrl,setGdriveUrl]=useState('');
-  const [gdriveInfo,setGdriveInfo]=useState(null);
+  const draftKey = currentUser?.id;
+  const existingDraft = loadDraft(draftKey);
+
+  const selfTag = { name: currentUser.name, userId: currentUser.id, registered: true, self: true };
+
+  const [form,setForm]=useState(existingDraft?.form||{title:'',abstract:'',keywords:'',year:String(new Date().getFullYear())});
+  const [authorTags,setAuthorTags]=useState(existingDraft?.authorTags||[selfTag]);
+  const [selCats,setSelCats]=useState(existingDraft?.selCats||[]);
+  const [gdriveUrl,setGdriveUrl]=useState(existingDraft?.gdriveUrl||'');
+  const [gdriveInfo,setGdriveInfo]=useState(existingDraft?.gdriveInfo||null);
   const [loading,setLoading]=useState(false);
-  const [titleDupe,setTitleDupe]=useState(null); // null=unchecked, false=ok, string=dupe title
+  const [titleDupe,setTitleDupe]=useState(null);
   const [titleChecking,setTitleChecking]=useState(false);
+  const [plagResults,setPlagResults]=useState([]);
+  const [plagChecking,setPlagChecking]=useState(false);
+  const [allStudiesCache,setAllStudiesCache]=useState([]);
+  const [draftStatus,setDraftStatus]=useState(existingDraft?'saved':null);
+  const [hasDraftRestored,setHasDraftRestored]=useState(!!existingDraft);
   const titleCheckTimeout=useRef(null);
+  const plagCheckTimeout=useRef(null);
+  const draftTimeout=useRef(null);
+
+  // Load all studies once for plagiarism checking
+  useEffect(()=>{
+    API.getStudies({status:'active',perPage:200}).then(r=>setAllStudiesCache(r.data||[])).catch(()=>{});
+  },[]);
+
+  // Auto-save draft whenever form content changes
+  const triggerDraftSave = (newForm, newTags, newCats, newGdriveUrl, newGdriveInfo) => {
+    setDraftStatus('saving');
+    clearTimeout(draftTimeout.current);
+    draftTimeout.current = setTimeout(()=>{
+      const hasContent = (newForm.title||'').trim() || (newForm.abstract||'').trim();
+      if(hasContent){
+        saveDraft(draftKey, { form:newForm, authorTags:newTags, selCats:newCats, gdriveUrl:newGdriveUrl, gdriveInfo:newGdriveInfo });
+        setDraftStatus('saved');
+      } else {
+        clearDraft(draftKey);
+        setDraftStatus(null);
+      }
+    }, 800);
+  };
+
   const sf=(k,v)=>{
-    setForm(f=>({...f,[k]:v}));
+    const newForm = {...form,[k]:v};
+    setForm(newForm);
+    triggerDraftSave(newForm, authorTags, selCats, gdriveUrl, gdriveInfo);
     if(k==='title'){
       setTitleDupe(null);
       clearTimeout(titleCheckTimeout.current);
@@ -3573,40 +4688,115 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
         },600);
       }else{setTitleChecking(false);}
     }
+    if(k==='abstract'){
+      setPlagResults([]);
+      clearTimeout(plagCheckTimeout.current);
+      if(v.trim().length>80){
+        setPlagChecking(true);
+        plagCheckTimeout.current=setTimeout(()=>{
+          const results=checkPlagiarism(v,allStudiesCache);
+          setPlagResults(results);
+          setPlagChecking(false);
+        },800);
+      }else{setPlagChecking(false);}
+    }
+  };
+
+  const handleAuthorTagsChange = (newTags) => {
+    setAuthorTags(newTags);
+    triggerDraftSave(form, newTags, selCats, gdriveUrl, gdriveInfo);
+  };
+
+  const handleCatsChange = (newCats) => {
+    setSelCats(newCats);
+    triggerDraftSave(form, authorTags, newCats, gdriveUrl, gdriveInfo);
   };
 
   const handleGdriveInput=val=>{
     setGdriveUrl(val);
     const parsed=parseGDriveLink(val.trim());
     setGdriveInfo(parsed);
+    triggerDraftSave(form, authorTags, selCats, val, parsed);
+  };
+
+  const discardDraft = () => {
+    clearDraft(draftKey);
+    setForm({title:'',abstract:'',keywords:'',year:String(new Date().getFullYear())});
+    setAuthorTags([selfTag]);
+    setSelCats([]);
+    setGdriveUrl('');
+    setGdriveInfo(null);
+    setDraftStatus(null);
+    setHasDraftRestored(false);
+    setPlagResults([]);
+    setTitleDupe(null);
+    toast.info('Draft discarded.');
   };
 
   const confirmClose=()=>{
-    const hasContent=form.title.trim()||form.authors.trim()||form.abstract.trim();
-    if(hasContent&&!window.confirm('Discard this study? Your changes will be lost.')){return;}
+    const hasContent=form.title.trim()||form.abstract.trim();
+    if(hasContent){
+      toast.info('✏️ Draft saved. You can resume anytime.');
+      onClose();
+      return;
+    }
     onClose();
   };
 
   const submit=async()=>{
     if(!form.title.trim()){toast.err('Title is required.');return;}
-    if(!form.authors.trim()){toast.err('At least one author is required.');return;}
+    if(!authorTags.length){toast.err('At least one author is required.');return;}
     if(!form.abstract.trim()){toast.err('Abstract is required.');return;}
     if(!selCats.length){toast.err('Select at least one category.');return;}
+    const topPlag=plagResults[0];
+    if(topPlag&&topPlag.score>=0.5){
+      toast.err('Abstract has high similarity ('+Math.round(topPlag.score*100)+'%) with an existing study. Please rewrite it.');
+      return;
+    }
     setLoading(true);
     try{
-      const authors=form.authors.split(',').map(a=>a.trim()).filter(Boolean);
+      const authors=authorTags.map(t=>t.name);
+      const coAuthors=authorTags.slice(1).map(t=>({name:t.name,userId:t.userId||null,registered:!!t.registered}));
       const keywords=form.keywords.split(',').map(k=>k.trim()).filter(Boolean);
       const gdrive=gdriveInfo?{driveUrl:gdriveInfo.viewUrl,downloadUrl:gdriveInfo.downloadUrl,driveId:gdriveInfo.id}:null;
-      await API.createStudy({title:form.title,authors,abstract:form.abstract,keywords,categories:selCats,year:form.year,gdrive,uploadedBy:currentUser.id,uploadedByName:currentUser.name});
+      await API.createStudy({title:form.title,authors,coAuthors,abstract:form.abstract,keywords,categories:selCats,year:form.year,gdrive,uploadedBy:currentUser.id,uploadedByName:currentUser.name});
+      clearDraft(draftKey);
       toast.ok('Study uploaded successfully!');onUpload();onClose();
     }catch(e){toast.err(e.message);}
     setLoading(false);
   };
 
+  const draftAge = existingDraft?._savedAt ? (() => {
+    const mins = Math.round((Date.now() - existingDraft._savedAt) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    const hrs = Math.floor(mins/60);
+    return hrs === 1 ? '1 hour ago' : `${hrs} hours ago`;
+  })() : '';
+
   return (
     <Modal title="Upload Research Study" onClose={confirmClose} wide>
+
+      {/* Draft restored banner */}
+      {hasDraftRestored&&(
+        <div className="draft-banner">
+          <span className="draft-banner-icon">📝</span>
+          <div className="draft-banner-text">
+            <strong>Draft restored</strong>
+            <span>Last saved {draftAge} · Your progress has been recovered.</span>
+          </div>
+          <button className="btn btn-ol btn-sm" style={{flexShrink:0,fontSize:'0.72rem'}} onClick={discardDraft}>
+            ✕ Discard
+          </button>
+        </div>
+      )}
+
       <div className="fg">
-        <label>Title *</label>
+        <label style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+          <span>Title *</span>
+          {draftStatus==='saving'&&<span className="draft-status saving"><span className="spin" style={{width:9,height:9,borderWidth:1.5}}/>Saving…</span>}
+          {draftStatus==='saved'&&!hasDraftRestored&&<span className="draft-status saved">✓ Draft saved</span>}
+        </label>
         <input placeholder="Full title of your research study" value={form.title} onChange={e=>sf('title',e.target.value)} autoCapitalize="words" spellCheck style={titleDupe?{borderColor:'var(--red)'}:{}}/>
         {titleChecking&&<span style={{fontSize:'0.73rem',color:'var(--muted)',marginTop:4,display:'block'}}>⏳ Checking for duplicates…</span>}
         {titleDupe&&<div className="al al-err" style={{marginTop:6,padding:'8px 12px',fontSize:'0.78rem'}}>
@@ -3615,7 +4805,15 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
         </div>}
         {titleDupe===false&&form.title.trim().length>4&&<span style={{fontSize:'0.73rem',color:'var(--green)',marginTop:4,display:'block'}}>✓ Title is available</span>}
       </div>
-      <div className="fg"><label>Author(s) * <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></label><input placeholder="Juan dela Cruz, Maria Santos" value={form.authors} onChange={e=>sf('authors',e.target.value)}/></div>
+      <div className="fg">
+        <label style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+          <span>Authors *</span>
+          <span style={{fontSize:'var(--text-xs)',color:'var(--muted)',fontWeight:400}}>
+            {authorTags.length} author{authorTags.length!==1?'s':''}
+          </span>
+        </label>
+        <AuthorTagInput tags={authorTags} onChange={handleAuthorTagsChange} currentUser={currentUser}/>
+      </div>
       <div className="fg">
         <label style={{display:'flex',justifyContent:'space-between'}}>
           <span>Abstract / Description *</span>
@@ -3624,8 +4822,79 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
           </span>
         </label>
         <textarea placeholder="Concise summary of your research…" value={form.abstract} onChange={e=>sf('abstract',e.target.value)} style={{minHeight:110}}/>
+
+        {/* Plagiarism results */}
+        {plagChecking&&(
+          <div style={{display:'flex',alignItems:'center',gap:7,marginTop:8,fontSize:'0.75rem',color:'var(--muted)'}}>
+            <span className="spin" style={{width:12,height:12,flexShrink:0}}/> Checking similarity…
+          </div>
+        )}
+        {!plagChecking&&plagResults.length===0&&form.abstract.trim().length>80&&(
+          <div style={{marginTop:8,display:'flex',alignItems:'center',gap:6,fontSize:'0.75rem',color:'var(--green)'}}>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            No significant similarity detected
+          </div>
+        )}
+        {!plagChecking&&plagResults.length>0&&(()=>{
+          const top=plagResults[0];
+          const lvl=plagiarismLevel(top.score);
+          return(
+            <div style={{marginTop:10,borderRadius:'var(--radius)',overflow:'hidden',border:`1.5px solid ${lvl.color}`}}>
+              {/* Header */}
+              <div style={{background:lvl.bg,padding:'8px 12px',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                <span style={{fontWeight:700,fontSize:'0.78rem',color:lvl.color}}>
+                  {top.score>=0.5?'🚨':top.score>=0.3?'⚠️':'ℹ️'} Similarity Check — {lvl.label}
+                </span>
+                <span style={{marginLeft:'auto',fontSize:'0.7rem',color:lvl.color,fontWeight:600}}>
+                  Highest: {Math.round(top.score*100)}%
+                </span>
+              </div>
+              {/* Matches */}
+              <div style={{background:'var(--surface)',padding:'10px 12px',display:'flex',flexDirection:'column',gap:8}}>
+                {plagResults.map((r,i)=>{
+                  const l=plagiarismLevel(r.score);
+                  return(
+                    <div key={i} style={{borderBottom:i<plagResults.length-1?'1px solid var(--border)':'none',paddingBottom:i<plagResults.length-1?8:0}}>
+                      <div style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:3}}>
+                        <div style={{minWidth:42,height:20,borderRadius:99,background:l.bg,border:`1px solid ${l.color}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:700,color:l.color,flexShrink:0}}>
+                          {Math.round(r.score*100)}%
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:'0.78rem',fontWeight:600,color:'var(--ink)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} title={r.study.title}>
+                            {r.study.title.length>70?r.study.title.slice(0,70)+'…':r.study.title}
+                          </div>
+                          <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>
+                            {(r.study.authors||[]).slice(0,2).join(', ')} · {r.study.year}
+                          </div>
+                        </div>
+                      </div>
+                      {r.shared.length>0&&(
+                        <div style={{display:'flex',gap:3,flexWrap:'wrap',marginTop:3,paddingLeft:50}}>
+                          <span style={{fontSize:'0.62rem',color:'var(--muted)',marginRight:2}}>Shared terms:</span>
+                          {r.shared.map(w=>(
+                            <span key={w} style={{background:'var(--gold-bg)',color:'var(--gold)',fontSize:'0.62rem',padding:'1px 6px',borderRadius:99,border:'1px solid var(--gold)'}}>{w}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {top.score>=0.5&&(
+                <div style={{background:'var(--red-light)',padding:'8px 12px',fontSize:'0.75rem',color:'var(--red)',fontWeight:500}}>
+                  🚨 Submission blocked — abstract is too similar to an existing study. Rewrite it significantly before submitting.
+                </div>
+              )}
+              {top.score>=0.3&&top.score<0.5&&(
+                <div style={{background:'#fef9c3',padding:'8px 12px',fontSize:'0.75rem',color:'#92400e'}}>
+                  ⚠️ Moderate similarity detected. Review your abstract and consider rephrasing.
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
-      <div className="fg"><label>Category * <span style={{fontWeight:300,color:'var(--muted)'}}>(select 1–2)</span></label><CatPicker selected={selCats} onChange={setSelCats} max={2} cats={cats}/></div>
+      <div className="fg"><label>Category * <span style={{fontWeight:300,color:'var(--muted)'}}>(select 1–2)</span></label><CatPicker selected={selCats} onChange={handleCatsChange} max={2} cats={cats}/></div>
       <div className="fr">
         <div className="fg"><label>Year</label><input type="number" min="1900" max="2099" value={form.year} onChange={e=>sf('year',e.target.value)}/></div>
         <div className="fg">
@@ -3653,7 +4922,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
               <div style={{fontWeight:600,fontSize:'0.82rem',marginBottom:2}}>Google Drive file linked</div>
               <a href={gdriveInfo.viewUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:'0.73rem'}}>{gdriveInfo.viewUrl}</a>
             </div>
-            <button className="gdrive-remove" onClick={()=>{setGdriveUrl('');setGdriveInfo(null);}} title="Remove link">✕</button>
+            <button className="gdrive-remove" onClick={()=>{setGdriveUrl('');setGdriveInfo(null);triggerDraftSave(form,selCats,'',null);}} data-tip="Remove Google Drive link">✕</button>
           </div>
         ):(
           <div className="gdrive-input-wrap">
@@ -3670,9 +4939,18 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
           </div>
         )}
       </div>
+
+      {/* Draft status footer */}
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4,minHeight:20}}>
+        {draftStatus==='saving'&&<span className="draft-status saving"><span className="spin" style={{width:9,height:9,borderWidth:1.5}}/>Auto-saving draft…</span>}
+        {draftStatus==='saved'&&<span className="draft-status saved">✓ Draft saved — close anytime and resume later</span>}
+      </div>
+
       <div style={{display:'flex',gap:9,justifyContent:'flex-end',flexWrap:'wrap'}}>
-        <button className="btn btn-ol" onClick={onClose}>Cancel</button>
-        <button className="btn btn-gold" onClick={submit} disabled={loading||!!titleDupe}>{loading?<><span className="spin spin-dark"/>Uploading…</>:<><Ico.up/> Upload Study</>}</button>
+        <button className="btn btn-ol" onClick={confirmClose}>
+          {(form.title.trim()||form.authors.trim()||form.abstract.trim()) ? '💾 Save & Close' : 'Cancel'}
+        </button>
+        <button className="btn btn-gold" onClick={submit} disabled={loading||!!titleDupe||(plagResults[0]?.score>=0.5)}>{loading?<><span className="spin spin-dark"/>Uploading…</>:<><Ico.up/> Upload Study</>}</button>
       </div>
     </Modal>
   );
@@ -3681,6 +4959,107 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
 // ══════════════════════════════════════════════════════════════════
 //  STUDIES PAGE
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+//  STUDY CARD — with abstract expand/collapse
+// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+//  SKELETON COMPONENTS
+// ══════════════════════════════════════════════════════════════════
+function StudyCardSkeleton() {
+  return (
+    <div className="sc-skel" aria-hidden="true">
+      <div style={{display:'flex',gap:6}}>
+        <div className="skel skel-cat"/>
+        <div className="skel skel-cat" style={{width:70}}/>
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        <div className="skel skel-title w80"/>
+        <div className="skel skel-title w60"/>
+      </div>
+      <div className="skel skel-author"/>
+      <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:2}}>
+        <div className="skel skel-abs-line w100"/>
+        <div className="skel skel-abs-line w90"/>
+        <div className="skel skel-abs-line w70"/>
+      </div>
+      <div className="skel-meta">
+        <div className="skel skel-meta-item"/>
+        <div className="skel skel-meta-item"/>
+        <div className="skel skel-meta-item"/>
+        <div className="skel skel-meta-item wide" style={{marginLeft:'auto'}}/>
+      </div>
+    </div>
+  );
+}
+
+function StudiesGridSkeleton({ count=6 }) {
+  return (
+    <div className="grid" aria-label="Loading studies…" aria-busy="true">
+      {Array.from({length:count}).map((_,i)=><StudyCardSkeleton key={i}/>)}
+    </div>
+  );
+}
+
+function StatsSkeleton({ count=4 }) {
+  return (
+    <div className="stats" aria-hidden="true">
+      {Array.from({length:count}).map((_,i)=>(
+        <div key={i} className="stat-skel">
+          <div className="skel skel-stat-lbl"/>
+          <div className="skel skel-stat-val"/>
+          <div className="skel skel-stat-sub"/>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StudyCard({ study, onOpen }) {
+  const CLAMP_WORDS = 30;
+  const words = (study.abstract||'').split(/\s+/).filter(Boolean);
+  const isLong = words.length > CLAMP_WORDS;
+  const [expanded, setExpanded] = useState(false);
+  const preview = isLong ? words.slice(0, CLAMP_WORDS).join(' ') + '…' : study.abstract;
+
+  return (
+    <div className="sc"
+      onClick={onOpen}
+      role="article" tabIndex={0}
+      onKeyDown={e=>e.key==='Enter'&&onOpen()}
+      aria-label={`Study: ${study.title}`}>
+      <div className="sc-cats">{(study.categories||[]).map(c=><span key={c} className="sc-cat">{c}</span>)}</div>
+      <h3 className="sc-title" title={study.title}>{study.title}</h3>
+      <p className="sc-authors">By: {(study.authors||[]).join(', ')}</p>
+      <div>
+        <p className={`sc-abs${expanded?' expanded':''}`} style={expanded?{display:'block'}:{}}>
+          {expanded ? study.abstract : preview}
+        </p>
+        {isLong&&(
+          <button className="sc-abs-toggle"
+            onClick={e=>{e.stopPropagation();setExpanded(v=>!v);}}
+            aria-expanded={expanded}>
+            {expanded
+              ? <><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 15 12 9 6 15"/></svg> Show less</>
+              : <><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg> Read more</>
+            }
+          </button>
+        )}
+      </div>
+      <div className="sc-meta">
+        <span data-tip="Views"><Ico.eye/>{study.viewCount||0}</span>
+        <span data-tip="Downloads"><Ico.dl/>{study.downloadCount||0}</span>
+        <span data-tip={`${study.citationCount||0} citation${(study.citationCount||0)!==1?'s':''}`}>📋{study.citationCount||0}</span>
+        <span data-tip="Publication year"><Ico.cal/>{study.year}</span>
+        {(study.gdrive||study.file)&&<span data-tip="Google Drive file attached" style={{color:'var(--teal)'}}>🔗 Drive</span>}
+        {(study.favoriteCount||0)>0&&<span data-tip="Bookmarked by students" style={{color:'var(--purple)'}}>📌{study.favoriteCount}</span>}
+        {(study.avgRating||0)>0&&<span data-tip={`Avg rating: ${study.avgRating}`} style={{color:'#f59e0b'}}>★{study.avgRating}</span>}
+        {study.teacherGrade&&<span style={{background:'var(--teal-light)',color:'var(--teal)',fontWeight:700,fontSize:'0.68rem',padding:'1px 7px',borderRadius:99,border:'1px solid var(--teal)'}} data-tip={`Teacher grade: ${study.teacherGrade}`}>✓ {study.teacherGrade}</span>}
+        <span style={{marginLeft:'auto'}}>{fmtDate(study.createdAt)}</span>
+      </div>
+    </div>
+  );
+}
+
 function StudiesPage({ currentUser }) {
   const [studies,setStudies]=useState([]);
   const [cats,setCats]=useState([]);
@@ -3697,6 +5076,9 @@ function StudiesPage({ currentUser }) {
   const [showUpload,setShowUpload]=useState(false);
   const [loading,setLoading]=useState(true);
   const searchTimeout = useRef(null);
+  const [searchHistory,setSearchHistory]=useState(()=>{try{return JSON.parse(localStorage.getItem('sabnahis_search_history')||'[]');}catch{return [];}});
+  const [showSearchHistory,setShowSearchHistory]=useState(false);
+  const searchInputRef=useRef(null);
 
   // Load available years once on mount
   useEffect(()=>{
@@ -3717,14 +5099,42 @@ function StudiesPage({ currentUser }) {
 
   useEffect(()=>{load();},[load]);
 
+  const saveSearchHistory = (val) => {
+    if(!val.trim()) return;
+    setSearchHistory(prev=>{
+      const next=[val,...prev.filter(h=>h!==val)].slice(0,5);
+      try{localStorage.setItem('sabnahis_search_history',JSON.stringify(next));}catch{}
+      return next;
+    });
+  };
+
   const handleSearch = e => {
     const val = e.target.value;
     setSearchInput(val);
     clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(()=>{ setSearch(val); setPage(1); }, 350);
+    searchTimeout.current = setTimeout(()=>{ setSearch(val); setPage(1); if(val.trim()) saveSearchHistory(val.trim()); }, 350);
   };
 
-  const handleDelete=async id=>{await API.deleteStudy(id);toast.ok('Study deleted.');load();};
+  const applyHistorySearch = (val) => {
+    setSearchInput(val);
+    setSearch(val);
+    setPage(1);
+    setShowSearchHistory(false);
+  };
+
+  const handleDelete = async id => {
+    // Optimistic removal from grid
+    const prev = studies;
+    setStudies(s => s.filter(x => x.id !== id));
+    setTotal(t => t - 1);
+    try {
+      await API.deleteStudy(id);
+      toast.ok('Study deleted.');
+    } catch(e) {
+      setStudies(prev); setTotal(t => t + 1);
+      toast.err('Failed to delete study.');
+    }
+  };
 
   const hasFilters = search || filterCat || filterYear;
 
@@ -3745,14 +5155,34 @@ function StudiesPage({ currentUser }) {
           <h2>Research Repository</h2>
           <p className="muted">{total} {total===1?'study':'studies'} found{filterYear?` · ${filterYear}`:''}{search&&<span style={{color:'var(--gold)',marginLeft:5}}>· "{search}"</span>}</p>
         </div>
-        <button className="btn btn-gold" onClick={()=>setShowUpload(true)}><Ico.up/> Upload Study</button>
+        <button className="btn btn-gold" data-tip="Upload a new research study" onClick={()=>setShowUpload(true)}><Ico.up/> Upload Study</button>
       </div>
       <div className="mob-search-sticky">
         <div className="fb" style={{flexWrap:'wrap',gap:8}}>
-          <div className="sb" style={{flex:1,minWidth:200}}>
-            <Ico.search/>
-            <input placeholder="Search by title, author, or keyword…" value={searchInput} onChange={handleSearch} aria-label="Search studies"/>
-            {searchInput&&<button onClick={()=>{setSearchInput('');setSearch('');setPage(1);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem',lineHeight:1}} title="Clear search">✕</button>}
+          <div className="search-history-wrap">
+            <div className="sb" style={{width:'100%'}}>
+              <Ico.search/>
+              <input ref={searchInputRef} placeholder="Search by title, author, or keyword…" value={searchInput} onChange={handleSearch}
+                onFocus={()=>searchHistory.length>0&&setShowSearchHistory(true)}
+                onBlur={()=>setTimeout(()=>setShowSearchHistory(false),180)}
+                aria-label="Search studies"/>
+              {searchInput&&<button onClick={()=>{setSearchInput('');setSearch('');setPage(1);setShowSearchHistory(false);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem',lineHeight:1}} data-tip="Clear search">✕</button>}
+            </div>
+            {showSearchHistory&&!searchInput&&searchHistory.length>0&&(
+              <div className="search-history-dropdown">
+                <div className="search-history-header">
+                  <span>Recent Searches</span>
+                  <button className="search-history-clear" onClick={()=>{setSearchHistory([]);try{localStorage.removeItem('sabnahis_search_history');}catch{}setShowSearchHistory(false);}}>Clear all</button>
+                </div>
+                {searchHistory.map((h,i)=>(
+                  <button key={i} className="search-history-item" onMouseDown={()=>applyHistorySearch(h)}>
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+                    <span style={{flex:1,textAlign:'left'}}>{h}</span>
+                    <button className="shi-del" onMouseDown={e=>{e.stopPropagation();setSearchHistory(prev=>{const next=prev.filter((_,j)=>j!==i);try{localStorage.setItem('sabnahis_search_history',JSON.stringify(next));}catch{}return next;});}}>✕</button>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <select value={filterCat} onChange={e=>{setFilterCat(e.target.value);setPage(1);}} style={{flex:1,minWidth:140,padding:'10px 13px'}} aria-label="Filter by category">
             <option value="">All Categories</option>
@@ -3763,16 +5193,36 @@ function StudiesPage({ currentUser }) {
             {availableYears.map(yr=><option key={yr} value={yr}>{yr}</option>)}
           </select>
           {hasFilters&&(
-            <button className="btn btn-ol btn-sm" onClick={()=>{setFilterCat('');setFilterYear('');setSearchInput('');setSearch('');setPage(1);}} title="Clear all filters" style={{whiteSpace:'nowrap'}}>✕ Clear</button>
+            <button className="btn btn-ol btn-sm" onClick={()=>{setFilterCat('');setFilterYear('');setSearchInput('');setSearch('');setPage(1);}} data-tip="Clear all filters" style={{whiteSpace:'nowrap'}}>✕ Clear</button>
           )}
         </div>
       </div>
 
       <div className="fb mob-search-hidden" style={{marginBottom:18}}>
-        <div className="sb" style={{flex:1,minWidth:200}}>
-          <Ico.search/>
-          <input placeholder="Search by title, author, or keyword…" value={searchInput} onChange={handleSearch} aria-label="Search studies"/>
-          {searchInput&&<button onClick={()=>{setSearchInput('');setSearch('');setPage(1);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem',lineHeight:1}} title="Clear search">✕</button>}
+        <div className="search-history-wrap">
+          <div className="sb" style={{width:'100%'}}>
+            <Ico.search/>
+            <input placeholder="Search by title, author, or keyword…" value={searchInput} onChange={handleSearch}
+              onFocus={()=>searchHistory.length>0&&setShowSearchHistory(true)}
+              onBlur={()=>setTimeout(()=>setShowSearchHistory(false),180)}
+              aria-label="Search studies"/>
+            {searchInput&&<button onClick={()=>{setSearchInput('');setSearch('');setPage(1);setShowSearchHistory(false);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem',lineHeight:1}} data-tip="Clear search">✕</button>}
+          </div>
+          {showSearchHistory&&!searchInput&&searchHistory.length>0&&(
+            <div className="search-history-dropdown">
+              <div className="search-history-header">
+                <span>Recent Searches</span>
+                <button className="search-history-clear" onClick={()=>{setSearchHistory([]);try{localStorage.removeItem('sabnahis_search_history');}catch{}setShowSearchHistory(false);}}>Clear all</button>
+              </div>
+              {searchHistory.map((h,i)=>(
+                <button key={i} className="search-history-item" onMouseDown={()=>applyHistorySearch(h)}>
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+                  <span style={{flex:1,textAlign:'left'}}>{h}</span>
+                  <button className="shi-del" onMouseDown={e=>{e.stopPropagation();setSearchHistory(prev=>{const next=prev.filter((_,j)=>j!==i);try{localStorage.setItem('sabnahis_search_history',JSON.stringify(next));}catch{}return next;});}}>✕</button>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <select value={filterCat} onChange={e=>{setFilterCat(e.target.value);setPage(1);}} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by category">
           <option value="">All Categories</option>
@@ -3803,35 +5253,13 @@ function StudiesPage({ currentUser }) {
       )}
 
       {loading?(
-        <div style={{textAlign:'center',padding:'50px',color:'var(--muted)'}}>
-          <span className="spin spin-gold" style={{width:28,height:28,border:'3px solid rgba(201,162,39,0.25)',borderTopColor:'var(--gold)',display:'inline-block',marginBottom:12}}/>
-          <p>Loading studies…</p>
-        </div>
+        <StudiesGridSkeleton count={6}/>
       ):sortedStudies.length===0?(
         <div className="empty"><div className="empty-ico">📚</div><h3>No studies found</h3><p>{hasFilters?'Try adjusting your search or filters.':'Be the first to upload a research study!'}</p></div>
       ):(
         <div className="grid">
           {sortedStudies.map(study=>(
-            <div key={study.id} className="sc"
-              onClick={async()=>{await API.trackStudy(study.id,'viewCount',currentUser);API.setLastRead(currentUser.id,study).catch(()=>{});setSelected({...study,viewCount:(study.viewCount||0)+1});}}
-              role="article" tabIndex={0}
-              onKeyDown={e=>e.key==='Enter'&&e.currentTarget.click()}
-              aria-label={`Study: ${study.title}`}>
-              <div className="sc-cats">{(study.categories||[]).map(c=><span key={c} className="sc-cat">{c}</span>)}</div>
-              <h3 className="sc-title" title={study.title}>{study.title}</h3>
-              <p className="sc-authors">By: {(study.authors||[]).join(', ')}</p>
-              <p className="sc-abs">{study.abstract}</p>
-              <div className="sc-meta">
-                <span><Ico.eye/>{study.viewCount||0}</span>
-                <span><Ico.dl/>{study.downloadCount||0}</span>
-                <span title={`${study.citationCount||0} citation${(study.citationCount||0)!==1?'s':''}`}>📋{study.citationCount||0}</span>
-                <span><Ico.cal/>{study.year}</span>
-                {(study.gdrive||study.file)&&<span title="Google Drive file attached" style={{color:'var(--teal)'}}>🔗 Drive</span>}
-                {(study.favoriteCount||0)>0&&<span title="Bookmarked by students" style={{color:'var(--purple)'}}>📌{study.favoriteCount}</span>}
-                {(study.avgRating||0)>0&&<span title={`Avg rating: ${study.avgRating}`} style={{color:'#f59e0b'}}>★{study.avgRating}</span>}
-                <span style={{marginLeft:'auto'}}>{fmtDate(study.createdAt)}</span>
-              </div>
-            </div>
+            <StudyCard key={study.id} study={study} currentUser={currentUser} onOpen={async()=>{await API.trackStudy(study.id,'viewCount',currentUser);API.setLastRead(currentUser.id,study).catch(()=>{});setSelected({...study,viewCount:(study.viewCount||0)+1});}}/>
           ))}
         </div>
       )}
@@ -3849,7 +5277,7 @@ function StudiesPage({ currentUser }) {
         </div>
       )}
 
-      {selected&&<StudyDetailModal study={selected} onClose={()=>setSelected(null)} currentUser={currentUser} onDelete={handleDelete}/>}
+      {selected&&<StudyDetailModal study={selected} onClose={()=>setSelected(null)} currentUser={currentUser} onDelete={handleDelete} allStudies={studies} onOpenStudy={s=>{API.trackStudy(s.id,'viewCount',currentUser);API.setLastRead(currentUser.id,s).catch(()=>{});setSelected({...s,viewCount:(s.viewCount||0)+1});}}/>}
       {showUpload&&<UploadModal onClose={()=>setShowUpload(false)} currentUser={currentUser} cats={cats} onUpload={()=>{load();setShowUpload(false);}}/>}
     </div>
   );
@@ -4045,7 +5473,7 @@ I have **${s.length}** ${s.length===1?'study':'studies'} loaded. Use the **mode 
             <span style={{width:6,height:6,borderRadius:'50%',background:'currentColor',flexShrink:0}}/>{groqKey ? 'Groq AI' : 'No API Key'}
           </span>
           {isAdmin && (
-            <button className="btn btn-ol btn-sm" onClick={()=>setShowKeySetup(s=>!s)} title="Manage API key">🔑 {groqKey ? 'Change Key' : 'Set API Key'}</button>
+            <button className="btn btn-ol btn-sm" onClick={()=>setShowKeySetup(s=>!s)} data-tip={groqKey ? 'Change Groq API key' : 'Set up Groq API key for AI features'}>🔑 {groqKey ? 'Change Key' : 'Set API Key'}</button>
           )}
           {savedCites.length>0&&<button className="chat-export-btn" onClick={()=>setShowSaved(s=>!s)}>📝 {savedCites.length} saved</button>}
           <button className="chat-export-btn" onClick={exportChat}>⬇ Export</button>
@@ -4160,7 +5588,7 @@ I have **${s.length}** ${s.length===1?'study':'studies'} loaded. Use the **mode 
                     <span>{msg.time}</span>
                     {msg.source&&<span className={`cm-src ${msg.source}`}>{msg.source==='groq'?'⚡ Groq AI':'🔧 Local'}</span>}
                     {msg.role==='bot'&&(
-                      <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 4px',borderRadius:4,minWidth:28,minHeight:24,display:'flex',alignItems:'center'}} onClick={()=>copyMsg(msg.text)} title="Copy response" aria-label="Copy response">
+                      <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 4px',borderRadius:4,minWidth:28,minHeight:24,display:'flex',alignItems:'center'}} onClick={()=>copyMsg(msg.text)} data-tip="Copy response" aria-label="Copy response">
                         <Ico.copy/>
                       </button>
                     )}
@@ -4541,8 +5969,22 @@ function StudentDash({ currentUser }) {
     <div>
       <div style={{marginBottom:22}}>
         <h2 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-2xl)',marginBottom:3}}>Welcome back, {currentUser.name.split(' ')[0]} 👋</h2>
-        <p className="muted">{currentUser.institution}{currentUser.department?` · ${currentUser.department}`:''}</p>
+        <p className="muted">{currentUser.institution}{currentUser.gradeLevel?` · Grade ${currentUser.gradeLevel}`:''}{currentUser.section?` — ${currentUser.section}`:''}</p>
       </div>
+      {loading ? (
+        <>
+          <StatsSkeleton count={5}/>
+          <div className="card" style={{marginBottom:16}}>
+            <div style={{display:'flex',flexDirection:'column',gap:10,padding:'4px 0'}}>
+              <div className="skel" style={{height:14,width:160,borderRadius:5}}/>
+              <div className="skel" style={{height:13,width:'80%',borderRadius:5}}/>
+              <div className="skel" style={{height:13,width:'60%',borderRadius:5}}/>
+            </div>
+          </div>
+          <StudiesGridSkeleton count={3}/>
+        </>
+      ) : (
+      <>
       <div className="stats">
         <div className="stat gold"><div className="stat-lbl">My Studies</div><div className="stat-val">{myStudies.length}</div><div className="stat-sub">Uploaded</div></div>
         <div className="stat teal"><div className="stat-lbl">Total Views</div><div className="stat-val">{myStudies.reduce((a,s)=>a+(s.viewCount||0),0)}</div><div className="stat-sub">Across all my studies</div></div>
@@ -4599,12 +6041,10 @@ function StudentDash({ currentUser }) {
         </div>
       )}
 
-      {selectedStudy&&<StudyDetailModal study={selectedStudy} onClose={()=>setSelectedStudy(null)} currentUser={currentUser} onDelete={async id=>{await API.deleteStudy(id);setSelectedStudy(null);load();}}/>}
+      {selectedStudy&&<StudyDetailModal study={selectedStudy} onClose={()=>setSelectedStudy(null)} currentUser={currentUser} onDelete={async id=>{await API.deleteStudy(id);setSelectedStudy(null);load();}} allStudies={myStudies} onOpenStudy={async s=>{const snap=await db.collection('studies').doc(s.studyId||s.id).get();if(snap.exists)setSelectedStudy({id:snap.id,...snap.data()});}}/>}
       <div className="card">
         <div className="card-hd"><span className="card-title">My Uploaded Studies</span><button className="btn btn-gold btn-sm" onClick={()=>setShowUpload(true)}><Ico.up/> Upload New</button></div>
-        {loading?(
-          <div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
-        ):myStudies.length===0?(
+        {myStudies.length===0?(
           <div className="empty" style={{padding:'36px 20px'}}><div className="empty-ico">📄</div><h3>No studies yet</h3><p>Upload your first research study to get started.</p><button className="btn btn-gold mt12" onClick={()=>setShowUpload(true)}><Ico.up/> Upload Your First Study</button></div>
         ):(
           <div className="tw"><table>
@@ -4636,7 +6076,7 @@ function StudentDash({ currentUser }) {
                   className="btn btn-ol btn-sm"
                   style={{display:'flex',alignItems:'center',gap:5,fontSize:'0.72rem',padding:'5px 10px',minHeight:32}}
                   onClick={()=>setHistoryStudy(s)}
-                  title="View who viewed, downloaded, and cited this study">
+                  data-tip="View who viewed, downloaded, and cited this study">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                   Activity
                 </button>
@@ -4647,6 +6087,8 @@ function StudentDash({ currentUser }) {
       </div>
       {showUpload&&<UploadModal onClose={()=>setShowUpload(false)} currentUser={currentUser} cats={cats} onUpload={()=>{load();setShowUpload(false);}}/>}
       {historyStudy&&<StudyHistoryModal study={historyStudy} onClose={()=>setHistoryStudy(null)}/>}
+      </>
+      )}
     </div>
   );
 }
@@ -4667,7 +6109,16 @@ function AdminDash({ currentUser }) {
 
   const upd=async(id,status)=>{await API.updateUserStatus(id,status);toast.ok(`Account ${status}.`);load();};
 
-  if(!stats)return <div style={{textAlign:'center',padding:'50px',color:'var(--muted)'}}>Loading dashboard…</div>;
+  if(!stats)return (
+    <div>
+      <div style={{marginBottom:22}}>
+        <div className="skel skel-page-title" style={{marginBottom:8}}/>
+        <div className="skel" style={{height:13,width:220,borderRadius:5}}/>
+      </div>
+      <StatsSkeleton count={4}/>
+      <StudiesGridSkeleton count={3}/>
+    </div>
+  );
 
   return (
     <div>
@@ -4685,14 +6136,44 @@ function AdminDash({ currentUser }) {
         <div className="stat pur"><div className="stat-lbl">Downloads</div><div className="stat-val">{stats.totalDownloads}</div><div className="stat-sub">All time</div></div>
         <div className="stat slate"><div className="stat-lbl">Citations</div><div className="stat-val">{stats.totalCitations||0}</div><div className="stat-sub">APA copies</div></div>
       </div>
+      {/* Grade level breakdown */}
+      {(()=>{
+        if(!stats.gradeBreakdown||Object.keys(stats.gradeBreakdown).length===0) return null;
+        const total=Object.values(stats.gradeBreakdown).reduce((a,b)=>a+b,0)||1;
+        return(
+          <div className="card" style={{marginBottom:18}}>
+            <div className="card-hd" style={{marginBottom:12}}><span className="card-title">🎓 Students by Grade Level</span><span style={{fontSize:'0.75rem',color:'var(--muted)'}}>{total} total</span></div>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+              {['8','9','10','11','12'].map(g=>{
+                const n=stats.gradeBreakdown[g]||0;
+                const pct=Math.round((n/total)*100);
+                return(
+                  <div key={g} style={{flex:'1 1 80px',display:'flex',flexDirection:'column',gap:6,padding:'12px 14px',
+                    background:GRADE_BG[g]||'var(--surface)',borderRadius:'var(--radius)',
+                    border:`1.5px solid ${GRADE_COLORS[g]||'var(--border)'}`,textAlign:'center'}}>
+                    <div style={{fontSize:'0.68rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.8px',color:GRADE_COLORS[g]||'var(--muted)'}}>Grade {g}</div>
+                    <div style={{fontFamily:'var(--font-display)',fontSize:'1.6rem',fontWeight:700,color:GRADE_COLORS[g]||'var(--ink)',lineHeight:1}}>{n}</div>
+                    <div style={{fontSize:'0.68rem',color:GRADE_COLORS[g]||'var(--muted)',opacity:0.8}}>{pct}%</div>
+                    <div style={{height:4,background:'rgba(255,255,255,0.4)',borderRadius:99,overflow:'hidden'}}>
+                      <div style={{height:'100%',width:`${pct}%`,background:GRADE_COLORS[g]||'var(--muted)',borderRadius:99,transition:'width .6s ease'}}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {stats.gradeBreakdown['']&&<div style={{marginTop:8,fontSize:'0.72rem',color:'var(--muted)',textAlign:'right'}}>+{stats.gradeBreakdown['']} student{stats.gradeBreakdown['']!==1?'s':''} with no grade assigned</div>}
+          </div>
+        );
+      })()}
       {pending.length>0&&<div className="card" style={{marginBottom:18,borderLeft:'4px solid var(--gold)'}}>
         <div className="card-hd"><span className="card-title">⏳ Pending Approvals</span><span className="badge badge-pend">{pending.length} waiting</span></div>
         <div className="tw"><table>
-          <thead><tr><th>Name</th><th>Email</th><th>School</th><th>Registered</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Email</th><th>School</th><th>Grade / Section</th><th>Registered</th><th>Actions</th></tr></thead>
           <tbody>{pending.map(u=><tr key={u.id}>
             <td><div style={{fontWeight:500}}>{u.name}</div></td>
             <td style={{fontSize:'0.8rem'}}>{u.email}</td>
             <td>{u.institution||'—'}</td>
+            <td>{u.gradeLevel?`Grade ${u.gradeLevel}`:''}{u.section?` — ${u.section}`:''}</td>
             <td style={{whiteSpace:'nowrap'}}>{fmtDate(u.createdAt)}</td>
             <td><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
               <button className="btn btn-grn btn-sm" onClick={()=>upd(u.id,'approved')}><Ico.chk/> Approve</button>
@@ -4750,6 +6231,36 @@ function AdminDash({ currentUser }) {
         </div>
       </div>
 
+      {/* Grade distribution */}
+      <div className="card" style={{marginBottom:14}}>
+        <div className="card-hd"><span className="card-title">📝 Teacher Graded Studies</span></div>
+        {(()=>{
+          const graded=recent.filter(s=>s.teacherGrade);
+          if(!graded.length) return <p className="muted" style={{fontSize:'0.82rem'}}>No studies graded yet.</p>;
+          const gradeCounts={};
+          graded.forEach(s=>gradeCounts[s.teacherGrade]=(gradeCounts[s.teacherGrade]||0)+1);
+          return(
+            <div>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
+                {Object.entries(gradeCounts).sort().map(([g,n])=>(
+                  <span key={g} style={{background:'var(--teal-light)',color:'var(--teal)',fontWeight:700,fontSize:'0.78rem',padding:'3px 12px',borderRadius:99,border:'1px solid var(--teal)'}}>{g}: {n}</span>
+                ))}
+              </div>
+              <div className="tw"><table>
+                <thead><tr><th>Title</th><th>Grade</th><th>Score</th><th>Graded By</th><th>Date</th></tr></thead>
+                <tbody>{graded.map(s=><tr key={s.id}>
+                  <td style={{maxWidth:200}}><div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></td>
+                  <td><span style={{background:'var(--teal-light)',color:'var(--teal)',fontWeight:700,fontSize:'0.78rem',padding:'2px 10px',borderRadius:99}}>{s.teacherGrade}</span></td>
+                  <td>{s.teacherScore!=null?`${s.teacherScore}/100`:'—'}</td>
+                  <td style={{fontSize:'0.8rem'}}>{s.gradedBy||'—'}</td>
+                  <td style={{whiteSpace:'nowrap',fontSize:'0.8rem'}}>{fmtDate(s.gradedAt)}</td>
+                </tr>)}</tbody>
+              </table></div>
+            </div>
+          );
+        })()}
+      </div>
+
       <div className="card">
         <div className="card-hd"><span className="card-title">Recent Uploads</span></div>
         {recent.length===0?<p className="muted">No studies yet.</p>
@@ -4770,22 +6281,93 @@ function AdminDash({ currentUser }) {
 // ══════════════════════════════════════════════════════════════════
 //  ADMIN USERS
 // ══════════════════════════════════════════════════════════════════
+// Grade-level colour palette
+const GRADE_COLORS = {'8':'var(--purple)','9':'var(--blue)','10':'var(--teal)','11':'var(--green)','12':'var(--gold)'};
+const GRADE_BG     = {'8':'var(--purple-light)','9':'var(--blue-light)','10':'var(--teal-light)','11':'var(--green-light)','12':'var(--gold-bg)'};
+
+function GradeBadge({ level }) {
+  if(!level) return <span style={{fontSize:'0.68rem',color:'var(--muted)'}}>—</span>;
+  return (
+    <span style={{display:'inline-flex',alignItems:'center',padding:'2px 10px',borderRadius:99,
+      fontSize:'0.68rem',fontWeight:700,letterSpacing:'0.3px',
+      background:GRADE_BG[level]||'var(--surface)',color:GRADE_COLORS[level]||'var(--muted)',
+      border:`1.5px solid ${GRADE_COLORS[level]||'var(--border)'}`}}>
+      Grade {level}
+    </span>
+  );
+}
+
+function EditGradeModal({ user, onClose, onSaved }) {
+  const [gradeLevel,setGradeLevel]=useState(user.gradeLevel||'');
+  const [section,setSection]=useState(user.section||'');
+  const [saving,setSaving]=useState(false);
+
+  const save=async()=>{
+    setSaving(true);
+    try {
+      await API.updateUserGrade(user.id, gradeLevel, section);
+      toast.ok('Grade level & section updated.');
+      onSaved();
+      onClose();
+    } catch {
+      toast.err('Failed to update. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:380}}>
+        <div className="modal-hd">
+          <span className="modal-title">Edit Grade &amp; Section</span>
+          <button className="modal-x" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="modal-bd">
+          <p className="muted" style={{marginBottom:14}}>{user.name} · {user.email}</p>
+          <div className="fg">
+            <label htmlFor="eg-grade">Grade Level</label>
+            <select id="eg-grade" value={gradeLevel} onChange={e=>setGradeLevel(e.target.value)}>
+              <option value="">— Not set —</option>
+              {['8','9','10','11','12'].map(g=><option key={g} value={g}>Grade {g}</option>)}
+            </select>
+          </div>
+          <div className="fg">
+            <label htmlFor="eg-section">Section</label>
+            <input id="eg-section" placeholder="e.g. Rizal, STEM-A" value={section} onChange={e=>setSection(e.target.value)}/>
+          </div>
+          <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:16}}>
+            <button className="btn btn-ol" onClick={onClose}>Cancel</button>
+            <button className="btn btn-ink" onClick={save} disabled={saving}>{saving?<span className="spin" style={{width:14,height:14}}/>:'Save'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminUsers() {
-  const [filter,setFilter]=useState('all');
+  const [statusFilter,setStatusFilter]=useState('all');
+  const [gradeFilter,setGradeFilter]=useState('all');
   const [search,setSearch]=useState('');
   const [students,setStudents]=useState([]);
   const [loading,setLoading]=useState(true);
   const [selected,setSelected]=useState(new Set());
   const [bulkLoading,setBulkLoading]=useState(false);
+  const [viewMode,setViewMode]=useState('table'); // 'table' | 'grouped'
+  const [editingUser,setEditingUser]=useState(null);
+  const [bulkAssignOpen,setBulkAssignOpen]=useState(false);
+  const [bulkGrade,setBulkGrade]=useState('');
+  const [bulkSection,setBulkSection]=useState('');
 
-  const load=async()=>{setLoading(true);const res=await API.getUsers({role:'student',status:filter==='all'?'':filter,search});setStudents(res);setSelected(new Set());setLoading(false);};
-  useEffect(()=>{load();},[filter,search]);
+  const load=async()=>{setLoading(true);const res=await API.getUsers({role:'student',status:statusFilter==='all'?'':statusFilter,search});setStudents(res);setSelected(new Set());setLoading(false);};
+  useEffect(()=>{load();},[statusFilter,search]);
 
   const upd=async(id,status)=>{await API.updateUserStatus(id,status);toast.ok(`Account ${status}.`);load();};
   const del=async id=>{if(!confirm('Delete this user and all their studies?'))return;await API.deleteUser(id);toast.ok('User deleted.');load();};
 
   const toggleSelect=id=>setSelected(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});
-  const toggleAll=()=>setSelected(s=>s.size===students.length?new Set():new Set(students.map(u=>u.id)));
+  const toggleAll=(list)=>setSelected(s=>{const ids=list.map(u=>u.id);const allSel=ids.every(id=>s.has(id));const n=new Set(s);allSel?ids.forEach(id=>n.delete(id)):ids.forEach(id=>n.add(id));return n;});
 
   const bulkAction=async(status)=>{
     if(!selected.size){toast.err('Select at least one student.');return;}
@@ -4797,68 +6379,230 @@ function AdminUsers() {
     load();
   };
 
+  const bulkAssignGrade=async()=>{
+    if(!selected.size){toast.err('Select at least one student.');return;}
+    if(!bulkGrade&&!bulkSection.trim()){toast.err('Choose a grade level or enter a section.');return;}
+    setBulkLoading(true);
+    await Promise.all([...selected].map(id=>{
+      const u=students.find(s=>s.id===id);
+      const g=bulkGrade||u?.gradeLevel||'';
+      const s=bulkSection.trim()||u?.section||'';
+      return API.updateUserGrade(id,g,s);
+    }));
+    toast.ok(`Updated grade/section for ${selected.size} student${selected.size!==1?'s':''}.`);
+    setBulkLoading(false);
+    setBulkAssignOpen(false);
+    setBulkGrade('');setBulkSection('');
+    load();
+  };
+
   const exportCSV=()=>{
-    const rows=[['Name','Email','School','Section','Status','Uploads','Registered']];
-    students.forEach(u=>rows.push([u.name,u.email,u.institution||'',u.department||'',u.status,u.uploadCount||0,fmtDate(u.createdAt)]));
+    const rows=[['Name','Email','School','Grade Level','Section','Status','Uploads','Registered']];
+    students.forEach(u=>rows.push([u.name,u.email,u.institution||'',u.gradeLevel?`Grade ${u.gradeLevel}`:'',u.section||'',u.status,u.uploadCount||0,fmtDate(u.createdAt)]));
     const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
     const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
     a.download='students.csv';a.click();
     toast.ok('Students exported!');
   };
 
+  // Filter by grade client-side (after API fetch)
+  const filtered = React.useMemo(()=>{
+    if(gradeFilter==='all') return students;
+    return students.filter(u=>u.gradeLevel===gradeFilter);
+  },[students,gradeFilter]);
+
+  // Grouped view: grade → section → students
+  const grouped = React.useMemo(()=>{
+    const byGrade={};
+    filtered.forEach(u=>{
+      const g=u.gradeLevel||'Unknown';
+      const s=u.section?.trim()||'No Section';
+      if(!byGrade[g]) byGrade[g]={};
+      if(!byGrade[g][s]) byGrade[g][s]=[];
+      byGrade[g][s].push(u);
+    });
+    // Sort grades 8→12, then Unknown last
+    const sorted={};
+    ['8','9','10','11','12','Unknown'].forEach(g=>{ if(byGrade[g]) sorted[g]=byGrade[g]; });
+    return sorted;
+  },[filtered]);
+
+  const gradeCounts = React.useMemo(()=>{
+    const c={};
+    students.forEach(u=>{const g=u.gradeLevel||'';c[g]=(c[g]||0)+1;});
+    return c;
+  },[students]);
+
+  const StudentRow=({u})=>(
+    <tr key={u.id} style={{background:selected.has(u.id)?'var(--gold-bg)':''}}>
+      <td><input type="checkbox" checked={selected.has(u.id)} onChange={()=>toggleSelect(u.id)} style={{accentColor:'var(--gold)'}}/></td>
+      <td><div style={{display:'flex',alignItems:'center',gap:9}}>
+        <div className="avatar" style={{width:32,height:32,fontSize:'0.72rem',background:GRADE_COLORS[u.gradeLevel]||'var(--ink-3)',flexShrink:0}}>{initials(u.name)}</div>
+        <div><div style={{fontWeight:500}}>{u.name}</div><div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{u.email}</div></div>
+      </div></td>
+      <td>{u.institution||'—'}</td>
+      <td><GradeBadge level={u.gradeLevel}/></td>
+      <td style={{fontSize:'0.82rem'}}>{u.section||'—'}</td>
+      <td><span className={`badge badge-${u.status==='approved'?'appr':u.status==='rejected'?'rej':'pend'}`}>{u.status}</span></td>
+      <td>{u.uploadCount||0}</td>
+      <td style={{whiteSpace:'nowrap'}}>{fmtDate(u.createdAt)}</td>
+      <td><div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+        <button className="btn btn-ol btn-sm" onClick={()=>setEditingUser(u)} data-tip="Edit grade & section"><Ico.edit/></button>
+        {u.status!=='approved'&&<button className="btn btn-grn btn-sm" onClick={()=>upd(u.id,'approved')} data-tip="Approve user"><Ico.chk/></button>}
+        {u.status!=='rejected'&&<button className="btn btn-ol btn-sm" onClick={()=>upd(u.id,'rejected')}>Reject</button>}
+        <button className="btn btn-red btn-sm" onClick={()=>del(u.id)} data-tip-pos="left" data-tip="Delete user"><Ico.trash/></button>
+      </div></td>
+    </tr>
+  );
+
   return (
     <div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:10,marginBottom:18}}>
-        <div><h2 className="sec-title" style={{marginBottom:1}}>User Management</h2><p className="muted">{students.length} students</p></div>
-        <button className="btn btn-ol btn-sm" onClick={exportCSV} title="Export to CSV">⬇ Export CSV</button>
+        <div>
+          <h2 className="sec-title" style={{marginBottom:1}}>User Management</h2>
+          <p className="muted">{filtered.length}{gradeFilter!=='all'?` of ${students.length}`:''} student{filtered.length!==1?'s':''}</p>
+        </div>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          <button className={`btn btn-sm ${viewMode==='table'?'btn-ink':'btn-ol'}`} onClick={()=>setViewMode('table')} data-tip="Flat table view">☰ Table</button>
+          <button className={`btn btn-sm ${viewMode==='grouped'?'btn-ink':'btn-ol'}`} onClick={()=>setViewMode('grouped')} data-tip="Group by grade & section">⊞ By Grade</button>
+          <button className="btn btn-ol btn-sm" onClick={exportCSV} data-tip="Download as CSV">⬇ Export CSV</button>
+        </div>
       </div>
+
+      {/* Grade pill filters */}
+      <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12}}>
+        <button onClick={()=>setGradeFilter('all')}
+          style={{padding:'4px 13px',borderRadius:99,fontSize:'0.72rem',fontWeight:600,cursor:'pointer',transition:'all .15s',
+            background:gradeFilter==='all'?'var(--ink)':'var(--surface)',
+            color:gradeFilter==='all'?'#fff':'var(--muted)',
+            border:`1.5px solid ${gradeFilter==='all'?'var(--ink)':'var(--border)'}`}}>
+          All ({students.length})
+        </button>
+        {['8','9','10','11','12'].map(g=>{
+          const cnt=gradeCounts[g]||0;
+          const active=gradeFilter===g;
+          return <button key={g} onClick={()=>setGradeFilter(g)}
+            style={{padding:'4px 13px',borderRadius:99,fontSize:'0.72rem',fontWeight:600,cursor:'pointer',transition:'all .15s',
+              background:active?GRADE_COLORS[g]:'var(--surface)',
+              color:active?'#fff':GRADE_COLORS[g]||'var(--muted)',
+              border:`1.5px solid ${active?GRADE_COLORS[g]:GRADE_COLORS[g]||'var(--border)'}`}}>
+            Grade {g} ({cnt})
+          </button>;
+        })}
+      </div>
+
       <div className="fb" style={{marginBottom:14}}>
         <div className="sb" style={{flex:1,minWidth:180}}><Ico.search/><input placeholder="Search by name, email, or school…" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search users"/></div>
-        <select value={filter} onChange={e=>setFilter(e.target.value)} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by status">
+        <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by status">
           <option value="all">All Status</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
         </select>
       </div>
+
       {selected.size>0&&(
-        <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--gold-bg)',border:'1px solid var(--gold)',borderRadius:'var(--radius)',marginBottom:12,flexWrap:'wrap'}}>
-          <span style={{fontSize:'0.82rem',fontWeight:600,color:'var(--gold)',flex:1}}>{selected.size} student{selected.size!==1?'s':''} selected</span>
-          <button className="btn btn-grn btn-sm" onClick={()=>bulkAction('approved')} disabled={bulkLoading}>{bulkLoading?<span className="spin" style={{width:12,height:12}}/>:<><Ico.chk/> Approve All</>}</button>
-          <button className="btn btn-ol btn-sm" onClick={()=>bulkAction('rejected')} disabled={bulkLoading}>✕ Reject All</button>
-          <button className="btn btn-ol btn-sm" onClick={()=>setSelected(new Set())}>Clear</button>
+        <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:12}}>
+          <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--gold-bg)',border:'1px solid var(--gold)',borderRadius:'var(--radius)',flexWrap:'wrap'}}>
+            <span style={{fontSize:'0.82rem',fontWeight:600,color:'var(--gold)',flex:1}}>{selected.size} student{selected.size!==1?'s':''} selected</span>
+            <button className="btn btn-ol btn-sm" onClick={()=>setBulkAssignOpen(o=>!o)}>🏷 Assign Grade/Section</button>
+            <button className="btn btn-grn btn-sm" onClick={()=>bulkAction('approved')} disabled={bulkLoading}>{bulkLoading?<span className="spin" style={{width:12,height:12}}/>:<><Ico.chk/> Approve All</>}</button>
+            <button className="btn btn-ol btn-sm" onClick={()=>bulkAction('rejected')} disabled={bulkLoading}>✕ Reject All</button>
+            <button className="btn btn-ol btn-sm" onClick={()=>setSelected(new Set())}>Clear</button>
+          </div>
+          {bulkAssignOpen&&(
+            <div className="card" style={{padding:'12px 14px',display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}}>
+              <div className="fg" style={{minWidth:140,marginBottom:0}}>
+                <label>Grade Level</label>
+                <select value={bulkGrade} onChange={e=>setBulkGrade(e.target.value)}>
+                  <option value="">— Leave unchanged —</option>
+                  {['8','9','10','11','12'].map(g=><option key={g} value={g}>Grade {g}</option>)}
+                </select>
+              </div>
+              <div className="fg" style={{minWidth:160,marginBottom:0}}>
+                <label>Section</label>
+                <input placeholder="e.g. Rizal, STEM-A" value={bulkSection} onChange={e=>setBulkSection(e.target.value)}/>
+              </div>
+              <button className="btn btn-ink btn-sm" onClick={bulkAssignGrade} disabled={bulkLoading}>{bulkLoading?<span className="spin" style={{width:12,height:12}}/>:'Apply to Selected'}</button>
+              <button className="btn btn-ol btn-sm" onClick={()=>{setBulkAssignOpen(false);setBulkGrade('');setBulkSection('');}}>Cancel</button>
+            </div>
+          )}
         </div>
       )}
-      <div className="card">
-        {loading?<div style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
-        :students.length===0?<div className="empty" style={{padding:'36px 0'}}><div className="empty-ico">👤</div><h3>No users found</h3></div>
-        :<div className="tw"><table>
-          <thead><tr>
-            <th style={{width:36}}><input type="checkbox" checked={selected.size===students.length&&students.length>0} onChange={toggleAll} style={{accentColor:'var(--gold)'}}/></th>
-            <th>Student</th><th>School / Section</th><th>Status</th><th>Uploads</th><th>Registered</th><th>Actions</th>
-          </tr></thead>
-          <tbody>{students.map(u=><tr key={u.id} style={{background:selected.has(u.id)?'var(--gold-bg)':''}}>
-            <td><input type="checkbox" checked={selected.has(u.id)} onChange={()=>toggleSelect(u.id)} style={{accentColor:'var(--gold)'}}/></td>
-            <td><div style={{display:'flex',alignItems:'center',gap:9}}>
-              <div className="avatar" style={{width:32,height:32,fontSize:'0.72rem',background:'var(--ink-3)',flexShrink:0}}>{initials(u.name)}</div>
-              <div><div style={{fontWeight:500}}>{u.name}</div><div style={{fontSize:'0.72rem',color:'var(--muted)'}}>{u.email}</div></div>
-            </div></td>
-            <td>{u.institution||'—'}<br/><span style={{fontSize:'0.72rem',color:'var(--muted)'}}>{u.department}</span></td>
-            <td><span className={`badge badge-${u.status==='approved'?'appr':u.status==='rejected'?'rej':'pend'}`}>{u.status}</span></td>
-            <td>{u.uploadCount||0}</td>
-            <td style={{whiteSpace:'nowrap'}}>{fmtDate(u.createdAt)}</td>
-            <td><div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-              {u.status!=='approved'&&<button className="btn btn-grn btn-sm" onClick={()=>upd(u.id,'approved')} title="Approve"><Ico.chk/></button>}
-              {u.status!=='rejected'&&<button className="btn btn-ol btn-sm" onClick={()=>upd(u.id,'rejected')}>Reject</button>}
-              <button className="btn btn-red btn-sm" onClick={()=>del(u.id)} title="Delete user"><Ico.trash/></button>
-            </div></td>
-          </tr>)}</tbody>
-        </table></div>}
-      </div>
+
+      {loading?<div className="card" style={{textAlign:'center',padding:'30px',color:'var(--muted)'}}>Loading…</div>
+      :filtered.length===0?<div className="card"><div className="empty" style={{padding:'36px 0'}}><div className="empty-ico">👤</div><h3>No students found</h3></div></div>
+      :viewMode==='grouped'?(
+        /* ── Grouped by Grade → Section ── */
+        <div style={{display:'flex',flexDirection:'column',gap:18}}>
+          {Object.entries(grouped).map(([grade,sections])=>(
+            <div key={grade}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                <div style={{width:4,height:28,borderRadius:2,background:GRADE_COLORS[grade]||'var(--muted)',flexShrink:0}}/>
+                <h3 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-lg)',fontWeight:600,color:'var(--ink)'}}>
+                  {grade==='Unknown'?'No Grade Assigned':`Grade ${grade}`}
+                </h3>
+                <span style={{fontSize:'0.72rem',color:'var(--muted)',marginLeft:4}}>
+                  {Object.values(sections).flat().length} student{Object.values(sections).flat().length!==1?'s':''}
+                </span>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:10,paddingLeft:14,borderLeft:`2px solid ${GRADE_BG[grade]||'var(--border)'}`}}>
+                {Object.entries(sections).sort(([a],[b])=>a.localeCompare(b)).map(([sec,list])=>(
+                  <div key={sec} className="card" style={{padding:'12px 16px',borderLeft:`3px solid ${GRADE_COLORS[grade]||'var(--border)'}`}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:6}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <span style={{fontWeight:600,fontSize:'var(--text-sm)',color:'var(--ink)'}}>{sec}</span>
+                        <span style={{fontSize:'0.68rem',color:'var(--muted)',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:99,padding:'1px 8px'}}>{list.length} student{list.length!==1?'s':''}</span>
+                      </div>
+                      <div style={{display:'flex',gap:5}}>
+                        {list.some(u=>!selected.has(u.id))
+                          ?<button className="btn btn-ol btn-sm" style={{fontSize:'0.68rem',minHeight:28,padding:'3px 10px'}} onClick={()=>toggleAll(list)}>☐ Select All</button>
+                          :<button className="btn btn-ol btn-sm" style={{fontSize:'0.68rem',minHeight:28,padding:'3px 10px'}} onClick={()=>toggleAll(list)}>☑ Deselect</button>
+                        }
+                      </div>
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                      {list.map(u=>(
+                        <div key={u.id} style={{display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:'var(--radius)',background:selected.has(u.id)?'var(--gold-bg)':'var(--surface)',transition:'background .15s'}}>
+                          <input type="checkbox" checked={selected.has(u.id)} onChange={()=>toggleSelect(u.id)} style={{accentColor:'var(--gold)',flexShrink:0}}/>
+                          <div className="avatar" style={{width:28,height:28,fontSize:'0.68rem',background:GRADE_COLORS[grade]||'var(--ink-3)',flexShrink:0}}>{initials(u.name)}</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontWeight:500,fontSize:'0.85rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{u.name}</div>
+                            <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>{u.email}</div>
+                          </div>
+                          <span className={`badge badge-${u.status==='approved'?'appr':u.status==='rejected'?'rej':'pend'}`} style={{flexShrink:0,fontSize:'0.62rem'}}>{u.status}</span>
+                          <span style={{fontSize:'0.72rem',color:'var(--muted)',flexShrink:0}}>{u.uploadCount||0} upload{(u.uploadCount||0)!==1?'s':''}</span>
+                          <div style={{display:'flex',gap:4,flexShrink:0}}>
+                            <button className="btn btn-ol btn-sm" style={{minHeight:28,padding:'3px 8px'}} onClick={()=>setEditingUser(u)} data-tip="Edit grade & section"><Ico.edit/></button>
+                            {u.status!=='approved'&&<button className="btn btn-grn btn-sm" style={{minHeight:28,padding:'3px 8px'}} onClick={()=>upd(u.id,'approved')} data-tip="Approve"><Ico.chk/></button>}
+                            {u.status!=='rejected'&&<button className="btn btn-ol btn-sm" style={{minHeight:28,padding:'3px 8px',fontSize:'0.72rem'}} onClick={()=>upd(u.id,'rejected')}>Reject</button>}
+                            <button className="btn btn-red btn-sm" style={{minHeight:28,padding:'3px 8px'}} onClick={()=>del(u.id)} data-tip="Delete"><Ico.trash/></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ):(
+        /* ── Flat table view ── */
+        <div className="card">
+          <div className="tw"><table>
+            <thead><tr>
+              <th style={{width:36}}><input type="checkbox" checked={selected.size===filtered.length&&filtered.length>0} onChange={()=>toggleAll(filtered)} style={{accentColor:'var(--gold)'}}/></th>
+              <th>Student</th><th>School</th><th>Grade</th><th>Section</th><th>Status</th><th>Uploads</th><th>Registered</th><th>Actions</th>
+            </tr></thead>
+            <tbody>{filtered.map(u=><StudentRow key={u.id} u={u}/>)}</tbody>
+          </table></div>
+        </div>
+      )}
+      {editingUser&&<EditGradeModal user={editingUser} onClose={()=>setEditingUser(null)} onSaved={load}/>}
     </div>
   );
 }
-
 // ══════════════════════════════════════════════════════════════════
 //  ADMIN STUDIES
 // ══════════════════════════════════════════════════════════════════
@@ -4949,7 +6693,7 @@ function AdminStudies() {
         <div className="sb" style={{flex:1,minWidth:200}}>
           <Ico.search/>
           <input placeholder="Search by title, author, or keyword…" value={searchInput} onChange={handleSearch} aria-label="Search studies"/>
-          {searchInput&&<button onClick={()=>{setSearchInput('');setSearch('');}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem',lineHeight:1}} title="Clear search">✕</button>}
+          {searchInput&&<button onClick={()=>{setSearchInput('');setSearch('');}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:'0 2px',fontSize:'1rem',lineHeight:1}} data-tip="Clear search">✕</button>}
         </div>
       </div>
       <div className="card">
@@ -4967,8 +6711,8 @@ function AdminStudies() {
             <td><ActivityCell sid={s.id}/></td>
             <td style={{whiteSpace:'nowrap'}}>{fmtDate(s.createdAt)}</td>
             <td style={{position:'sticky',right:0,background:'var(--white)',zIndex:1}}><div style={{display:'flex',gap:5}}>
-              <button className="btn btn-ol btn-sm" onClick={()=>setHistoryStudy(s)} title="Full activity log" style={{display:'flex',alignItems:'center',gap:4}}><Ico.eye/> Log</button>
-              <button className="btn btn-red btn-sm" onClick={()=>del(s.id)} title="Delete study"><Ico.trash/></button>
+              <button className="btn btn-ol btn-sm" onClick={()=>setHistoryStudy(s)} data-tip="View activity log" style={{display:'flex',alignItems:'center',gap:4}}><Ico.eye/> Log</button>
+              <button className="btn btn-red btn-sm" onClick={()=>del(s.id)} data-tip-pos="left" data-tip="Delete study"><Ico.trash/></button>
             </div></td>
           </tr>)}</tbody>
         </table></div>}
@@ -5312,8 +7056,8 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
               <div style={{position:'absolute',top:16,right:16,display:'flex',gap:6,alignItems:'center'}}>
                 {isAdmin && (
                   <>
-                    <button className="btn btn-ol btn-sm" onClick={()=>openEdit(entry)} title="Edit" aria-label={`Edit ${entry.title}`}><Ico.edit/></button>
-                    <button className="btn btn-red btn-sm" onClick={()=>setDeleteConfirm(entry.id)} title="Delete" aria-label={`Delete ${entry.title}`}><Ico.trash/></button>
+                    <button className="btn btn-ol btn-sm" onClick={()=>openEdit(entry)} data-tip="Edit entry" aria-label={`Edit ${entry.title}`}><Ico.edit/></button>
+                    <button className="btn btn-red btn-sm" onClick={()=>setDeleteConfirm(entry.id)} data-tip-pos="left" data-tip="Delete entry" aria-label={`Delete ${entry.title}`}><Ico.trash/></button>
                   </>
                 )}
               </div>
@@ -5453,14 +7197,27 @@ function AnnouncementsPage({ currentUser }) {
 
   const del = async id => {
     if (!confirm('Delete this announcement?')) return;
-    await API.deleteAnnouncement(id);
-    toast.ok('Deleted.');
-    load();
+    // Optimistic removal
+    const prev = announcements;
+    setAnnouncements(a => a.filter(x => x.id !== id));
+    try {
+      await API.deleteAnnouncement(id);
+      toast.ok('Deleted.');
+    } catch(e) {
+      setAnnouncements(prev);
+      toast.err('Failed to delete announcement.');
+    }
   };
 
   const togglePin = async (id, pinned) => {
-    await API.pinAnnouncement(id, !pinned);
-    load();
+    // Optimistic pin toggle
+    setAnnouncements(a => a.map(x => x.id === id ? {...x, pinned: !pinned} : x));
+    try {
+      await API.pinAnnouncement(id, !pinned);
+    } catch(e) {
+      setAnnouncements(a => a.map(x => x.id === id ? {...x, pinned} : x)); // revert
+      toast.err('Failed to update pin.');
+    }
   };
 
   // Format countdown string
@@ -5720,7 +7477,9 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
             <button key={item.id}
               className={`nav-item${activeTab===item.id?' active':''}`}
               onClick={()=>{setActiveTab(item.id);onClose?.();document.getElementById('main-content')?.scrollTo({top:0,behavior:'smooth'});}}
-              aria-current={activeTab===item.id?'page':undefined}>
+              aria-current={activeTab===item.id?'page':undefined}
+              data-tip={item.label}
+              data-tip-pos="bottom">
               {item.icon}{item.label}
               {item.badge&&<span className="nav-badge" aria-label={`${item.badge} pending`}>{item.badge}</span>}
             </button>
@@ -5735,10 +7494,12 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
             </div>
           </div>
           <div style={{display:'flex',gap:5,marginTop:8}}>
-            <button className="theme-toggle" style={{flex:1,justifyContent:'center',...(theme==='light'?{background:'rgba(201,162,39,0.22)',color:'var(--gold-light)',border:'1px solid rgba(201,162,39,0.4)'}:{})}} onClick={()=>theme!=='light'&&toggleTheme()} aria-pressed={theme==='light'}>☀ Light</button>
+            <button className="theme-toggle" data-tip="Switch to light mode" style={{flex:1,justifyContent:'center',...(theme==='light'?{background:'rgba(201,162,39,0.22)',color:'var(--gold-light)',border:'1px solid rgba(201,162,39,0.4)'}:{})}} onClick={()=>theme!=='light'&&toggleTheme()} aria-pressed={theme==='light'}>☀ Light</button>
             <button className="theme-toggle" style={{flex:1,justifyContent:'center',...(theme==='dark'?{background:'rgba(201,162,39,0.22)',color:'var(--gold-light)',border:'1px solid rgba(201,162,39,0.4)'}:{})}} onClick={()=>theme!=='dark'&&toggleTheme()} aria-pressed={theme==='dark'}>☾ Dark</button>
           </div>
           <button
+            data-tip="Sign out of your account"
+            data-tip-pos="bottom"
             style={{width:'100%',textAlign:'center',marginTop:6,padding:'9px',borderRadius:6,background:'none',border:'none',color:'var(--sidebar-text-sub)',cursor:'pointer',fontSize:'0.78rem',transition:'color .2s',minHeight:36}}
             onMouseEnter={e=>e.target.style.color='var(--sidebar-text-strong)'}
             onMouseLeave={e=>e.target.style.color='var(--sidebar-text-sub)'}
