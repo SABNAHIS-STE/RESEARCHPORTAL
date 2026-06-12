@@ -3836,8 +3836,8 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[]
         {(study.coAuthors && study.coAuthors.length > 0)
           ? [
               <span key="uploader" className="author-tag self" style={{fontSize:'var(--text-xs)'}}>
-                <span className="author-tag-avatar"><span>{(study.uploadedByName||study.authors[0]||'?').charAt(0).toUpperCase()}</span></span>
-                <span style={{overflow:'hidden',textOverflow:'ellipsis',maxWidth:160}}>{study.uploadedByName||study.authors[0]}</span>
+                <span className="author-tag-avatar"><span>{(study.uploadedByName||(study.authors&&study.authors[0])||'?').charAt(0).toUpperCase()}</span></span>
+                <span style={{overflow:'hidden',textOverflow:'ellipsis',maxWidth:160}}>{study.uploadedByName||(study.authors&&study.authors[0])||'Unknown'}</span>
                 <span style={{fontSize:'0.6rem',opacity:0.6,fontWeight:400,marginLeft:1}}>(owner)</span>
               </span>,
               ...study.coAuthors.map((ca,i)=>(
@@ -4070,6 +4070,8 @@ function TeacherFeedbackSection({ study, currentUser }) {
   const [criteria, setCriteria] = useState({ methodology:0, relevance:0, presentation:0, originality:0 });
   const [comments, setComments]     = useState('');
   const [recommendations, setRecommendations] = useState('');
+  const [plagTeacher,setPlagTeacher]=useState(null);
+  const [plagTeacherLoading,setPlagTeacherLoading]=useState(false);
 
   const totalScore = Object.values(criteria).reduce((a,b)=>a+(b||0),0);
   const gradeLetterClass = grade ? `tf-grade-${grade.charAt(0)}` : '';
@@ -4151,8 +4153,6 @@ function TeacherFeedbackSection({ study, currentUser }) {
   }
 
   // Plagiarism check for existing study (teacher only)
-  const [plagTeacher,setPlagTeacher]=useState(null);
-  const [plagTeacherLoading,setPlagTeacherLoading]=useState(false);
   const runPlagCheck=async()=>{
     setPlagTeacherLoading(true);
     const allSnap=await API.getStudies({status:'active',perPage:200});
