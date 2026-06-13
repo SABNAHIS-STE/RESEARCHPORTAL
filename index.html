@@ -3910,11 +3910,11 @@ const READ_DWELL_MS = 10000; // time (ms) before a study counts as "read"
 // ── Daily Login Streaks ─────────────────────────────────
 // Color tiers for the streak flame, based on consecutive days visited.
 const STREAK_TIERS = [
-  { id:'blue',   min:20, label:'Blue Fire',   color:'#3b82d4', glow:'rgba(59,130,212,0.35)' },
-  { id:'purple', min:10, label:'Purple Fire', color:'#9b65e0', glow:'rgba(155,101,224,0.35)' },
-  { id:'red',    min:5,  label:'Red Fire',    color:'#e6493f', glow:'rgba(230,73,63,0.35)' },
-  { id:'yellow', min:3,  label:'Yellow Fire', color:'#e0b830', glow:'rgba(224,184,48,0.35)' },
-  { id:'orange', min:1,  label:'Orange Fire', color:'#f0883e', glow:'rgba(240,136,62,0.35)' },
+  { id:'blue',   min:20, label:'On Fire!',    color:'#3b82d4', glow:'rgba(59,130,212,0.35)' },
+  { id:'purple', min:10, label:'Keep it up!', color:'#9b65e0', glow:'rgba(155,101,224,0.35)' },
+  { id:'red',    min:5,  label:'Keep going!', color:'#e6493f', glow:'rgba(230,73,63,0.35)' },
+  { id:'yellow', min:3,  label:'Keep going!', color:'#e0b830', glow:'rgba(224,184,48,0.35)' },
+  { id:'orange', min:1,  label:'Keep going!', color:'#f0883e', glow:'rgba(240,136,62,0.35)' },
 ];
 function getStreakTier(days) {
   return STREAK_TIERS.find(t=>days>=t.min) || null;
@@ -6875,14 +6875,14 @@ function StreakCard({ streak, longestStreak }) {
         <div style={{flex:1,minWidth:180}}>
           <div style={{fontWeight:600,fontSize:'var(--text-sm)',marginBottom:3}}>
             {streak>0
-              ? <>{streak} day{streak!==1?'s':''} streak {tier&&<span style={{color:tier.color}}>· {tier.label}</span>}</>
+              ? <>{streak} day{streak!==1?'s':''} streak {tier&&<span style={{color:tier.color}}>· Keep going!</span>}</>
               : 'Start your streak today!'}
           </div>
           <div style={{fontSize:'0.75rem',color:'var(--muted)'}}>
             {streak===0
               ? 'Visit the portal every day to build a streak and light up your flame.'
               : nextTier
-                ? `${nextTier.min-streak} more day${nextTier.min-streak!==1?'s':''} to reach ${nextTier.label}.`
+                ? `${nextTier.min-streak} more day${nextTier.min-streak!==1?'s':''} to reach the next level!`
                 : "You've reached the highest flame tier — keep it going! 🌟"}
           </div>
         </div>
@@ -7293,6 +7293,290 @@ function AdminDash({ currentUser }) {
         </table></div>}
       </div>
       {selectedStudy&&<StudyDetailModal study={selectedStudy} onClose={()=>setSelectedStudy(null)} currentUser={currentUser} onDelete={async id=>{await API.deleteStudy(id);setSelectedStudy(null);load();}} allStudies={recent} onOpenStudy={async s=>{const snap=await db.collection('studies').doc(s.studyId||s.id).get();if(snap.exists){const d={id:snap.id,...snap.data()};setSelectedStudy(d);trackRecentlyViewed(d);}}}/>}
+    </div>
+  );
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+//  CLASS ANALYTICS DASHBOARD
+// ══════════════════════════════════════════════════════════════════
+function MiniBar({ value, max, color }) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return (
+    <div style={{ height: 6, background: 'var(--border)', borderRadius: 99, overflow: 'hidden', flex: 1 }}>
+      <div style={{ height: '100%', width: `${pct}%`, background: color || 'var(--gold)', borderRadius: 99, transition: 'width .5s ease' }} />
+    </div>
+  );
+}
+
+function StatPill({ label, value, color }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '10px 14px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', flex: '1 1 90px', minWidth: 80 }}>
+      <div style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--muted)' }}>{label}</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 700, color: color || 'var(--ink)', lineHeight: 1.1 }}>{value}</div>
+    </div>
+  );
+}
+
+function AdminAnalytics({ currentUser }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState('overview');
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [stats, allStudents, allStudies] = await Promise.all([
+        API.getStats(),
+        API.getUsers({ role: 'student', status: '' }),
+        API.getAllStudies(),
+      ]);
+      const approved = allStudents.filter(u => u.status === 'approved');
+      const pending  = allStudents.filter(u => u.status === 'pending');
+
+      const uploaderMap = {};
+      allStudies.forEach(s => {
+        const uid = s.uploadedBy || s.uploadedByName || 'Unknown';
+        if (!uploaderMap[uid]) uploaderMap[uid] = { name: s.uploadedByName || uid, count: 0 };
+        uploaderMap[uid].count++;
+      });
+      const topUploaders = Object.values(uploaderMap).sort((a, b) => b.count - a.count).slice(0, 8);
+
+      const catMap = {};
+      allStudies.forEach(s => (s.categories || ['Uncategorized']).forEach(c => { catMap[c] = (catMap[c] || 0) + 1; }));
+      const topCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+      const yearMap = {};
+      allStudies.forEach(s => { const y = s.year || 'Unknown'; yearMap[y] = (yearMap[y] || 0) + 1; });
+      const byYear = Object.entries(yearMap).sort((a, b) => b[0] - a[0]).slice(0, 6);
+
+      const topViewed   = [...allStudies].sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0)).slice(0, 6);
+      const topDownload = [...allStudies].sort((a, b) => (b.downloadCount || 0) - (a.downloadCount || 0)).slice(0, 6);
+      const topCited    = [...allStudies].sort((a, b) => (b.citationCount || 0) - (a.citationCount || 0)).slice(0, 6);
+
+      const studiesWithViews = allStudies.filter(s => (s.viewCount || 0) > 0).length;
+      const engagementRate   = allStudies.length > 0 ? Math.round((studiesWithViews / allStudies.length) * 100) : 0;
+
+      const uploadIds = new Set(allStudies.map(s => s.uploadedBy).filter(Boolean));
+      const noUpload = approved.filter(u => !uploadIds.has(u.id));
+
+      setData({ stats, allStudents, approved, pending, topUploaders, topCats, byYear, topViewed, topDownload, topCited, engagementRate, noUpload, allStudies });
+    } catch(e) { toast.err('Failed to load analytics.'); }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const TAB = (id, label, icon) => (
+    <button onClick={() => setTab(id)} style={{
+      padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
+      fontFamily: 'var(--font-body)', fontSize: '0.82rem', fontWeight: 600,
+      background: tab === id ? 'var(--gold)' : 'var(--surface)',
+      color: tab === id ? '#fff' : 'var(--muted)',
+      border: `1.5px solid ${tab === id ? 'var(--gold)' : 'var(--border)'}`,
+      transition: 'all var(--transition)', display: 'flex', alignItems: 'center', gap: 6,
+    }}>{icon} {label}</button>
+  );
+
+  if (loading) return (
+    <div>
+      <div style={{marginBottom:22}}><div className="skel skel-page-title" style={{marginBottom:8}}/><div className="skel" style={{height:13,width:220,borderRadius:5}}/></div>
+      <StatsSkeleton count={4}/><StudiesGridSkeleton count={3}/>
+    </div>
+  );
+  if (!data) return null;
+  const { stats, approved, pending, allStudies, topUploaders, topCats, byYear, topViewed, topDownload, topCited, engagementRate, noUpload } = data;
+  const maxCat=topCats[0]?.[1]||1, maxView=topViewed[0]?.viewCount||1, maxDl=topDownload[0]?.downloadCount||1, maxCite=topCited[0]?.citationCount||1, maxUp=topUploaders[0]?.count||1;
+
+  return (
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:10,marginBottom:22}}>
+        <div>
+          <h2 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-2xl)',marginBottom:3}}>📊 Class Analytics</h2>
+          <p className="muted">Full overview of student activity and research engagement.</p>
+        </div>
+        <button className="btn btn-ol btn-sm" onClick={load}>↻ Refresh</button>
+      </div>
+
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:20}}>
+        {TAB('overview','Overview','🏠')}
+        {TAB('students','Students','👥')}
+        {TAB('studies','Studies','📚')}
+      </div>
+
+      {tab==='overview' && (
+        <div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10,marginBottom:18}}>
+            <StatPill label="Total Students" value={stats.totalStudents} color="var(--gold)"/>
+            <StatPill label="Approved" value={stats.approvedStudents} color="var(--teal)"/>
+            <StatPill label="Pending" value={stats.pendingStudents} color="var(--red)"/>
+            <StatPill label="Total Studies" value={stats.totalStudies} color="var(--blue)"/>
+            <StatPill label="Total Views" value={stats.totalViews} color="var(--purple)"/>
+            <StatPill label="Downloads" value={stats.totalDownloads} color="var(--ink-3)"/>
+            <StatPill label="Citations" value={stats.totalCitations||0} color="var(--teal)"/>
+            <StatPill label="Engagement" value={`${engagementRate}%`} color="var(--gold)"/>
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:14,marginBottom:14}}>
+            <div className="card">
+              <div className="card-hd" style={{marginBottom:14}}>
+                <span className="card-title">🎓 Students by Grade</span>
+                <span style={{fontSize:'0.72rem',color:'var(--muted)'}}>{stats.totalStudents} total</span>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {['8','9','10','11','12'].map(g => {
+                  const n=stats.gradeBreakdown?.[g]||0;
+                  const pct=stats.totalStudents>0?Math.round((n/stats.totalStudents)*100):0;
+                  return (
+                    <div key={g} style={{display:'flex',alignItems:'center',gap:10}}>
+                      <span style={{fontSize:'0.72rem',fontWeight:700,color:GRADE_COLORS[g]||'var(--muted)',width:54,flexShrink:0}}>Grade {g}</span>
+                      <MiniBar value={n} max={stats.totalStudents} color={GRADE_COLORS[g]}/>
+                      <span style={{fontSize:'0.72rem',fontWeight:600,color:'var(--ink)',width:24,textAlign:'right',flexShrink:0}}>{n}</span>
+                      <span style={{fontSize:'0.65rem',color:'var(--muted)',width:30,flexShrink:0}}>{pct}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-hd" style={{marginBottom:14}}>
+                <span className="card-title">📂 Studies by Category</span>
+                <span style={{fontSize:'0.72rem',color:'var(--muted)'}}>{allStudies.length} studies</span>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:9}}>
+                {topCats.length===0
+                  ? <p className="muted" style={{fontSize:'0.82rem'}}>No data yet.</p>
+                  : topCats.map(([cat,count]) => (
+                    <div key={cat} style={{display:'flex',alignItems:'center',gap:10}}>
+                      <span style={{fontSize:'0.72rem',fontWeight:500,color:'var(--ink)',minWidth:90,maxWidth:110,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flexShrink:0}}>{cat}</span>
+                      <MiniBar value={count} max={maxCat} color="var(--gold)"/>
+                      <span style={{fontSize:'0.72rem',fontWeight:600,color:'var(--ink)',width:22,textAlign:'right',flexShrink:0}}>{count}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="card" style={{marginBottom:14}}>
+            <div className="card-hd" style={{marginBottom:14}}><span className="card-title">📅 Studies by Year</span></div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+              {byYear.length===0
+                ? <p className="muted" style={{fontSize:'0.82rem'}}>No data yet.</p>
+                : byYear.map(([year,count]) => (
+                  <div key={year} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:'10px 16px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)',minWidth:70}}>
+                    <div style={{fontFamily:'var(--font-display)',fontSize:'1.4rem',fontWeight:700,color:'var(--gold)'}}>{count}</div>
+                    <div style={{fontSize:'0.68rem',color:'var(--muted)',fontWeight:600}}>{year}</div>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-hd" style={{marginBottom:14}}><span className="card-title">🔥 Most Viewed Studies</span></div>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {topViewed.map((s,i) => (
+                <div key={s.id} style={{display:'flex',alignItems:'center',gap:10}}>
+                  <div style={{width:24,height:24,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.68rem',fontWeight:700,background:i===0?'var(--gold)':i===1?'var(--teal)':'var(--surface)',color:i<2?'#fff':'var(--muted)',border:'1.5px solid var(--border)'}}>{i+1}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:'0.82rem',fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div>
+                    <div style={{fontSize:'0.65rem',color:'var(--muted)'}}>{s.uploadedByName} · {(s.categories||[]).join(', ')}</div>
+                  </div>
+                  <MiniBar value={s.viewCount||0} max={maxView} color="var(--teal)"/>
+                  <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--teal)',width:36,textAlign:'right',flexShrink:0}}>{s.viewCount||0}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab==='students' && (
+        <div>
+          <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:18}}>
+            <StatPill label="Approved" value={approved.length} color="var(--teal)"/>
+            <StatPill label="Pending" value={pending.length} color="var(--red)"/>
+            <StatPill label="No Uploads Yet" value={noUpload.length} color="var(--muted)"/>
+          </div>
+
+          <div className="card" style={{marginBottom:14}}>
+            <div className="card-hd" style={{marginBottom:14}}>
+              <span className="card-title">🏆 Top Uploaders</span>
+              <span style={{fontSize:'0.72rem',color:'var(--muted)'}}>By studies submitted</span>
+            </div>
+            {topUploaders.length===0
+              ? <p className="muted" style={{fontSize:'0.82rem'}}>No uploads yet.</p>
+              : <div style={{display:'flex',flexDirection:'column',gap:9}}>
+                  {topUploaders.map((u,i) => (
+                    <div key={u.name} style={{display:'flex',alignItems:'center',gap:10}}>
+                      <div style={{width:24,height:24,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.68rem',fontWeight:700,background:i===0?'var(--gold)':'var(--surface)',color:i===0?'#fff':'var(--muted)',border:'1.5px solid var(--border)'}}>{i+1}</div>
+                      <div className="avatar" style={{width:28,height:28,fontSize:'0.65rem',background:'var(--ink-3)',flexShrink:0}}>{initials(u.name)}</div>
+                      <span style={{flex:1,fontSize:'0.82rem',fontWeight:500,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{u.name}</span>
+                      <MiniBar value={u.count} max={maxUp} color="var(--gold)"/>
+                      <span style={{fontSize:'0.8rem',fontWeight:700,color:'var(--gold)',width:28,textAlign:'right',flexShrink:0}}>{u.count}</span>
+                    </div>
+                  ))}
+                </div>}
+          </div>
+
+          {noUpload.length>0 && (
+            <div className="card" style={{borderLeft:'3px solid var(--red)'}}>
+              <div className="card-hd" style={{marginBottom:12}}>
+                <span className="card-title">⚠️ No Uploads Yet</span>
+                <span className="badge badge-rej">{noUpload.length} students</span>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                {noUpload.slice(0,20).map(u => (
+                  <div key={u.id} style={{display:'flex',alignItems:'center',gap:9,padding:'7px 10px',background:'var(--surface)',borderRadius:7}}>
+                    <div className="avatar" style={{width:28,height:28,fontSize:'0.65rem',background:GRADE_COLORS[u.gradeLevel]||'var(--ink-3)',flexShrink:0}}>{initials(u.name)}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:'0.82rem',fontWeight:500}}>{u.name}</div>
+                      <div style={{fontSize:'0.65rem',color:'var(--muted)'}}>{u.email}{u.gradeLevel?` · Grade ${u.gradeLevel}`:''}{u.section?` — ${u.section}`:''}</div>
+                    </div>
+                  </div>
+                ))}
+                {noUpload.length>20 && <p className="muted" style={{fontSize:'0.72rem',textAlign:'center',marginTop:4}}>+{noUpload.length-20} more — see User Management.</p>}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab==='studies' && (
+        <div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:14}}>
+            <div className="card">
+              <div className="card-hd" style={{marginBottom:14}}><span className="card-title">⬇ Most Downloaded</span></div>
+              <div style={{display:'flex',flexDirection:'column',gap:9}}>
+                {topDownload.map((s,i) => (
+                  <div key={s.id} style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span style={{fontSize:'0.68rem',fontWeight:700,color:'var(--muted)',width:16,flexShrink:0}}>{i+1}</span>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:'0.78rem',fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></div>
+                    <MiniBar value={s.downloadCount||0} max={maxDl} color="var(--blue)"/>
+                    <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--blue)',width:28,textAlign:'right',flexShrink:0}}>{s.downloadCount||0}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="card">
+              <div className="card-hd" style={{marginBottom:14}}><span className="card-title">📋 Most Cited</span></div>
+              <div style={{display:'flex',flexDirection:'column',gap:9}}>
+                {topCited.filter(s=>(s.citationCount||0)>0).length===0
+                  ? <p className="muted" style={{fontSize:'0.82rem'}}>No citations yet.</p>
+                  : topCited.filter(s=>(s.citationCount||0)>0).map((s,i) => (
+                    <div key={s.id} style={{display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{fontSize:'0.68rem',fontWeight:700,color:'var(--muted)',width:16,flexShrink:0}}>{i+1}</span>
+                      <div style={{flex:1,minWidth:0}}><div style={{fontSize:'0.78rem',fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></div>
+                      <MiniBar value={s.citationCount||0} max={maxCite} color="var(--purple)"/>
+                      <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--purple)',width:28,textAlign:'right',flexShrink:0}}>{s.citationCount||0}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -8787,6 +9071,7 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
     {id:'users',label:'Users',icon:<Ico.users/>,badge:pendingCount||null},
     {id:'studies-admin',label:'All Studies',icon:<Ico.book/>},
     {id:'categories',label:'Categories',icon:<Ico.tag/>},
+    {id:'analytics',label:'Analytics',icon:<Ico.eye/>},
     {id:'audit-log',label:'Audit Log',icon:<Ico.settings/>},
     {id:'repository',label:'Repository',icon:<Ico.search/>},
     {id:'recognized',label:'Recognized Studies',icon:<Ico.award/>},
@@ -9160,7 +9445,7 @@ function StreakPill({ currentUser }) {
         {streak===0
           ? 'Visit the portal every day to start your streak.'
           : nextTier
-            ? `${nextTier.min-streak} more day${nextTier.min-streak!==1?'s':''} to reach ${nextTier.label}.`
+            ? `${nextTier.min-streak} more day${nextTier.min-streak!==1?'s':''} to reach the next level!`
             : "You've reached the highest flame tier! 🌟"}
       </div>
       <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
@@ -9322,7 +9607,7 @@ function App() {
     return ()=>{try{unsub();}catch{}};
   },[]);
 
-  const titles={dashboard:'Dashboard',users:'User Management',announcements:'Announcements','studies-admin':'Manage Studies',categories:'Manage Categories','audit-log':'Audit Log',repository:'Research Repository',chatbot:'AI Research Assistant',recognized:'Recognized Studies'};
+  const titles={dashboard:'Dashboard',users:'User Management',analytics:'Class Analytics',announcements:'Announcements','studies-admin':'Manage Studies',categories:'Manage Categories','audit-log':'Audit Log',repository:'Research Repository',chatbot:'AI Research Assistant',recognized:'Recognized Studies'};
 
   if(!authChecked || !loaderDone){
     // Keep React from rendering anything until auth is known AND the loader has fully faded out
@@ -9371,6 +9656,7 @@ function App() {
       case 'users':         return isAdmin?<AdminUsers currentUser={currentUser}/>:null;
       case 'studies-admin': return isAdmin?<AdminStudies currentUser={currentUser}/>:null;
       case 'categories':    return isAdmin?<AdminCats/>:null;
+      case 'analytics':    return isAdmin?<AdminAnalytics currentUser={currentUser}/>:null;
       case 'audit-log':     return isAdmin?<AdminAuditLog/>:null;
       case 'repository':    return <StudiesPage currentUser={currentUser}/>;
       case 'recognized':    return <RecognizedStudiesPage currentUser={currentUser} isAdmin={isAdmin}/>;
