@@ -54,6 +54,7 @@
 
   /* Layout */
   --sidebar-w: 260px;
+  --sidebar-collapsed-w: 78px;
   --topbar-h: 58px;
   --mob-header-h: 54px;
   --mob-nav-h: 62px;
@@ -517,7 +518,7 @@ a { color: inherit; }
   top: 0;
   left: 0;
   z-index: 150;
-  transition: transform .3s cubic-bezier(0.4,0,0.2,1), background 0.25s ease;
+  transition: transform .3s cubic-bezier(0.4,0,0.2,1), background 0.25s ease, width .22s ease;
   will-change: transform;
   border-right: 1px solid var(--sidebar-border);
   box-shadow: var(--shadow-lg);
@@ -615,6 +616,60 @@ a { color: inherit; }
 }
 .sidebar-close-btn:hover { color: var(--sidebar-text-strong); }
 
+/* ── Collapsible sidebar (desktop) ─────────────── */
+.sidebar-collapse-btn {
+  position: absolute;
+  top: 22px;
+  right: -13px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--sidebar-border);
+  color: var(--sidebar-text-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: color var(--transition), background var(--transition);
+  z-index: 160;
+}
+.sidebar-collapse-btn:hover { color: var(--sidebar-text-strong); }
+.sidebar-collapse-btn svg { width: 14px; height: 14px; transition: transform .22s ease; }
+
+@media (min-width:769px) {
+  .app-shell.sidebar-collapsed .sidebar { width: var(--sidebar-collapsed-w); }
+  .app-shell.sidebar-collapsed .main-content { margin-left: var(--sidebar-collapsed-w); }
+  .app-shell.sidebar-collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
+
+  .app-shell.sidebar-collapsed .sidebar-logo { justify-content: center; padding-left: 14px; padding-right: 14px; }
+  .app-shell.sidebar-collapsed .sidebar-logo-text,
+  .app-shell.sidebar-collapsed .nav-label,
+  .app-shell.sidebar-collapsed .nav-item-label,
+  .app-shell.sidebar-collapsed .nav-badge,
+  .app-shell.sidebar-collapsed .user-info,
+  .app-shell.sidebar-collapsed .sidebar-theme-row,
+  .app-shell.sidebar-collapsed .signout-label {
+    display: none;
+  }
+  .app-shell.sidebar-collapsed .nav-item { justify-content: center; padding: 11px 0; }
+  .app-shell.sidebar-collapsed .nav-item.has-badge::after {
+    content: '';
+    position: absolute;
+    top: 9px;
+    right: 22px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 0 2px var(--sidebar-bg);
+  }
+  .app-shell.sidebar-collapsed .sidebar-nav { padding: 16px 8px; }
+  .app-shell.sidebar-collapsed .user-chip { justify-content: center; padding: 8px 0; }
+  .app-shell.sidebar-collapsed .sidebar-signout { justify-content: center; gap: 0; }
+}
+
 .main-content {
   flex: 1;
   margin-left: var(--sidebar-w);
@@ -622,6 +677,7 @@ a { color: inherit; }
   display: flex;
   flex-direction: column;
   min-width: 0;
+  transition: margin-left .22s ease;
 }
 
 .topbar {
@@ -1190,6 +1246,82 @@ tr:hover td { background: var(--surface); }
   flex-shrink: 0;
 }
 .modal-x:hover { background:var(--surface); color:var(--ink); }
+
+/* ══════════════════════════════════════════
+   COMMAND PALETTE & KEYBOARD SHORTCUTS
+══════════════════════════════════════════ */
+.cmdk-overlay {
+  position: fixed; inset: 0;
+  background: rgba(13,15,20,0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 300;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 18px;
+  padding-top: clamp(64px, 14vh, 140px);
+  animation: fIn .15s ease;
+  overscroll-behavior: contain;
+}
+.cmdk-modal {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  width: 100%; max-width: 480px;
+  max-height: min(60vh, 460px);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  animation: sUp var(--spring);
+}
+.cmdk-input-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.cmdk-input-row svg { flex-shrink: 0; color: var(--muted); opacity: 1; }
+.cmdk-input-row input {
+  flex: 1; border: none; outline: none; background: none;
+  font-size: var(--text-md); color: var(--ink); font-family: var(--font-body);
+  min-width: 0;
+}
+.cmdk-list { overflow-y: auto; padding: 8px; overscroll-behavior: contain; }
+.cmdk-item {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 8px;
+  border: none; background: none; cursor: pointer;
+  font-size: var(--text-sm); color: var(--ink); text-align: left;
+  transition: background var(--transition);
+}
+.cmdk-item:hover, .cmdk-item.active { background: var(--surface); }
+.cmdk-item-icon { display: flex; align-items: center; opacity: 0.6; flex-shrink: 0; }
+.cmdk-item-icon svg { width: 16px; height: 16px; }
+.cmdk-item-label { flex: 1; }
+.cmdk-item-enter { font-size: 0.68rem; color: var(--muted); opacity: 0; }
+.cmdk-item.active .cmdk-item-enter { opacity: 1; }
+.cmdk-empty { padding: 28px 12px; text-align: center; color: var(--muted); font-size: var(--text-sm); }
+
+/* Keyboard key badge, used in the palette and shortcuts help */
+.kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.7rem; font-weight: 600;
+  color: var(--slate);
+  flex-shrink: 0;
+}
+.shortcut-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm); color: var(--ink-2);
+}
+.shortcut-row:last-child { border-bottom: none; }
+.shortcut-keys { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 
 /* ══════════════════════════════════════════
    TOASTS
@@ -2190,6 +2322,34 @@ tr:hover td { background: var(--surface); }
 [data-tip-pos="left"]:hover::before,
 [data-tip-pos="left"]:focus-visible::before {
   transform: scale(1);
+}
+/* Tip right-anchored (for collapsed sidebar icons) */
+[data-tip-pos="right"]::after {
+  bottom: auto;
+  top: 50%;
+  left: calc(100% + 10px);
+  right: auto;
+  transform: translateY(-50%) scale(0.88);
+}
+[data-tip-pos="right"]:hover::after,
+[data-tip-pos="right"]:focus-visible::after {
+  transform: translateY(-50%) scale(1);
+}
+[data-tip-pos="right"]::before {
+  bottom: auto;
+  top: 50%;
+  left: calc(100% + 4px);
+  right: auto;
+  transform: translateY(-50%) scale(0.88);
+  border-top-color: transparent;
+  border-right-color: var(--ink);
+}
+[data-tip-pos="right"]:hover::before,
+[data-tip-pos="right"]:focus-visible::before {
+  transform: translateY(-50%) scale(1);
+}
+[data-theme="dark"] [data-tip-pos="right"]::before {
+  border-right-color: #e8eaf2;
 }
 /* Dark mode inversion */
 [data-theme="dark"] [data-tip]::after {
@@ -4007,7 +4167,33 @@ const Ico = {
   bm:     ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
   cite:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>,
   doc:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
+  chevsL: ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>,
+  cmdk:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><path d="M9 3a3 3 0 0 0-3 3v3H3a3 3 0 1 0 0 3h3v3a3 3 0 1 0 3 0v-3h6v3a3 3 0 1 0 3 0v-3h3a3 3 0 1 0 0-3h-3V6a3 3 0 1 0-3 0v3H9z"/></svg>,
+  key:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L17 4"/></svg>,
 };
+
+// ── Nav config shared by Sidebar, the command palette, and tab persistence ──
+const ADMIN_NAV_ITEMS = [
+  {id:'dashboard',label:'Dashboard',icon:'home'},
+  {id:'users',label:'Users',icon:'users'},
+  {id:'studies-admin',label:'All Studies',icon:'book'},
+  {id:'categories',label:'Categories',icon:'tag'},
+  {id:'analytics',label:'Analytics',icon:'eye'},
+  {id:'grade-overview',label:'Grade Overview',icon:'doc'},
+  {id:'audit-log',label:'Audit Log',icon:'settings'},
+  {id:'repository',label:'Repository',icon:'search'},
+  {id:'recognized',label:'Recognized Studies',icon:'award'},
+  {id:'announcements',label:'Announcements',icon:'bell'},
+  {id:'chatbot',label:'AI Assistant',icon:'bot'},
+];
+const STUDENT_NAV_ITEMS = [
+  {id:'dashboard',label:'Dashboard',icon:'home'},
+  {id:'my-stats',label:'My Stats',icon:'eye'},
+  {id:'repository',label:'Browse Studies',icon:'book'},
+  {id:'recognized',label:'Recognized Studies',icon:'award'},
+  {id:'announcements',label:'Announcements',icon:'bell'},
+  {id:'chatbot',label:'AI Assistant',icon:'bot'},
+];
 
 // ══════════════════════════════════════════════════════════════════
 //  SHARED COMPONENTS
@@ -4135,6 +4321,75 @@ function Modal({ title, onClose, children, wide }) {
     </div>
   );
 }
+
+// ── Command palette: Ctrl/Cmd+K quick page switcher ──────────────
+function CommandPalette({ items, onNavigate, onClose }) {
+  const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const inputRef = useRef(null);
+
+  useEffect(()=>{
+    inputRef.current?.focus();
+    document.body.style.overflow = 'hidden';
+    return ()=>{ document.body.style.overflow = ''; };
+  },[]);
+
+  const filtered = useMemo(()=>{
+    const q = query.trim().toLowerCase();
+    if(!q) return items;
+    return items.filter(it=>it.label.toLowerCase().includes(q));
+  },[query, items]);
+
+  useEffect(()=>{ setActiveIndex(0); },[query]);
+
+  const select = item => { if(item){ onNavigate(item.id); onClose(); } };
+
+  const onKeyDown = e => {
+    if(e.key==='ArrowDown'){ e.preventDefault(); setActiveIndex(i=>Math.min(i+1, filtered.length-1)); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); setActiveIndex(i=>Math.max(i-1, 0)); }
+    else if(e.key==='Enter'){ e.preventDefault(); select(filtered[activeIndex]); }
+    else if(e.key==='Escape'){ e.preventDefault(); onClose(); }
+  };
+
+  return (
+    <div className="cmdk-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="cmdk-modal" role="dialog" aria-modal="true" aria-label="Quick navigation">
+        <div className="cmdk-input-row">
+          <Ico.search/>
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={e=>setQuery(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="Jump to a page…"
+            aria-label="Search pages"
+            autoFocus
+          />
+          <span className="kbd">Esc</span>
+        </div>
+        <div className="cmdk-list" role="listbox">
+          {filtered.length===0 && <div className="cmdk-empty">No matching pages.</div>}
+          {filtered.map((item,i)=>{
+            const IconComp = Ico[item.icon];
+            return (
+              <button key={item.id}
+                className={`cmdk-item${i===activeIndex?' active':''}`}
+                onMouseEnter={()=>setActiveIndex(i)}
+                onClick={()=>select(item)}
+                role="option"
+                aria-selected={i===activeIndex}>
+                <span className="cmdk-item-icon">{IconComp&&<IconComp/>}</span>
+                <span className="cmdk-item-label">{item.label}</span>
+                <span className="cmdk-item-enter">↵</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function APABox({ study, currentUser }) {
   const [copied,setCopied]=useState(false);
@@ -6927,6 +7182,7 @@ function MyStatsPage({ currentUser }) {
   const [streakData, setStreakData] = useState({ streak: 0, longestStreak: 0 });
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [historyStudy, setHistoryStudy] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -7053,21 +7309,30 @@ function MyStatsPage({ currentUser }) {
           : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {myStudies.map(s => (
-                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 500, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</div>
                     <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: 2 }}>{(s.categories || []).join(', ')} · {s.year}</div>
                   </div>
-                  <div style={{ display: 'flex', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 12, flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.72rem', color: 'var(--teal)', fontWeight: 600 }}>👁 {s.viewCount || 0}</span>
                     <span style={{ fontSize: '0.72rem', color: 'var(--blue)', fontWeight: 600 }}>⬇ {s.downloadCount || 0}</span>
                     <span style={{ fontSize: '0.72rem', color: 'var(--purple)', fontWeight: 600 }}>📋 {s.citationCount || 0}</span>
+                    <button
+                      className="btn btn-ol btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', padding: '5px 10px', minHeight: 32 }}
+                      onClick={() => setHistoryStudy(s)}
+                      data-tip="See who viewed, downloaded, and cited this study">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      Activity
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
       </div>
+      {historyStudy && <StudyHistoryModal study={historyStudy} onClose={() => setHistoryStudy(null)} />}
     </div>
   );
 }
@@ -9462,7 +9727,7 @@ function UserNotifBell({ currentUser, count, onCountChange, onOpenStudy }) {
 
 
 // ══════════════════════════════════════════════════════════════════
-const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, onLogout, pendingCount=0, isOpen, onClose, theme, toggleTheme }) {
+const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, onLogout, pendingCount=0, isOpen, onClose, theme, toggleTheme, collapsed=false, onToggleCollapse }) {
   const isAdmin=currentUser.role==='admin';
   const adminNav=[
     {id:'dashboard',label:'Dashboard',icon:<Ico.home/>},
@@ -9491,10 +9756,18 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
     <>
       <div className={`mob-overlay${isOpen?' show':''}`} onClick={onClose} aria-hidden="true"/>
       <nav className={`sidebar${isOpen?' open':''}`} aria-label="Main navigation">
+        <button
+          className="sidebar-collapse-btn"
+          onClick={onToggleCollapse}
+          aria-label={collapsed?'Expand sidebar':'Collapse sidebar'}
+          data-tip={collapsed?'Expand sidebar':'Collapse sidebar'}
+          data-tip-pos="right">
+          <Ico.chevsL/>
+        </button>
         <div className="sidebar-logo">
           <div style={{display:'flex',alignItems:'center',gap:10,flex:1,minWidth:0}}>
             <SchoolLogoZone context="sidebar"/>
-            <div>
+            <div className="sidebar-logo-text">
               <h1>SABNAHIS <span>STE Research Portal</span></h1>
               <p>INNOVATE. ENGINEER. DISCOVER.</p>
             </div>
@@ -9507,36 +9780,37 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
           <div className="nav-label" role="heading" aria-level="3">{isAdmin?'Teacher Panel':'Navigation'}</div>
           {nav.map(item=>(
             <button key={item.id}
-              className={`nav-item${activeTab===item.id?' active':''}`}
+              className={`nav-item${activeTab===item.id?' active':''}${item.badge?' has-badge':''}`}
               onClick={()=>{setActiveTab(item.id);onClose?.();document.getElementById('main-content')?.scrollTo({top:0,behavior:'smooth'});}}
               aria-current={activeTab===item.id?'page':undefined}
               data-tip={item.label}
-              data-tip-pos="bottom">
-              {item.icon}{item.label}
+              data-tip-pos={collapsed?'right':'bottom'}>
+              {item.icon}<span className="nav-item-label">{item.label}</span>
               {item.badge&&<span className="nav-badge" aria-label={`${item.badge} pending`}>{item.badge}</span>}
             </button>
           ))}
         </div>
         <div className="sidebar-footer">
-          <div className="user-chip">
+          <div className="user-chip" data-tip={collapsed?`${currentUser.name} · ${currentUser.role==='admin'?'Teacher':'Student'}`:undefined} data-tip-pos="right">
             <div className="avatar" aria-hidden="true">{initials(currentUser.name)}</div>
             <div className="user-info">
               <strong title={currentUser.name}>{currentUser.name}</strong>
               <span>{currentUser.role==='admin'?'Teacher':'Student'}</span>
             </div>
           </div>
-          <div style={{display:'flex',gap:5,marginTop:8}}>
+          <div className="sidebar-theme-row" style={{display:'flex',gap:5,marginTop:8}}>
             <button className="theme-toggle" data-tip="Switch to light mode" style={{flex:1,justifyContent:'center',...(theme==='light'?{background:'rgba(201,162,39,0.22)',color:'var(--gold-light)',border:'1px solid rgba(201,162,39,0.4)'}:{})}} onClick={()=>theme!=='light'&&toggleTheme()} aria-pressed={theme==='light'}>☀ Light</button>
             <button className="theme-toggle" style={{flex:1,justifyContent:'center',...(theme==='dark'?{background:'rgba(201,162,39,0.22)',color:'var(--gold-light)',border:'1px solid rgba(201,162,39,0.4)'}:{})}} onClick={()=>theme!=='dark'&&toggleTheme()} aria-pressed={theme==='dark'}>☾ Dark</button>
           </div>
           <button
+            className="sidebar-signout"
             data-tip="Sign out of your account"
-            data-tip-pos="bottom"
-            style={{width:'100%',textAlign:'center',marginTop:6,padding:'9px',borderRadius:6,background:'none',border:'none',color:'var(--sidebar-text-sub)',cursor:'pointer',fontSize:'0.78rem',transition:'color .2s',minHeight:36}}
-            onMouseEnter={e=>e.target.style.color='var(--sidebar-text-strong)'}
-            onMouseLeave={e=>e.target.style.color='var(--sidebar-text-sub)'}
+            data-tip-pos={collapsed?'right':'bottom'}
+            style={{width:'100%',display:'flex',alignItems:'center',gap:8,textAlign:'center',marginTop:6,padding:'9px',borderRadius:6,background:'none',border:'none',color:'var(--sidebar-text-sub)',cursor:'pointer',fontSize:'0.78rem',transition:'color .2s',minHeight:36}}
+            onMouseEnter={e=>e.currentTarget.style.color='var(--sidebar-text-strong)'}
+            onMouseLeave={e=>e.currentTarget.style.color='var(--sidebar-text-sub)'}
             onClick={onLogout}>
-            Sign Out
+            <Ico.logout/><span className="signout-label">Sign Out</span>
           </button>
         </div>
       </nav>
