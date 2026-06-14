@@ -4915,7 +4915,7 @@ function AuthPage({ onLogin }) {
                   {['8','9','10','11','12'].map(g=><option key={g} value={g}>Grade {g}</option>)}
                 </select>
               </div>
-              <div className="fg"><label htmlFor="reg-section">Section *</label><input id="reg-section" placeholder="e.g. STE-Isaac Newton, " value={form.section} onChange={e=>sf('section',e.target.value)}/></div>
+              <div className="fg"><label htmlFor="reg-section">Section *</label><input id="reg-section" placeholder="e.g. STE-Isaac Newton" value={form.section} onChange={e=>sf('section',e.target.value)}/></div>
             </div>
             <div className="fg"><label htmlFor="reg-email">Email *</label><input id="reg-email" type="email" placeholder="your@email.com" value={form.email} onChange={e=>sf('email',e.target.value)} autoComplete="email"/></div>
             <div className="fr">
@@ -10819,26 +10819,29 @@ const NAV_TOUR_COPY = {
 };
 
 function buildTourSteps(isAdmin) {
-  const role = isAdmin ? 'admin' : 'student';
-  const navItems = isAdmin ? ADMIN_NAV_ITEMS : STUDENT_NAV_ITEMS;
-  const navSteps = navItems.map(item => ({
-    id: `nav-${item.id}`,
-    target: `[data-tour="nav-${item.id}"]`,
-    area: 'sidebar',
-    placement: 'right',
-    eyebrow: isAdmin ? 'Teacher Panel' : 'Navigation',
-    title: item.label,
-    body: (NAV_TOUR_COPY[item.id] && NAV_TOUR_COPY[item.id][role]) || 'Explore this section to see what it offers.',
-  }));
+  const adminNavSummary = 'Dashboard, Users, All Studies, Categories, Analytics, Grade Overview, Audit Log, Repository, Recognized Studies, Announcements, and AI Assistant.';
+  const studentNavSummary = 'Dashboard, My Stats, Browse Studies, Recognized Studies, Announcements, and AI Assistant.';
 
   return [
     {
       id: 'welcome',
       center: true,
-      title: 'Welcome to SABNAHIS STE 👋',
-      body: "Let's take a quick tour of the portal — especially everything packed into that sidebar — so you always know where to find things.",
+      title: isAdmin ? 'Welcome, Teacher! 👋' : 'Welcome to SABNAHIS STE 👋',
+      body: isAdmin
+        ? "Let's take a quick tour so you know where everything is. It'll only take a moment."
+        : "Let's take a quick tour of the portal so you always know where to find things.",
     },
-    ...navSteps,
+    {
+      id: 'sidebar-overview',
+      target: isAdmin ? '[data-tour="nav-dashboard"]' : '[data-tour="nav-dashboard"]',
+      area: 'sidebar',
+      placement: 'right',
+      eyebrow: isAdmin ? 'Teacher Panel' : 'Navigation',
+      title: 'Your Sidebar',
+      body: isAdmin
+        ? `Everything you need is here: ${adminNavSummary}`
+        : `All your pages live here: ${studentNavSummary}`,
+    },
     {
       id: 'collapse',
       target: '[data-tour="sidebar-collapse"]',
