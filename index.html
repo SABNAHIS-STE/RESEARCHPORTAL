@@ -310,9 +310,9 @@
 
 /* ── Theme toggle button ─────────────────── */
 .theme-toggle {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.12);
-  color: rgba(255,255,255,0.65);
+  background: var(--sidebar-item-hover-bg);
+  border: 1px solid var(--sidebar-border);
+  color: var(--sidebar-text);
   border-radius: 99px;
   padding: 5px 11px;
   font-size: 0.75rem;
@@ -323,7 +323,7 @@
   min-height: 32px;
   white-space: nowrap;
 }
-.theme-toggle:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.theme-toggle:hover { background: var(--sidebar-item-hover-bg); color: var(--sidebar-text-strong); border-color: var(--gold); }
 
 /* Topbar theme toggle */
 .topbar-theme-toggle {
@@ -2364,6 +2364,96 @@ tr:hover td { background: var(--surface); }
   border-top-color: transparent;
   border-bottom-color: #e8eaf2;
 }
+
+/* ══════════════════════════════════════════
+   ONBOARDING TOUR
+══════════════════════════════════════════ */
+.tour-overlay {
+  position: fixed; inset: 0; z-index: 1500;
+  background: transparent;
+  animation: fIn .15s ease;
+}
+.tour-overlay.tour-center-bg {
+  background: rgba(13,15,20,0.55);
+  backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+}
+.tour-spotlight {
+  position: fixed; z-index: 1501;
+  border-radius: 12px;
+  box-shadow: 0 0 0 6000px rgba(13,15,20,0.55), 0 0 0 3px var(--gold), 0 0 0 7px rgba(201,162,39,0.22);
+  transition: top .28s cubic-bezier(.4,0,.2,1), left .28s cubic-bezier(.4,0,.2,1),
+              width .28s cubic-bezier(.4,0,.2,1), height .28s cubic-bezier(.4,0,.2,1);
+  pointer-events: none;
+}
+@keyframes tourPulse {
+  0%, 100% { box-shadow: 0 0 0 6000px rgba(13,15,20,0.55), 0 0 0 3px var(--gold), 0 0 0 7px rgba(201,162,39,0.22); }
+  50%      { box-shadow: 0 0 0 6000px rgba(13,15,20,0.55), 0 0 0 3px var(--gold), 0 0 0 11px rgba(201,162,39,0.05); }
+}
+.tour-spotlight.pulse { animation: tourPulse 1.8s ease-in-out infinite; }
+.tour-card {
+  position: fixed; z-index: 1502;
+  width: min(330px, calc(100vw - 28px));
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  padding: 18px 20px;
+  animation: fIn .2s ease;
+  transition: top .28s cubic-bezier(.4,0,.2,1), left .28s cubic-bezier(.4,0,.2,1);
+}
+.tour-card.tour-card-center {
+  top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: min(380px, calc(100vw - 32px));
+  text-align: center;
+}
+.tour-eyebrow {
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 6px;
+}
+.tour-card h3 {
+  font-family: var(--font-display); font-size: var(--text-lg); font-weight: 700;
+  color: var(--ink); margin: 0 0 6px;
+}
+.tour-card p {
+  font-size: var(--text-sm); color: var(--slate); line-height: 1.55; margin: 0 0 16px;
+}
+.tour-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tour-card-center .tour-card-footer { justify-content: center; flex-direction: column; gap: 12px; }
+.tour-dots { display: flex; gap: 5px; align-items: center; }
+.tour-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--border);
+  transition: background .2s ease, transform .2s ease; flex-shrink: 0;
+}
+.tour-dot.active { background: var(--gold); transform: scale(1.4); }
+.tour-actions { display: flex; align-items: center; gap: 8px; }
+.tour-skip {
+  background: none; border: none; color: var(--muted); font-size: var(--text-xs);
+  cursor: pointer; padding: 6px 2px; text-decoration: underline; text-underline-offset: 2px;
+}
+.tour-skip:hover { color: var(--ink); }
+.tour-btn {
+  font-family: var(--font-body); font-size: var(--text-sm); font-weight: 600;
+  border-radius: 8px; padding: 7px 14px; cursor: pointer; border: 1px solid transparent;
+  transition: var(--transition); white-space: nowrap;
+}
+.tour-btn-primary { background: var(--gold); color: #1a1400; }
+.tour-btn-primary:hover { filter: brightness(1.06); }
+.tour-btn-ghost { background: none; border: 1px solid var(--border); color: var(--ink); }
+.tour-btn-ghost:hover { background: var(--surface); }
+.tour-progress-bar-track {
+  height: 3px; background: var(--border); border-radius: 2px;
+  margin-bottom: 14px; overflow: hidden;
+}
+.tour-progress-bar-fill {
+  height: 100%; background: var(--gold); border-radius: 2px;
+  transition: width .28s cubic-bezier(.4,0,.2,1);
+}
+@media (max-width: 768px) {
+  .tour-card:not(.tour-card-center) {
+    left: 14px; right: 14px; width: auto;
+    bottom: calc(var(--mob-nav-h) + var(--safe-bottom) + 12px); top: auto;
+  }
+}
 </style>
 </head>
 <body>
@@ -3222,8 +3312,9 @@ const API = {
          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
      }
   */
-  async getAnnouncements(limitN=20) {
-    return Cache.wrap(`announcements:${limitN}`, 'announcements', async () => {
+  async getAnnouncements(limitN=20, user=null) {
+    const cacheKey = user ? `announcements:${limitN}:${user.gradeLevel||''}:${(user.section||'').toLowerCase()}` : `announcements:${limitN}`;
+    return Cache.wrap(cacheKey, 'announcements', async () => {
     try {
       const snap = await db.collection('announcements').orderBy('createdAt','desc').limit(limitN).get();
       const now = new Date();
@@ -3234,13 +3325,19 @@ const API = {
         const expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
         const scheduledAt = data.scheduledAt ? new Date(data.scheduledAt) : null;
         if (expiresAt && now > expiresAt) {
-          expired.push(d.ref); // mark for deletion
+          expired.push(d.ref);
         } else {
-          // Hide future-scheduled announcements from the public list (admins see them via isScheduled flag)
+          // Grade/section targeting filter (students only — teachers see all)
+          if (user && user.role !== 'admin') {
+            const tg = data.targetGrades || [];
+            const ts = data.targetSections || [];
+            const gradeMatch   = !tg.length || tg.includes(user.gradeLevel||'');
+            const sectionMatch = !ts.length  || ts.includes((user.section||'').toLowerCase().trim());
+            if (!gradeMatch || !sectionMatch) return; // skip — not targeted at this student
+          }
           active.push({ ...data, isScheduled: scheduledAt && scheduledAt > now });
         }
       });
-      // Auto-delete expired announcements from Firestore
       if (expired.length > 0) {
         const batch = db.batch();
         expired.forEach(ref => batch.delete(ref));
@@ -3253,13 +3350,15 @@ const API = {
     }
     }); // end Cache.wrap
   },
-  async createAnnouncement({ title, body, priority, authorId, authorName, durationHours, scheduledAt }) {
+  async createAnnouncement({ title, body, priority, authorId, authorName, durationHours, scheduledAt, targetGrades=[], targetSections=[] }) {
     if(!title.trim()) throw new Error('Title is required.');
     if(!body.trim())  throw new Error('Message is required.');
     const now = new Date();
     const publishAt = scheduledAt ? new Date(scheduledAt) : now;
     const hours = parseFloat(durationHours) || 24;
     const expiresAt = new Date(publishAt.getTime() + hours * 60 * 60 * 1000).toISOString();
+    // Normalise sections: lowercase, trimmed, de-duped
+    const normSections = [...new Set(targetSections.map(s=>s.trim().toLowerCase()).filter(Boolean))];
     await db.collection('announcements').add({
       title:title.trim(), body:body.trim(),
       priority:priority||'normal',
@@ -3270,16 +3369,28 @@ const API = {
       durationHours: hours,
       pinned:priority==='urgent',
       scheduled: scheduledAt ? true : false,
+      targetGrades: targetGrades.length ? targetGrades : [],   // [] means all grades
+      targetSections: normSections,                             // [] means all sections
     });
-    // ── Notify all approved students ─────────────────────
+    // ── Notify targeted approved students ─────────────────────
     try {
-      const studentSnap = await db.collection('users').where('role','==','student').where('status','==','approved').get();
-      const uids = studentSnap.docs.map(d=>d.id);
-      await API.createNotificationForAll(uids, {
-        type: 'announcement',
-        title: priority==='urgent' ? `📢 Urgent: ${title.trim()}` : `📢 ${title.trim()}`,
-        body: body.trim().slice(0,140)
-      });
+      let q = db.collection('users').where('role','==','student').where('status','==','approved');
+      const studentSnap = await q.get();
+      const uids = studentSnap.docs
+        .filter(d => {
+          const u = d.data();
+          const gradeMatch  = !targetGrades.length  || targetGrades.includes(u.gradeLevel||'');
+          const sectionMatch= !normSections.length  || normSections.includes((u.section||'').toLowerCase().trim());
+          return gradeMatch && sectionMatch;
+        })
+        .map(d=>d.id);
+      if (uids.length) {
+        await API.createNotificationForAll(uids, {
+          type: 'announcement',
+          title: priority==='urgent' ? `📢 Urgent: ${title.trim()}` : `📢 ${title.trim()}`,
+          body: body.trim().slice(0,140)
+        });
+      }
     } catch(e) { console.warn('Announcement notification failed:', e.message); }
     Cache.invalidate('announcements');
   },
@@ -4255,6 +4366,7 @@ const Ico = {
   chevsL: ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>,
   cmdk:   ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><path d="M9 3a3 3 0 0 0-3 3v3H3a3 3 0 1 0 0 3h3v3a3 3 0 1 0 3 0v-3h6v3a3 3 0 1 0 3 0v-3h3a3 3 0 1 0 0-3h-3V6a3 3 0 1 0-3 0v3H9z"/></svg>,
   key:    ()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L17 4"/></svg>,
+  help:   ()=><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2.5-3 4.5"/><line x1="12" y1="17.5" x2="12" y2="17.5" strokeWidth="2.5" strokeLinecap="round"/></svg>,
 };
 
 // ── Nav config shared by Sidebar, the command palette, and tab persistence ──
@@ -4323,7 +4435,7 @@ function GlobalSearch({ onOpenStudy }) {
   };
 
   return (
-    <div className="topbar-search" ref={ref}>
+    <div className="topbar-search" ref={ref} data-tour="global-search">
       <div className="sb">
         <Ico.search/>
         <input
@@ -4356,19 +4468,19 @@ function GlobalSearch({ onOpenStudy }) {
   );
 }
 
-function TopbarAccount({ currentUser, isAdmin, onProfile, onSettings, onLogout }) {
+function TopbarAccount({ currentUser, isAdmin, onProfile, onSettings, onStartTour, onLogout }) {
   const [open,setOpen]=useState(false);
   const ref=useRef(null);
   useEffect(()=>{
     if(!open) return;
     const close=e=>{ if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
     const esc=e=>e.key==='Escape'&&setOpen(false);
-    document.addEventListener('mousedown',close);
+    document.addEventListener('click',close);
     document.addEventListener('keydown',esc);
-    return ()=>{ document.removeEventListener('mousedown',close); document.removeEventListener('keydown',esc); };
+    return ()=>{ document.removeEventListener('click',close); document.removeEventListener('keydown',esc); };
   },[open]);
   return (
-    <div className="topbar-account" ref={ref}>
+    <div className="topbar-account" ref={ref} data-tour="account-menu">
       <button className="topbar-account-btn" onClick={()=>setOpen(o=>!o)} aria-haspopup="true" aria-expanded={open} aria-label="Account menu">
         {initials(currentUser.name)}
       </button>
@@ -4380,6 +4492,7 @@ function TopbarAccount({ currentUser, isAdmin, onProfile, onSettings, onLogout }
           </div>
           <button className="topbar-account-item" role="menuitem" onClick={()=>{setOpen(false);onProfile?.();}}><Ico.user/> Profile</button>
           <button className="topbar-account-item" role="menuitem" onClick={()=>{setOpen(false);onSettings?.();}}><Ico.settings/> Settings</button>
+          {onStartTour && <button className="topbar-account-item" role="menuitem" onClick={()=>{setOpen(false);onStartTour();}}><Ico.help/> Take a Tour</button>}
           <button className="topbar-account-item danger" role="menuitem" onClick={()=>{setOpen(false);onLogout?.();}}><Ico.logout/> Logout</button>
         </div>
       )}
@@ -4802,7 +4915,7 @@ function AuthPage({ onLogin }) {
                   {['8','9','10','11','12'].map(g=><option key={g} value={g}>Grade {g}</option>)}
                 </select>
               </div>
-              <div className="fg"><label htmlFor="reg-section">Section *</label><input id="reg-section" placeholder="e.g. Rizal, STEM-A" value={form.section} onChange={e=>sf('section',e.target.value)}/></div>
+              <div className="fg"><label htmlFor="reg-section">Section *</label><input id="reg-section" placeholder="e.g. STE-Isaac Newton, " value={form.section} onChange={e=>sf('section',e.target.value)}/></div>
             </div>
             <div className="fg"><label htmlFor="reg-email">Email *</label><input id="reg-email" type="email" placeholder="your@email.com" value={form.email} onChange={e=>sf('email',e.target.value)} autoComplete="email"/></div>
             <div className="fr">
@@ -8602,7 +8715,7 @@ function EditGradeModal({ user, onClose, onSaved }) {
           </div>
           <div className="fg">
             <label htmlFor="eg-section">Section</label>
-            <input id="eg-section" placeholder="e.g. Rizal, STEM-A" value={section} onChange={e=>setSection(e.target.value)}/>
+            <input id="eg-section" placeholder="e.g. STE-Isaac Newton" value={section} onChange={e=>setSection(e.target.value)}/>
           </div>
           <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:16}}>
             <button className="btn btn-ol" onClick={onClose}>Cancel</button>
@@ -8792,7 +8905,7 @@ function AdminUsers({ currentUser }) {
               </div>
               <div className="fg" style={{minWidth:160,marginBottom:0}}>
                 <label>Section</label>
-                <input placeholder="e.g. Rizal, STEM-A" value={bulkSection} onChange={e=>setBulkSection(e.target.value)}/>
+                <input placeholder="e.g. STE-Isaac Newton" value={bulkSection} onChange={e=>setBulkSection(e.target.value)}/>
               </div>
               <button className="btn btn-ink btn-sm" onClick={bulkAssignGrade} disabled={bulkLoading}>{bulkLoading?<span className="spin" style={{width:12,height:12}}/>:'Apply to Selected'}</button>
               <button className="btn btn-ol btn-sm" onClick={()=>{setBulkAssignOpen(false);setBulkGrade('');setBulkSection('');}}>Cancel</button>
@@ -9586,6 +9699,8 @@ function AnnouncementsPage({ currentUser }) {
   const [durationHours, setDurationHours] = useState('24');
   const [submitting, setSubmitting] = useState(false);
   const [scheduledAt, setScheduledAt] = useState('');
+  const [targetGrades, setTargetGrades] = useState([]);
+  const [targetSections, setTargetSections] = useState('');
   const [now, setNow] = useState(new Date());
 
   // Live clock — ticks every minute to update countdowns
@@ -9596,7 +9711,7 @@ function AnnouncementsPage({ currentUser }) {
 
   const load = async () => {
     setLoading(true);
-    const data = await API.getAnnouncements();
+    const data = await API.getAnnouncements(20, currentUser);
     data.sort((a,b) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
@@ -9610,9 +9725,9 @@ function AnnouncementsPage({ currentUser }) {
   const submit = async () => {
     setSubmitting(true);
     try {
-      await API.createAnnouncement({ title, body, priority, authorId:currentUser.id, authorName:currentUser.name, durationHours, scheduledAt: scheduledAt || null });
+      await API.createAnnouncement({ title, body, priority, authorId:currentUser.id, authorName:currentUser.name, durationHours, scheduledAt: scheduledAt || null, targetGrades, targetSections: targetSections.split(',').map(s=>s.trim()).filter(Boolean) });
       toast.ok(scheduledAt ? 'Announcement scheduled!' : 'Announcement posted!');
-      setTitle(''); setBody(''); setPriority('normal'); setDurationHours('24'); setScheduledAt(''); setShowForm(false);
+      setTitle(''); setBody(''); setPriority('normal'); setDurationHours('24'); setScheduledAt(''); setTargetGrades([]); setTargetSections(''); setShowForm(false);
       load();
     } catch(e) { toast.err(e.message); }
     setSubmitting(false);
@@ -9740,6 +9855,50 @@ function AnnouncementsPage({ currentUser }) {
           </div>
           <div className="fg">
             <label style={{display:'flex',alignItems:'center',gap:5}}>
+              🎯 Audience <span style={{fontWeight:300,color:'var(--muted)',fontSize:'0.72rem'}}>(leave all unchecked to send to everyone)</span>
+            </label>
+            <div style={{display:'flex',gap:12,flexWrap:'wrap',marginTop:6,alignItems:'flex-start'}}>
+              <div style={{flex:'1 1 200px'}}>
+                <div style={{fontSize:'0.75rem',fontWeight:600,color:'var(--ink-2)',marginBottom:6}}>Grade Level</div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {['8','9','10','11','12'].map(g=>{
+                    const active = targetGrades.includes(g);
+                    return (
+                      <button key={g} type="button"
+                        onClick={()=>setTargetGrades(prev=>active?prev.filter(x=>x!==g):[...prev,g])}
+                        style={{padding:'5px 14px',borderRadius:99,fontSize:'0.78rem',fontWeight:active?700:400,cursor:'pointer',transition:'all .15s',
+                          border:`1.5px solid ${active?'var(--blue)':'var(--border)'}`,
+                          background:active?'var(--blue-light)':'none',
+                          color:active?'var(--blue)':'var(--muted)'}}>
+                        Grade {g}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{flex:'1 1 200px'}}>
+                <div style={{fontSize:'0.75rem',fontWeight:600,color:'var(--ink-2)',marginBottom:6}}>Section <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></div>
+                <input
+                  placeholder="e.g. STE-Isaac Newton"
+                  value={targetSections}
+                  onChange={e=>setTargetSections(e.target.value)}
+                  style={{marginTop:0}}
+                />
+                {targetSections.trim() && (
+                  <p className="hint" style={{marginTop:4}}>
+                    Targeting: {targetSections.split(',').map(s=>s.trim()).filter(Boolean).map(s=>`"${s}"`).join(', ')}
+                  </p>
+                )}
+              </div>
+            </div>
+            {(targetGrades.length > 0 || targetSections.trim()) && (
+              <p className="hint" style={{color:'var(--blue)',marginTop:6}}>
+                📌 Only students in {targetGrades.length?`Grade ${targetGrades.join('/')}`:''}{targetGrades.length&&targetSections.trim()?' · ':''}{targetSections.trim()?`Section: ${targetSections}`:''} will see this.
+              </p>
+            )}
+          </div>
+          <div className="fg">
+            <label style={{display:'flex',alignItems:'center',gap:5}}>
               🕒 Schedule for later <span style={{fontWeight:300,color:'var(--muted)',fontSize:'0.72rem'}}>(optional — leave blank to post now)</span>
             </label>
             <input
@@ -9800,6 +9959,14 @@ function AnnouncementsPage({ currentUser }) {
                     </span>
                     {a.pinned&&<span style={{display:'inline-flex',alignItems:'center',gap:3,background:'var(--purple-light)',color:'var(--purple)',fontSize:'0.68rem',fontWeight:600,padding:'3px 9px',borderRadius:99}}>📌 Pinned</span>}
                     {a.isScheduled&&isTeacher&&<span style={{display:'inline-flex',alignItems:'center',gap:3,background:'var(--blue-light)',color:'var(--blue)',fontSize:'0.68rem',fontWeight:600,padding:'3px 9px',borderRadius:99}}>🕒 Scheduled · {new Date(a.scheduledAt).toLocaleString('en-PH',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>}
+                    {/* Audience targeting badge */}
+                    {(a.targetGrades?.length > 0 || a.targetSections?.length > 0) ? (
+                      <span style={{display:'inline-flex',alignItems:'center',gap:3,background:'var(--blue-light)',color:'var(--blue)',fontSize:'0.68rem',fontWeight:600,padding:'3px 9px',borderRadius:99}}>
+                        🎯 {[a.targetGrades?.length?`Gr. ${a.targetGrades.join('/')}`:null, a.targetSections?.length?a.targetSections.map(s=>s.charAt(0).toUpperCase()+s.slice(1)).join(', '):null].filter(Boolean).join(' · ')}
+                      </span>
+                    ) : (
+                      <span style={{display:'inline-flex',alignItems:'center',gap:3,background:'var(--green-light)',color:'var(--green)',fontSize:'0.68rem',fontWeight:600,padding:'3px 9px',borderRadius:99}}>🌐 All Students</span>
+                    )}
 
                     {/* Expiry countdown badge */}
                     {countdown&&(
@@ -9936,7 +10103,7 @@ function AdminNotifBell({ currentUser, count, onCountChange }) {
   const unread = notifs.filter(n => !n.read).length;
 
   return (
-    <div className="notif-bell-wrap" ref={wrapRef}>
+    <div className="notif-bell-wrap" ref={wrapRef} data-tour="study-notif-bell">
       <button
         className={`notif-bell-btn${count > 0 ? ' has-unread' : ''}`}
         onClick={openPanel}
@@ -10069,7 +10236,7 @@ function UserNotifBell({ currentUser, count, onCountChange, onOpenStudy }) {
   };
 
   return (
-    <div className="notif-bell-wrap" ref={wrapRef}>
+    <div className="notif-bell-wrap" ref={wrapRef} data-tour="user-notif-bell">
       <button
         className={`notif-bell-btn${count > 0 ? ' has-unread' : ''}`}
         onClick={openPanel}
@@ -10162,7 +10329,8 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
           onClick={onToggleCollapse}
           aria-label={collapsed?'Expand sidebar':'Collapse sidebar'}
           data-tip={collapsed?'Expand sidebar':'Collapse sidebar'}
-          data-tip-pos="right">
+          data-tip-pos="right"
+          data-tour="sidebar-collapse">
           <Ico.chevsL/>
         </button>
         <div className="sidebar-logo">
@@ -10185,7 +10353,8 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
               onClick={()=>{setActiveTab(item.id);onClose?.();document.getElementById('main-content')?.scrollTo({top:0,behavior:'smooth'});}}
               aria-current={activeTab===item.id?'page':undefined}
               data-tip={item.label}
-              data-tip-pos={collapsed?'right':'bottom'}>
+              data-tip-pos={collapsed?'right':'bottom'}
+              data-tour={`nav-${item.id}`}>
               {item.icon}<span className="nav-item-label">{item.label}</span>
               {item.badge&&<span className="nav-badge" aria-label={`${item.badge} pending`}>{item.badge}</span>}
             </button>
@@ -10199,7 +10368,7 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
               <span>{currentUser.role==='admin'?'Teacher':'Student'}</span>
             </div>
           </div>
-          <div className="sidebar-theme-row" style={{display:'flex',gap:5,marginTop:8}}>
+          <div className="sidebar-theme-row" data-tour="sidebar-theme" style={{display:'flex',gap:5,marginTop:8}}>
             <button className="theme-toggle" data-tip="Switch to light mode" style={{flex:1,justifyContent:'center',...(theme==='light'?{background:'rgba(201,162,39,0.22)',color:'var(--gold-light)',border:'1px solid rgba(201,162,39,0.4)'}:{})}} onClick={()=>theme!=='light'&&toggleTheme()} aria-pressed={theme==='light'}>☀ Light</button>
             <button className="theme-toggle" style={{flex:1,justifyContent:'center',...(theme==='dark'?{background:'rgba(201,162,39,0.22)',color:'var(--gold-light)',border:'1px solid rgba(201,162,39,0.4)'}:{})}} onClick={()=>theme!=='dark'&&toggleTheme()} aria-pressed={theme==='dark'}>☾ Dark</button>
           </div>
@@ -10376,7 +10545,7 @@ function AnnouncementPopup({ currentUser }) {
     let active = true;
     (async () => {
       try {
-        const data = await API.getAnnouncements();
+        const data = await API.getAnnouncements(20, currentUser);
         let dismissed = [];
         try { dismissed = JSON.parse(localStorage.getItem(ANNOUNCE_DISMISS_KEY) || '[]'); } catch {}
         const relevant = data
@@ -10602,6 +10771,275 @@ function BadgesPill({ currentUser }) {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  ONBOARDING TOUR  (first-time walkthrough of the sidebar & topbar)
+// ══════════════════════════════════════════════════════════════════
+const NAV_TOUR_COPY = {
+  dashboard: {
+    admin: 'Your home base — a snapshot of recent activity, pending approvals, and portal-wide stats.',
+    student: 'Your home base — recent activity, your reading streak, and quick links to get started.',
+  },
+  users: {
+    admin: "Approve new student accounts and manage grade & section assignments. That little badge shows how many are waiting on you.",
+  },
+  'studies-admin': {
+    admin: 'Review, edit, grade, or remove any study submitted anywhere in the portal.',
+  },
+  categories: {
+    admin: 'Create and organize the subject categories students use to tag their research.',
+  },
+  analytics: {
+    admin: 'See class-wide engagement — views, downloads, and activity trends over time.',
+  },
+  'grade-overview': {
+    admin: "View and manage the grades you've given to student submissions, all in one place.",
+  },
+  'audit-log': {
+    admin: 'A running record of important actions across the portal, for accountability.',
+  },
+  repository: {
+    admin: 'Search and browse the full research repository, just like your students do.',
+    student: 'Search, filter, and read research studies submitted from across the school.',
+  },
+  recognized: {
+    admin: 'Spotlight outstanding student work here for the whole school to see.',
+    student: 'Browse standout studies your teachers have recognized.',
+  },
+  announcements: {
+    admin: "Post updates and notices that your students will see across the portal.",
+    student: 'Catch up on the latest updates and notices from your teachers.',
+  },
+  chatbot: {
+    admin: 'Chat with an AI assistant that knows the repository — handy for spotting research gaps.',
+    student: 'Ask questions, get summaries, or find research gaps with the AI research assistant.',
+  },
+  'my-stats': {
+    student: 'Track your reading streak, badges earned, and personal activity over time.',
+  },
+};
+
+function buildTourSteps(isAdmin) {
+  const role = isAdmin ? 'admin' : 'student';
+  const navItems = isAdmin ? ADMIN_NAV_ITEMS : STUDENT_NAV_ITEMS;
+  const navSteps = navItems.map(item => ({
+    id: `nav-${item.id}`,
+    target: `[data-tour="nav-${item.id}"]`,
+    area: 'sidebar',
+    placement: 'right',
+    eyebrow: isAdmin ? 'Teacher Panel' : 'Navigation',
+    title: item.label,
+    body: (NAV_TOUR_COPY[item.id] && NAV_TOUR_COPY[item.id][role]) || 'Explore this section to see what it offers.',
+  }));
+
+  return [
+    {
+      id: 'welcome',
+      center: true,
+      title: 'Welcome to SABNAHIS STE 👋',
+      body: "Let's take a quick tour of the portal — especially everything packed into that sidebar — so you always know where to find things.",
+    },
+    ...navSteps,
+    {
+      id: 'collapse',
+      target: '[data-tour="sidebar-collapse"]',
+      area: 'sidebar',
+      placement: 'right',
+      eyebrow: 'Sidebar tip',
+      title: 'Need more room?',
+      body: 'Collapse the sidebar down to icons-only any time — your navigation stays just one click away.',
+      skipIf: () => window.innerWidth <= 768,
+    },
+    {
+      id: 'theme',
+      target: '[data-tour="sidebar-theme"]',
+      area: 'sidebar',
+      placement: 'right',
+      eyebrow: 'Sidebar tip',
+      title: 'Light or dark — your call',
+      body: 'Switch themes whenever you like. Your preference is saved for next time.',
+    },
+    {
+      id: 'search',
+      target: '[data-tour="global-search"]',
+      area: 'topbar',
+      placement: 'bottom',
+      eyebrow: 'Topbar tip',
+      title: 'Find anything, fast',
+      body: 'Search studies, authors, and keywords from anywhere. Tip: press / to jump straight here.',
+    },
+    {
+      id: 'notif',
+      target: isAdmin ? '[data-tour="study-notif-bell"]' : '[data-tour="user-notif-bell"]',
+      area: 'topbar',
+      placement: 'bottom',
+      eyebrow: 'Topbar tip',
+      title: 'Stay in the loop',
+      body: isAdmin
+        ? "You'll be notified here whenever a student submits a new study for review."
+        : "You'll be notified here about grades, revisions, and updates on your work.",
+    },
+    {
+      id: 'account',
+      target: '[data-tour="account-menu"]',
+      area: 'topbar',
+      placement: 'bottom',
+      eyebrow: 'Topbar tip',
+      title: 'Your account',
+      body: 'Update your profile, change settings, or sign out from here. You can replay this tour anytime from this menu.',
+    },
+    {
+      id: 'done',
+      center: true,
+      title: "You're all set! 🎉",
+      body: "That's the full tour. Explore at your own pace — and remember, you can restart it anytime from the account menu in the top right.",
+    },
+  ];
+}
+
+function OnboardingTour({ isAdmin, sidebarOpen, setSidebarOpen, onFinish }) {
+  const steps = useMemo(() => buildTourSteps(isAdmin), [isAdmin]);
+  const [stepIndex, setStepIndex] = useState(0);
+  const [rect, setRect] = useState(null);
+  const [ready, setReady] = useState(false);
+  const step = steps[stepIndex];
+
+  const goTo = useCallback(idx => {
+    if (idx < 0) return;
+    if (idx >= steps.length) { onFinish?.(); return; }
+    setReady(false);
+    setStepIndex(idx);
+  }, [steps.length, onFinish]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = () => {
+      if (cancelled) return;
+      if (step.skipIf && step.skipIf()) {
+        if (stepIndex < steps.length - 1) goTo(stepIndex + 1); else onFinish?.();
+        return;
+      }
+      if (step.center || !step.target) { setRect(null); setReady(true); return; }
+      const el = document.querySelector(step.target);
+      if (!el || el.offsetParent === null) {
+        if (stepIndex < steps.length - 1) goTo(stepIndex + 1); else onFinish?.();
+        return;
+      }
+      el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      const r = el.getBoundingClientRect();
+      setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+      setReady(true);
+    };
+
+    const isMobile = window.innerWidth <= 768;
+    const needsSidebar = step.area === 'sidebar' && !(step.skipIf && step.skipIf());
+
+    if (isMobile) {
+      if (needsSidebar && !sidebarOpen) {
+        setSidebarOpen(true);
+        const t = setTimeout(run, 320);
+        return () => { cancelled = true; clearTimeout(t); };
+      }
+      if (!needsSidebar && sidebarOpen) {
+        setSidebarOpen(false);
+        const t = setTimeout(run, 320);
+        return () => { cancelled = true; clearTimeout(t); };
+      }
+    }
+
+    const raf = requestAnimationFrame(() => requestAnimationFrame(run));
+    return () => { cancelled = true; cancelAnimationFrame(raf); };
+  }, [stepIndex]);
+
+  // Keep the spotlight glued to its target on resize/scroll
+  useEffect(() => {
+    if (step.center || !step.target) return;
+    const onChange = () => {
+      const el = document.querySelector(step.target);
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+    };
+    window.addEventListener('resize', onChange);
+    window.addEventListener('scroll', onChange, true);
+    return () => { window.removeEventListener('resize', onChange); window.removeEventListener('scroll', onChange, true); };
+  }, [stepIndex]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const onKey = e => {
+      if (e.key === 'Escape') onFinish?.();
+      else if (e.key === 'ArrowRight') goTo(stepIndex + 1);
+      else if (e.key === 'ArrowLeft') goTo(stepIndex - 1);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [stepIndex, goTo, onFinish]);
+
+  const PAD = 8;
+  const isMobileNow = window.innerWidth <= 768;
+  let cardStyle = {};
+  if (!step.center && rect && !isMobileNow) {
+    const cardW = Math.min(330, window.innerWidth - 28);
+    const cardH = 200;
+    let top, left;
+    switch (step.placement) {
+      case 'left':
+        left = rect.left - cardW - 16;
+        top = Math.min(Math.max(rect.top, 16), window.innerHeight - cardH - 16);
+        if (left < 16) { left = Math.min(Math.max(rect.left, 16), window.innerWidth - cardW - 16); top = rect.top + rect.height + 12; }
+        break;
+      case 'top':
+        top = rect.top - cardH - 12;
+        left = Math.min(Math.max(rect.left, 16), window.innerWidth - cardW - 16);
+        if (top < 16) top = rect.top + rect.height + 12;
+        break;
+      case 'right':
+        left = rect.left + rect.width + 16;
+        top = Math.min(Math.max(rect.top, 16), window.innerHeight - cardH - 16);
+        if (left + cardW > window.innerWidth - 16) {
+          left = Math.min(Math.max(rect.left, 16), window.innerWidth - cardW - 16);
+          top = rect.top + rect.height + 12;
+        }
+        break;
+      default:
+        top = rect.top + rect.height + 12;
+        left = Math.min(Math.max(rect.left, 16), window.innerWidth - cardW - 16);
+        if (top + cardH > window.innerHeight - 16) top = rect.top - cardH - 12;
+    }
+    cardStyle = { top: Math.max(8, top), left: Math.max(8, left) };
+  }
+
+  return (
+    <>
+      <div className={`tour-overlay${step.center ? ' tour-center-bg' : ''}`} aria-hidden="true"/>
+      {rect && !step.center && (
+        <div className="tour-spotlight pulse" style={{ top: rect.top - PAD, left: rect.left - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2 }} aria-hidden="true"/>
+      )}
+      {ready && (
+        <div className={`tour-card${step.center ? ' tour-card-center' : ''}`} style={cardStyle} role="dialog" aria-modal="true" aria-label={`Onboarding tour, step ${stepIndex + 1} of ${steps.length}`}>
+          <div className="tour-progress-bar-track" aria-hidden="true">
+            <div className="tour-progress-bar-fill" style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }}/>
+          </div>
+          <div className="tour-eyebrow">{step.eyebrow || (step.center ? 'Quick tour' : 'Sidebar guide')} · Step {stepIndex + 1} of {steps.length}</div>
+          <h3>{step.title}</h3>
+          <p>{step.body}</p>
+          <div className="tour-card-footer">
+            <div className="tour-dots" aria-hidden="true">
+              {steps.map((s, i) => <span key={s.id} className={`tour-dot${i === stepIndex ? ' active' : ''}`}/>)}
+            </div>
+            <div className="tour-actions">
+              {stepIndex > 0 && <button className="tour-btn tour-btn-ghost" onClick={() => goTo(stepIndex - 1)}>Back</button>}
+              <button className="tour-btn tour-btn-primary" onClick={() => goTo(stepIndex + 1)}>{stepIndex === steps.length - 1 ? 'Done' : 'Next'}</button>
+            </div>
+          </div>
+          {stepIndex < steps.length - 1 && <button className="tour-skip" onClick={() => onFinish?.()}>Skip tour</button>}
+        </div>
+      )}
+    </>
+  );
+}
+
 function App() {
   const [currentUser,setCurrentUser]=useState(null);
   const [authChecked,setAuthChecked]=useState(false);
@@ -10616,6 +11054,38 @@ function App() {
   const [sidebarOpen,setSidebarOpen]=useState(false);
   const [showSecQ,setShowSecQ]=useState(false);
   const [theme,toggleTheme]=useTheme();
+  const [showTour,setShowTour]=useState(false);
+  const [tourEnabled,setTourEnabled]=useState(()=>localStorage.getItem('sabnahis_tour_enabled')!=='false');
+
+  // Auto-start tour for first-time users (students AND admins)
+  useEffect(()=>{
+    if(!currentUser||showTour) return;
+    const seen=localStorage.getItem('sabnahis_tour_seen_'+currentUser.id);
+    if(!seen){
+      const t=setTimeout(()=>setShowTour(true),600);
+      return()=>clearTimeout(t);
+    }
+  },[currentUser?.id]);
+
+  const startTour=()=>{
+    if(currentUser) localStorage.removeItem('sabnahis_tour_seen_'+currentUser.id);
+    setTourEnabled(true);
+    localStorage.setItem('sabnahis_tour_enabled','true');
+    setShowTour(false);
+    setTimeout(()=>setShowTour(true),50);
+  };
+  const finishTour=()=>{
+    setShowTour(false);
+    if(currentUser) localStorage.setItem('sabnahis_tour_seen_'+currentUser.id,'1');
+  };
+  const enableTour=()=>{
+    setTourEnabled(true);
+    localStorage.setItem('sabnahis_tour_enabled','true');
+  };
+  const disableTour=()=>{
+    setTourEnabled(false);
+    localStorage.setItem('sabnahis_tour_enabled','false');
+  };
 
   // ── Poll study notification count every 30s for admins ────────
   useEffect(()=>{
@@ -10774,7 +11244,8 @@ function App() {
               <UserNotifBell currentUser={currentUser} count={userNotifCount} onCountChange={setUserNotifCount} onOpenStudy={s=>{trackRecentlyViewed(s);setGlobalSelectedStudy(s);}}/>
               <button className="topbar-theme-toggle" onClick={()=>theme!=='light'&&toggleTheme()} style={theme==='light'?{borderColor:'var(--gold)',color:'var(--gold)',background:'var(--gold-bg)',fontWeight:600}:{}} aria-pressed={theme==='light'}>☀ Light</button>
               <button className="topbar-theme-toggle" onClick={()=>theme!=='dark'&&toggleTheme()} style={theme==='dark'?{borderColor:'var(--gold)',color:'var(--gold)',background:'var(--gold-bg)',fontWeight:600}:{}} aria-pressed={theme==='dark'}>☾ Dark</button>
-              <TopbarAccount currentUser={currentUser} isAdmin={isAdmin} onProfile={()=>setAccountModal('profile')} onSettings={()=>setAccountModal('settings')} onLogout={async()=>{await API.logout();setCurrentUser(null);setActiveTab('dashboard');}}/>
+              <button className="topbar-theme-toggle" title="Start the guided tour" onClick={startTour} style={{borderColor:'var(--teal)',color:'var(--teal)',background:'var(--teal-light)'}}>🗺 Tour</button>
+              <TopbarAccount currentUser={currentUser} isAdmin={isAdmin} onProfile={()=>setAccountModal('profile')} onSettings={()=>setAccountModal('settings')} onStartTour={startTour} onLogout={async()=>{await API.logout();setCurrentUser(null);setActiveTab('dashboard');}}/>
             </div>
           </div>
 
@@ -10877,6 +11348,14 @@ function App() {
         />
       )}
       <ScrollToTopButton/>
+      {showTour && (
+        <OnboardingTour
+          isAdmin={isAdmin}
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          onFinish={finishTour}
+        />
+      )}
     </ToastProvider>
   );
 }
