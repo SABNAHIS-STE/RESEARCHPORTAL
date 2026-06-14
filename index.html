@@ -508,7 +508,7 @@ a { color: inherit; }
 
 .sidebar {
   width: var(--sidebar-w);
-  min-height: 100vh;
+  height: 100vh;
   background: var(--sidebar-bg);
   color: var(--sidebar-text-strong);
   display: flex;
@@ -1718,6 +1718,7 @@ tr:hover td { background: var(--surface); }
     transition: transform .3s cubic-bezier(0.4,0,0.2,1);
     z-index:150;
     width: min(var(--sidebar-w), 90vw);
+    height: 100dvh;
   }
   .sidebar.open { transform: translateX(0); }
   .sidebar-close-btn { display:flex !important; }
@@ -2986,10 +2987,12 @@ const API = {
       snap.docs.forEach(d => {
         const data = { id: d.id, ...d.data() };
         const expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
+        const scheduledAt = data.scheduledAt ? new Date(data.scheduledAt) : null;
         if (expiresAt && now > expiresAt) {
           expired.push(d.ref); // mark for deletion
         } else {
-          active.push(data);
+          // Hide future-scheduled announcements from the public list (admins see them via isScheduled flag)
+          active.push({ ...data, isScheduled: scheduledAt && scheduledAt > now });
         }
       });
       // Auto-delete expired announcements from Firestore
@@ -3005,20 +3008,23 @@ const API = {
     }
     }); // end Cache.wrap
   },
-  async createAnnouncement({ title, body, priority, authorId, authorName, durationHours }) {
+  async createAnnouncement({ title, body, priority, authorId, authorName, durationHours, scheduledAt }) {
     if(!title.trim()) throw new Error('Title is required.');
     if(!body.trim())  throw new Error('Message is required.');
     const now = new Date();
+    const publishAt = scheduledAt ? new Date(scheduledAt) : now;
     const hours = parseFloat(durationHours) || 24;
-    const expiresAt = new Date(now.getTime() + hours * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(publishAt.getTime() + hours * 60 * 60 * 1000).toISOString();
     await db.collection('announcements').add({
       title:title.trim(), body:body.trim(),
       priority:priority||'normal',
       authorId, authorName,
       createdAt:now.toISOString(),
+      scheduledAt: publishAt.toISOString(),
       expiresAt,
       durationHours: hours,
-      pinned:priority==='urgent'
+      pinned:priority==='urgent',
+      scheduled: scheduledAt ? true : false,
     });
     // ── Notify all approved students ─────────────────────
     try {
@@ -6912,6 +6918,379 @@ function StreakCard({ streak, longestStreak }) {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  MY STATS PAGE  (student)
+// ══════════════════════════════════════════════════════════════════
+function MyStatsPage({ currentUser }) {
+  const [myStudies, setMyStudies] = useState([]);
+  const [readCount, setReadCount] = useState(0);
+  const [streakData, setStreakData] = useState({ streak: 0, longestStreak: 0 });
+  const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      API.getStudies({ uploadedBy: currentUser.id, status: 'active', perPage: 100 }),
+      API.getReadCount(currentUser.id),
+      API.getStreak(currentUser.id),
+      API.getFavorites(currentUser.id),
+    ]).then(([res, rc, sk, favs]) => {
+      setMyStudies(res.data);
+      setReadCount(rc);
+      setStreakData(sk);
+      setFavorites(favs);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [currentUser.id]);
+
+  const totalViews     = myStudies.reduce((a, s) => a + (s.viewCount || 0), 0);
+  const totalDownloads = myStudies.reduce((a, s) => a + (s.downloadCount || 0), 0);
+  const totalCitations = myStudies.reduce((a, s) => a + (s.citationCount || 0), 0);
+  const topStudy       = [...myStudies].sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))[0];
+  const { current: badge } = getReadingBadge(readCount);
+  const tier = getStreakTier(streakData.streak);
+
+  if (loading) return (
+    <div>
+      <div style={{ marginBottom: 22 }}>
+        <div className="skel skel-page-title" style={{ marginBottom: 8 }} />
+        <div className="skel" style={{ height: 13, width: 200, borderRadius: 5 }} />
+      </div>
+      <StatsSkeleton count={4} />
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ marginBottom: 22 }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-2xl)', marginBottom: 3 }}>📈 My Stats</h2>
+        <p className="muted">Your personal research activity at a glance.</p>
+      </div>
+
+      {/* KPI grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 10, marginBottom: 18 }}>
+        <StatPill label="Studies Uploaded" value={myStudies.length} color="var(--gold)" />
+        <StatPill label="Total Views" value={totalViews} color="var(--teal)" />
+        <StatPill label="Downloads" value={totalDownloads} color="var(--blue)" />
+        <StatPill label="Citations" value={totalCitations} color="var(--purple)" />
+        <StatPill label="Studies Read" value={readCount} color="var(--green)" />
+        <StatPill label="Bookmarks" value={favorites.length} color="var(--ink-3)" />
+        <StatPill label="Day Streak" value={streakData.streak} color={tier ? tier.color : 'var(--muted)'} />
+        <StatPill label="Best Streak" value={streakData.longestStreak} color="var(--gold)" />
+      </div>
+
+      {/* Streak + Badge side by side */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 14, marginBottom: 14 }}>
+        {/* Streak card */}
+        <div className="card">
+          <div className="card-hd" style={{ marginBottom: 12 }}>
+            <span className="card-title">🔥 Daily Streak</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{
+              width: 54, height: 54, borderRadius: '50%', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: tier ? `radial-gradient(circle, ${tier.glow}, transparent 70%)` : 'var(--surface)',
+              border: `2px solid ${tier ? tier.color : 'var(--border)'}`,
+            }}>
+              <span style={{ fontSize: '1.6rem', filter: tier ? `drop-shadow(0 0 6px ${tier.glow})` : 'none', opacity: tier ? 1 : 0.3 }}>🔥</span>
+            </div>
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 700, color: tier ? tier.color : 'var(--muted)', lineHeight: 1 }}>{streakData.streak}</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: 2 }}>day{streakData.streak !== 1 ? 's' : ''} · Best: {streakData.longestStreak}</div>
+              {tier && <div style={{ fontSize: '0.72rem', fontWeight: 600, color: tier.color, marginTop: 3 }}>Keep going!</div>}
+            </div>
+          </div>
+        </div>
+
+        {/* Reading badge */}
+        <div className="card">
+          <div className="card-hd" style={{ marginBottom: 12 }}>
+            <span className="card-title">🏅 Reading Badge</span>
+          </div>
+          {badge ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 54, height: 54, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: badge.bg, fontSize: '1.8rem' }}>{badge.icon}</div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: badge.color }}>{badge.label}</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 2 }}>{readCount} studies read</div>
+              </div>
+            </div>
+          ) : (
+            <p className="muted" style={{ fontSize: '0.82rem' }}>Read your first study to earn a badge!</p>
+          )}
+        </div>
+      </div>
+
+      {/* Top performing study */}
+      {topStudy && (
+        <div className="card" style={{ marginBottom: 14, borderLeft: '3px solid var(--gold)' }}>
+          <div className="card-hd" style={{ marginBottom: 10 }}>
+            <span className="card-title">⭐ Your Best Study</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Most viewed</span>
+          </div>
+          <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', marginBottom: 4 }}>{topStudy.title}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: 10 }}>
+            {(topStudy.authors || []).join(', ')} · {topStudy.year}
+          </div>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.78rem', color: 'var(--teal)', fontWeight: 600 }}>👁 {topStudy.viewCount || 0} views</span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--blue)', fontWeight: 600 }}>⬇ {topStudy.downloadCount || 0} downloads</span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--purple)', fontWeight: 600 }}>📋 {topStudy.citationCount || 0} citations</span>
+          </div>
+        </div>
+      )}
+
+      {/* All my studies table */}
+      <div className="card">
+        <div className="card-hd" style={{ marginBottom: 12 }}>
+          <span className="card-title">📄 All My Studies</span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{myStudies.length} uploaded</span>
+        </div>
+        {myStudies.length === 0
+          ? <EmptyState icon="📄" title="No studies yet" message="Upload your first research study to see your stats here." compact />
+          : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {myStudies.map(s => (
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 500, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: 2 }}>{(s.categories || []).join(', ')} · {s.year}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--teal)', fontWeight: 600 }}>👁 {s.viewCount || 0}</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--blue)', fontWeight: 600 }}>⬇ {s.downloadCount || 0}</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--purple)', fontWeight: 600 }}>📋 {s.citationCount || 0}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+      </div>
+    </div>
+  );
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+//  GRADE OVERVIEW PER SECTION  (admin)
+// ══════════════════════════════════════════════════════════════════
+function GradeOverviewPage({ currentUser }) {
+  const [students, setStudents] = useState([]);
+  const [studies,  setStudies]  = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [gradeFilter,   setGradeFilter]   = useState('all');
+  const [sectionFilter, setSectionFilter] = useState('all');
+
+  useEffect(() => {
+    Promise.all([
+      API.getUsers({ role: 'student', status: 'approved' }),
+      API.getAllStudies(),
+    ]).then(([stus, studs]) => {
+      setStudents(stus);
+      setStudies(studs);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  // Build per-student study map
+  const studyMap = useMemo(() => {
+    const m = {};
+    studies.forEach(s => {
+      if (!s.uploadedBy) return;
+      if (!m[s.uploadedBy]) m[s.uploadedBy] = [];
+      m[s.uploadedBy].push(s);
+    });
+    return m;
+  }, [studies]);
+
+  // All unique sections for the selected grade
+  const sections = useMemo(() => {
+    const s = new Set();
+    students.forEach(u => {
+      if (gradeFilter !== 'all' && u.gradeLevel !== gradeFilter) return;
+      s.add(u.section?.trim() || 'No Section');
+    });
+    return ['all', ...Array.from(s).sort()];
+  }, [students, gradeFilter]);
+
+  // Filtered students
+  const filtered = useMemo(() => {
+    return students.filter(u => {
+      if (gradeFilter !== 'all' && u.gradeLevel !== gradeFilter) return false;
+      const sec = u.section?.trim() || 'No Section';
+      if (sectionFilter !== 'all' && sec !== sectionFilter) return false;
+      return true;
+    });
+  }, [students, gradeFilter, sectionFilter]);
+
+  // Group by section
+  const grouped = useMemo(() => {
+    const m = {};
+    filtered.forEach(u => {
+      const sec = u.section?.trim() || 'No Section';
+      if (!m[sec]) m[sec] = [];
+      m[sec].push(u);
+    });
+    return Object.entries(m).sort(([a], [b]) => a.localeCompare(b));
+  }, [filtered]);
+
+  // Section summary stats
+  const sectionStats = useMemo(() => {
+    const out = {};
+    grouped.forEach(([sec, list]) => {
+      const studs = list.map(u => studyMap[u.id] || []).flat();
+      const graded = studs.filter(s => s.teacherGrade);
+      const gradeCounts = {};
+      graded.forEach(s => { gradeCounts[s.teacherGrade] = (gradeCounts[s.teacherGrade] || 0) + 1; });
+      const scores = graded.filter(s => s.teacherScore != null).map(s => s.teacherScore);
+      const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+      out[sec] = { total: list.length, uploads: studs.length, graded: graded.length, gradeCounts, avgScore };
+    });
+    return out;
+  }, [grouped, studyMap]);
+
+  const exportCSV = () => {
+    const rows = [['Grade', 'Section', 'Student', 'Email', 'Uploads', 'Graded Studies', 'Avg Score', 'Grades']];
+    grouped.forEach(([sec, list]) => {
+      list.forEach(u => {
+        const studs = studyMap[u.id] || [];
+        const graded = studs.filter(s => s.teacherGrade);
+        const scores = graded.filter(s => s.teacherScore != null).map(s => s.teacherScore);
+        const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : '';
+        const grades = graded.map(s => s.teacherGrade).join(', ');
+        rows.push([u.gradeLevel ? `Grade ${u.gradeLevel}` : '', sec, u.name, u.email, studs.length, graded.length, avg, grades]);
+      });
+    });
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'grade-overview.csv';
+    a.click();
+    toast.ok('Exported!');
+  };
+
+  const GRADE_LETTERS = ['A+','A','A-','B+','B','B-','C+','C','C-','D','F'];
+  const gradeColor = g => ({ 'A+':'var(--teal)','A':'var(--teal)','A-':'var(--teal)','B+':'var(--blue)','B':'var(--blue)','B-':'var(--blue)','C+':'var(--gold)','C':'var(--gold)','C-':'var(--gold)' }[g] || 'var(--red)');
+
+  if (loading) return (
+    <div>
+      <div style={{ marginBottom: 22 }}>
+        <div className="skel skel-page-title" style={{ marginBottom: 8 }} />
+        <div className="skel" style={{ height: 13, width: 240, borderRadius: 5 }} />
+      </div>
+      <StatsSkeleton count={3} /><StudiesGridSkeleton count={2} />
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10, marginBottom: 22 }}>
+        <div>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-2xl)', marginBottom: 3 }}>📋 Grade Overview</h2>
+          <p className="muted">Study grades grouped by section. {filtered.length} student{filtered.length !== 1 ? 's' : ''}.</p>
+        </div>
+        <button className="btn btn-ol btn-sm" onClick={exportCSV}>⬇ Export CSV</button>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        {/* Grade pills */}
+        {['all', '8', '9', '10', '11', '12'].map(g => (
+          <button key={g} onClick={() => { setGradeFilter(g); setSectionFilter('all'); }}
+            style={{ padding: '5px 14px', borderRadius: 99, fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer', transition: 'all .15s', border: `1.5px solid ${gradeFilter === g ? (GRADE_COLORS[g] || 'var(--ink)') : 'var(--border)'}`, background: gradeFilter === g ? (GRADE_COLORS[g] || 'var(--ink)') : 'var(--surface)', color: gradeFilter === g ? '#fff' : 'var(--muted)' }}>
+            {g === 'all' ? 'All Grades' : `Grade ${g}`}
+          </button>
+        ))}
+        {/* Section filter */}
+        {sections.length > 2 && (
+          <select value={sectionFilter} onChange={e => setSectionFilter(e.target.value)} style={{ padding: '5px 12px', borderRadius: 99, fontSize: '0.72rem', fontWeight: 600, border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer' }}>
+            {sections.map(s => <option key={s} value={s}>{s === 'all' ? 'All Sections' : s}</option>)}
+          </select>
+        )}
+      </div>
+
+      {/* Section cards */}
+      {grouped.length === 0
+        ? <EmptyState icon="📋" title="No students found" message="Try adjusting your grade or section filter." compact />
+        : grouped.map(([sec, list]) => {
+          const ss = sectionStats[sec] || {};
+          return (
+            <div key={sec} className="card" style={{ marginBottom: 16 }}>
+              {/* Section header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 4, height: 28, borderRadius: 2, background: GRADE_COLORS[list[0]?.gradeLevel] || 'var(--gold)', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)', fontWeight: 700 }}>{sec}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                      {list[0]?.gradeLevel ? `Grade ${list[0].gradeLevel} · ` : ''}{ss.total} student{ss.total !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ textAlign: 'center', padding: '6px 12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--gold)' }}>{ss.uploads || 0}</div>
+                    <div style={{ fontSize: '0.62rem', color: 'var(--muted)' }}>uploads</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '6px 12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--teal)' }}>{ss.graded || 0}</div>
+                    <div style={{ fontSize: '0.62rem', color: 'var(--muted)' }}>graded</div>
+                  </div>
+                  {ss.avgScore != null && (
+                    <div style={{ textAlign: 'center', padding: '6px 12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--blue)' }}>{ss.avgScore}</div>
+                      <div style={{ fontSize: '0.62rem', color: 'var(--muted)' }}>avg score</div>
+                    </div>
+                  )}
+                  {/* Grade distribution pills */}
+                  {Object.entries(ss.gradeCounts || {}).sort().map(([g, n]) => (
+                    <span key={g} style={{ padding: '4px 10px', borderRadius: 99, fontSize: '0.72rem', fontWeight: 700, background: 'var(--surface)', color: gradeColor(g), border: `1.5px solid ${gradeColor(g)}` }}>{g}: {n}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Student rows */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {list.map(u => {
+                  const uStudies = studyMap[u.id] || [];
+                  const graded   = uStudies.filter(s => s.teacherGrade);
+                  const scores   = graded.filter(s => s.teacherScore != null).map(s => s.teacherScore);
+                  const avg      = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+                  return (
+                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--surface)', borderRadius: 8 }}>
+                      <div className="avatar" style={{ width: 30, height: 30, fontSize: '0.68rem', background: GRADE_COLORS[u.gradeLevel] || 'var(--ink-3)', flexShrink: 0 }}>{initials(u.name)}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 500, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--muted)' }}>{u.email}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{uStudies.length} upload{uStudies.length !== 1 ? 's' : ''}</span>
+                        {graded.length > 0 && (
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            {graded.map(s => (
+                              <span key={s.id} style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: 'var(--teal-light)', color: gradeColor(s.teacherGrade), border: `1px solid ${gradeColor(s.teacherGrade)}` }}>{s.teacherGrade}</span>
+                            ))}
+                          </div>
+                        )}
+                        {avg != null && <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--blue)' }}>{avg}/100</span>}
+                        {graded.length === 0 && uStudies.length > 0 && <span style={{ fontSize: '0.68rem', color: 'var(--muted)' }}>Not graded yet</span>}
+                        {uStudies.length === 0 && <span style={{ fontSize: '0.68rem', color: 'var(--red)', fontWeight: 600 }}>No uploads</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+    </div>
+  );
+}
+
+
 function StudentDash({ currentUser }) {
   const [myStudies,setMyStudies]=useState([]);
   const [cats,setCats]=useState([]);
@@ -8540,6 +8919,7 @@ function AnnouncementsPage({ currentUser }) {
   const [priority, setPriority] = useState('normal');
   const [durationHours, setDurationHours] = useState('24');
   const [submitting, setSubmitting] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState('');
   const [now, setNow] = useState(new Date());
 
   // Live clock — ticks every minute to update countdowns
@@ -8564,9 +8944,9 @@ function AnnouncementsPage({ currentUser }) {
   const submit = async () => {
     setSubmitting(true);
     try {
-      await API.createAnnouncement({ title, body, priority, authorId:currentUser.id, authorName:currentUser.name, durationHours });
-      toast.ok('Announcement posted!');
-      setTitle(''); setBody(''); setPriority('normal'); setDurationHours('24'); setShowForm(false);
+      await API.createAnnouncement({ title, body, priority, authorId:currentUser.id, authorName:currentUser.name, durationHours, scheduledAt: scheduledAt || null });
+      toast.ok(scheduledAt ? 'Announcement scheduled!' : 'Announcement posted!');
+      setTitle(''); setBody(''); setPriority('normal'); setDurationHours('24'); setScheduledAt(''); setShowForm(false);
       load();
     } catch(e) { toast.err(e.message); }
     setSubmitting(false);
@@ -8692,10 +9072,27 @@ function AnnouncementsPage({ currentUser }) {
               </p>
             </div>
           </div>
+          <div className="fg">
+            <label style={{display:'flex',alignItems:'center',gap:5}}>
+              🕒 Schedule for later <span style={{fontWeight:300,color:'var(--muted)',fontSize:'0.72rem'}}>(optional — leave blank to post now)</span>
+            </label>
+            <input
+              type="datetime-local"
+              value={scheduledAt}
+              onChange={e=>setScheduledAt(e.target.value)}
+              min={new Date().toISOString().slice(0,16)}
+              style={{marginTop:4}}
+            />
+            {scheduledAt && (
+              <p className="hint" style={{color:'var(--blue)'}}>
+                📅 Will be visible to students starting {new Date(scheduledAt).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})}.
+              </p>
+            )}
+          </div>
           <div style={{display:'flex',gap:9,justifyContent:'flex-end',marginTop:4}}>
             <button className="btn btn-ol" onClick={()=>setShowForm(false)}>Cancel</button>
             <button className="btn btn-gold" onClick={submit} disabled={submitting||!title.trim()||!body.trim()}>
-              {submitting?<><span className="spin spin-dark"/>Posting…</>:'Post Announcement'}
+              {submitting?<><span className="spin spin-dark"/>{scheduledAt?'Scheduling…':'Posting…'}</>:<>{scheduledAt?'📅 Schedule':'Post Announcement'}</>}
             </button>
           </div>
         </div>
@@ -8712,7 +9109,7 @@ function AnnouncementsPage({ currentUser }) {
         />
       ):(
         <div style={{display:'flex',flexDirection:'column',gap:14}}>
-          {announcements.map(a=>{
+          {announcements.filter(a=>isTeacher||!a.isScheduled).map(a=>{
             const s = priorityStyle(a.priority);
             const countdown = getCountdown(a.expiresAt);
             return(
@@ -8736,6 +9133,7 @@ function AnnouncementsPage({ currentUser }) {
                       {s.icon} {s.label}
                     </span>
                     {a.pinned&&<span style={{display:'inline-flex',alignItems:'center',gap:3,background:'var(--purple-light)',color:'var(--purple)',fontSize:'0.68rem',fontWeight:600,padding:'3px 9px',borderRadius:99}}>📌 Pinned</span>}
+                    {a.isScheduled&&isTeacher&&<span style={{display:'inline-flex',alignItems:'center',gap:3,background:'var(--blue-light)',color:'var(--blue)',fontSize:'0.68rem',fontWeight:600,padding:'3px 9px',borderRadius:99}}>🕒 Scheduled · {new Date(a.scheduledAt).toLocaleString('en-PH',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>}
 
                     {/* Expiry countdown badge */}
                     {countdown&&(
@@ -9072,6 +9470,7 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
     {id:'studies-admin',label:'All Studies',icon:<Ico.book/>},
     {id:'categories',label:'Categories',icon:<Ico.tag/>},
     {id:'analytics',label:'Analytics',icon:<Ico.eye/>},
+    {id:'grade-overview',label:'Grade Overview',icon:<Ico.doc/>},
     {id:'audit-log',label:'Audit Log',icon:<Ico.settings/>},
     {id:'repository',label:'Repository',icon:<Ico.search/>},
     {id:'recognized',label:'Recognized Studies',icon:<Ico.award/>},
@@ -9080,6 +9479,7 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
   ];
   const studentNav=[
     {id:'dashboard',label:'Dashboard',icon:<Ico.home/>},
+    {id:'my-stats',label:'My Stats',icon:<Ico.eye/>},
     {id:'repository',label:'Browse Studies',icon:<Ico.book/>},
     {id:'recognized',label:'Recognized Studies',icon:<Ico.award/>},
     {id:'announcements',label:'Announcements',icon:<Ico.bell/>},
@@ -9607,7 +10007,7 @@ function App() {
     return ()=>{try{unsub();}catch{}};
   },[]);
 
-  const titles={dashboard:'Dashboard',users:'User Management',analytics:'Class Analytics',announcements:'Announcements','studies-admin':'Manage Studies',categories:'Manage Categories','audit-log':'Audit Log',repository:'Research Repository',chatbot:'AI Research Assistant',recognized:'Recognized Studies'};
+  const titles={dashboard:'Dashboard',users:'User Management',analytics:'Class Analytics','grade-overview':'Grade Overview',announcements:'Announcements','studies-admin':'Manage Studies',categories:'Manage Categories','audit-log':'Audit Log',repository:'Research Repository',chatbot:'AI Research Assistant',recognized:'Recognized Studies','my-stats':'My Stats'};
 
   if(!authChecked || !loaderDone){
     // Keep React from rendering anything until auth is known AND the loader has fully faded out
@@ -9656,7 +10056,9 @@ function App() {
       case 'users':         return isAdmin?<AdminUsers currentUser={currentUser}/>:null;
       case 'studies-admin': return isAdmin?<AdminStudies currentUser={currentUser}/>:null;
       case 'categories':    return isAdmin?<AdminCats/>:null;
-      case 'analytics':    return isAdmin?<AdminAnalytics currentUser={currentUser}/>:null;
+      case 'analytics':     return isAdmin?<AdminAnalytics currentUser={currentUser}/>:null;
+      case 'grade-overview':return isAdmin?<GradeOverviewPage currentUser={currentUser}/>:null;
+      case 'my-stats':      return !isAdmin?<MyStatsPage currentUser={currentUser}/>:null;
       case 'audit-log':     return isAdmin?<AdminAuditLog/>:null;
       case 'repository':    return <StudiesPage currentUser={currentUser}/>;
       case 'recognized':    return <RecognizedStudiesPage currentUser={currentUser} isAdmin={isAdmin}/>;
