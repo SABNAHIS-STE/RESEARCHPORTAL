@@ -2873,10 +2873,41 @@ const API = {
       await notifBatch.commit();
       Cache.invalidate('studyNotifications');
     } catch(e) { console.warn('Notification write failed:', e.message); }
+    // ── Notify registered co-authors they were tagged ────────────
+    try {
+      const registeredCoAuthors = (coAuthors || []).filter(ca => ca.userId && ca.registered);
+      if (registeredCoAuthors.length > 0) {
+        const coAuthorBatch = db.batch();
+        const studyRef = (await db.collection('studies').where('titleNorm','==',normalized).limit(1).get()).docs[0];
+        const studyId = studyRef ? studyRef.id : null;
+        registeredCoAuthors.forEach(ca => {
+          const ref = db.collection('users').doc(ca.userId).collection('notifications').doc();
+          coAuthorBatch.set(ref, {
+            type: 'coauthor_tag',
+            title: 'You were tagged as co-author',
+            body: `"${title.trim()}" by ${uploadedByName} lists you as a co-author.`,
+            link: studyId,
+            createdAt: new Date().toISOString(),
+            read: false,
+          });
+        });
+        await coAuthorBatch.commit();
+      }
+    } catch(e) { console.warn('Co-author notification failed:', e.message); }
     Cache.invalidate('studies', 'allStudies', 'stats');
   },
 
   async deleteStudy(id) { await db.collection('studies').doc(id).delete(); Cache.invalidate('studies', 'allStudies', 'stats'); },
+
+  async getCoAuthoredStudies(userId) {
+    try {
+      const all = await this.getAllStudies();
+      return all.filter(s =>
+        Array.isArray(s.coAuthors) &&
+        s.coAuthors.some(ca => ca.userId === userId)
+      );
+    } catch { return []; }
+  },
 
   // ── Admin Study Notifications ───────────────────────────
   async getStudyNotifications(adminUid, limitN=20) {
@@ -3039,7 +3070,7 @@ const API = {
       return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() };
     });
   },
-  async submitTeacherFeedback(studyId, { teacherId, teacherName, grade, criteria, comments, recommendations }) {
+  async submitTeacherFeedback(studyId, { teacherId, teacherName, grade, criteria, comments, recommendations, requestsRevision=false }) {
     if (!grade) throw new Error('Please select a grade.');
     if (!comments.trim()) throw new Error('Overall feedback is required.');
     const totalScore = Object.values(criteria).reduce((a,b)=>a+(b||0),0);
@@ -3047,11 +3078,13 @@ const API = {
       teacherId, teacherName, grade, criteria, totalScore,
       comments: comments.trim(),
       recommendations: recommendations.trim(),
+      requestsRevision,
       gradedAt: new Date().toISOString()
     });
     await db.collection('studies').doc(studyId).update({
       teacherGrade: grade, teacherScore: totalScore,
-      gradedBy: teacherName, gradedAt: new Date().toISOString()
+      gradedBy: teacherName, gradedAt: new Date().toISOString(),
+      revisionStatus: requestsRevision ? 'revision_requested' : firebase.firestore.FieldValue.delete(),
     }).catch(()=>{});
     // ── Notify the study's uploader ──────────────────────
     try {
@@ -3059,14 +3092,66 @@ const API = {
       const sd = studyDoc.data();
       if (sd?.uploadedBy) {
         await API.createNotification(sd.uploadedBy, {
-          type: 'feedback',
-          title: `New feedback on "${sd.title}"`,
-          body: `${teacherName} graded your study: ${grade}`,
+          type: requestsRevision ? 'revision_requested' : 'feedback',
+          title: requestsRevision ? `Revision requested on "${sd.title}"` : `New feedback on "${sd.title}"`,
+          body: requestsRevision
+            ? `${teacherName} requests changes: ${comments.trim().slice(0,80)}${comments.length>80?'…':''}`
+            : `${teacherName} graded your study: ${grade}`,
           link: studyId
         });
       }
     } catch(e) { console.warn('Feedback notification failed:', e.message); }
     Cache.invalidate(`tfeedback:${studyId}`, 'studies', 'allStudies');
+  },
+
+  async resubmitStudy(studyId, { title, abstract, keywords, gdrive, resubmittedBy, resubmittedByName }) {
+    // Archive current version to revisions subcollection
+    const snap = await db.collection('studies').doc(studyId).get();
+    const current = snap.data();
+    const version = (current.version || 1);
+    await db.collection('studies').doc(studyId).collection('revisions').add({
+      version,
+      title: current.title,
+      abstract: current.abstract,
+      keywords: current.keywords || [],
+      gdrive: current.gdrive || null,
+      archivedAt: new Date().toISOString(),
+      archivedBy: resubmittedByName,
+    });
+    // Update main doc with new content
+    const normalized = title.trim().toLowerCase().replace(/\s+/g,' ');
+    await db.collection('studies').doc(studyId).update({
+      title: title.trim(),
+      titleNorm: normalized,
+      abstract: abstract.trim(),
+      keywords: keywords || [],
+      gdrive: gdrive || current.gdrive || null,
+      revisionStatus: 'resubmitted',
+      version: version + 1,
+      resubmittedAt: new Date().toISOString(),
+    });
+    // Notify teacher
+    try {
+      if (current.gradedBy) {
+        const teacherSnap = await db.collection('users').where('name','==',current.gradedBy).where('role','==','admin').limit(1).get();
+        if (!teacherSnap.empty) {
+          await API.createNotification(teacherSnap.docs[0].id, {
+            type: 'resubmitted',
+            title: `Revision submitted for "${title.trim()}"`,
+            body: `${resubmittedByName} submitted a revised version.`,
+            link: studyId,
+          });
+        }
+      }
+    } catch(e) { console.warn('Resubmit notify failed:', e.message); }
+    Cache.invalidate(`tfeedback:${studyId}`, 'studies', 'allStudies', 'stats');
+  },
+
+  async getRevisions(studyId) {
+    try {
+      const snap = await db.collection('studies').doc(studyId).collection('revisions').orderBy('archivedAt','desc').get();
+      return snap.docs.map(d=>({id:d.id,...d.data()}));
+    } catch { return []; }
   },
   async deleteTeacherFeedback(studyId, teacherId) {
     await db.collection('studies').doc(studyId).collection('teacherFeedback').doc(teacherId).delete();
@@ -5024,6 +5109,94 @@ function ScoreInput({ label, max, value, onChange, readOnly }) {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  RESUBMIT MODAL
+// ══════════════════════════════════════════════════════════════════
+function ResubmitModal({ study, currentUser, onClose, onDone }) {
+  const [form, setForm] = useState({
+    title: study.title || '',
+    abstract: study.abstract || '',
+    keywords: (study.keywords||[]).join(', '),
+  });
+  const [gdriveUrl, setGdriveUrl] = useState('');
+  const [gdriveInfo, setGdriveInfo] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const sf = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const handleGdrive = val => {
+    setGdriveUrl(val);
+    setGdriveInfo(parseGDriveLink(val.trim()));
+  };
+
+  const submit = async () => {
+    if (!form.title.trim()) { toast.err('Title is required.'); return; }
+    if (!form.abstract.trim()) { toast.err('Abstract is required.'); return; }
+    setSubmitting(true);
+    try {
+      const keywords = form.keywords.split(',').map(k=>k.trim()).filter(Boolean);
+      const gdrive = gdriveInfo ? { driveUrl:gdriveInfo.viewUrl, downloadUrl:gdriveInfo.downloadUrl, driveId:gdriveInfo.id } : null;
+      await API.resubmitStudy(study.id, {
+        title: form.title,
+        abstract: form.abstract,
+        keywords,
+        gdrive,
+        resubmittedBy: currentUser.id,
+        resubmittedByName: currentUser.name,
+      });
+      toast.ok('Revision submitted!');
+      onDone?.();
+      onClose();
+    } catch(e) { toast.err(e.message); }
+    setSubmitting(false);
+  };
+
+  const currentGdrive = study.gdrive ? (study.gdrive.driveUrl || study.gdrive.viewUrl || null) : null;
+
+  return (
+    <Modal title="Revise & Resubmit" onClose={onClose} wide>
+      <div style={{padding:'10px 14px',background:'var(--gold-bg)',border:'1px solid var(--gold)',borderRadius:'var(--radius)',marginBottom:16,fontSize:'var(--text-sm)',color:'var(--gold)',fontWeight:600}}>
+        ✏️ Revising Version {study.version||1} — your current version will be archived before saving.
+      </div>
+
+      <div className="fg">
+        <label>Study Title *</label>
+        <input value={form.title} onChange={e=>sf('title',e.target.value)} placeholder="Full title of your research study" autoFocus/>
+      </div>
+
+      <div className="fg">
+        <label style={{display:'flex',justifyContent:'space-between'}}>
+          <span>Abstract *</span>
+          <span style={{fontWeight:300,color:'var(--muted)',fontSize:'0.75rem'}}>{form.abstract.length} chars</span>
+        </label>
+        <textarea value={form.abstract} onChange={e=>sf('abstract',e.target.value)} placeholder="Updated abstract…" style={{minHeight:120}}/>
+      </div>
+
+      <div className="fg">
+        <label>Keywords <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></label>
+        <input value={form.keywords} onChange={e=>sf('keywords',e.target.value)} placeholder="e.g. biology, ecology, climate"/>
+      </div>
+
+      <div className="fg">
+        <label>Google Drive Link <span style={{fontWeight:300,color:'var(--muted)'}}>(leave blank to keep existing)</span></label>
+        {currentGdrive && !gdriveUrl && (
+          <div style={{fontSize:'var(--text-xs)',color:'var(--muted)',marginBottom:6,padding:'6px 10px',background:'var(--surface)',borderRadius:6,border:'1px solid var(--border)',wordBreak:'break-all'}}>
+            📎 Current: {currentGdrive}
+          </div>
+        )}
+        <input value={gdriveUrl} onChange={e=>handleGdrive(e.target.value)} placeholder="Paste new Google Drive link (optional)"/>
+        {gdriveInfo && <div style={{marginTop:4,fontSize:'0.72rem',color:'var(--teal)',fontWeight:600}}>✅ Valid Drive link detected</div>}
+      </div>
+
+      <div style={{display:'flex',gap:9,justifyContent:'flex-end',flexWrap:'wrap',marginTop:4}}>
+        <button className="btn btn-ol" onClick={onClose}>Cancel</button>
+        <button className="btn btn-gold" onClick={submit} disabled={submitting}>
+          {submitting ? <><span className="spin spin-dark"/> Submitting…</> : '🔄 Submit Revision'}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function TeacherFeedbackSection({ study, currentUser }) {
   const isTeacher = currentUser.role === 'admin';
   const isOwner   = currentUser.id === study.uploadedBy;
@@ -5037,6 +5210,11 @@ function TeacherFeedbackSection({ study, currentUser }) {
   const [recommendations, setRecommendations] = useState('');
   const [plagTeacher,setPlagTeacher]=useState(null);
   const [plagTeacherLoading,setPlagTeacherLoading]=useState(false);
+  const [requestsRevision,setRequestsRevision]=useState(false);
+  const [showResubmitModal,setShowResubmitModal]=useState(false);
+  const [revisions,setRevisions]=useState([]);
+  const [revisionsLoading,setRevisionsLoading]=useState(false);
+  const [showRevHistory,setShowRevHistory]=useState(false);
 
   const totalScore = Object.values(criteria).reduce((a,b)=>a+(b||0),0);
   const gradeLetterClass = grade ? `tf-grade-${grade.charAt(0)}` : '';
@@ -5045,15 +5223,21 @@ function TeacherFeedbackSection({ study, currentUser }) {
     setLoading(true);
     const fb = await API.getTeacherFeedback(study.id);
     setFeedback(fb);
-    if(fb){ setGrade(fb.grade); setCriteria(fb.criteria||{}); setComments(fb.comments||''); setRecommendations(fb.recommendations||''); }
+    if(fb){ setGrade(fb.grade); setCriteria(fb.criteria||{}); setComments(fb.comments||''); setRecommendations(fb.recommendations||''); setRequestsRevision(fb.requestsRevision||false); }
     setLoading(false);
+  };
+  const loadRevisions = async () => {
+    setRevisionsLoading(true);
+    const revs = await API.getRevisions(study.id);
+    setRevisions(revs);
+    setRevisionsLoading(false);
   };
   useEffect(()=>{ load(); },[]);
 
   const submit = async () => {
     setSubmitting(true);
     try {
-      await API.submitTeacherFeedback(study.id, { teacherId:currentUser.id, teacherName:currentUser.name, grade, criteria, comments, recommendations });
+      await API.submitTeacherFeedback(study.id, { teacherId:currentUser.id, teacherName:currentUser.name, grade, criteria, comments, recommendations, requestsRevision });
       toast.ok('Feedback submitted!');
       setShowForm(false);
       load();
@@ -5113,6 +5297,59 @@ function TeacherFeedbackSection({ study, currentUser }) {
           <div style={{width:20,height:20,borderRadius:'50%',background:'var(--teal)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.6rem',fontWeight:700,flexShrink:0}}>{feedback.teacherName?.charAt(0).toUpperCase()}</div>
           {feedback.teacherName} · Teacher
         </div>
+
+        {/* Revision request banner */}
+        {feedback.requestsRevision && (
+          <div style={{marginTop:14,padding:'12px 14px',background:'var(--gold-bg)',border:'1.5px solid var(--gold)',borderRadius:'var(--radius)'}}>
+            {study.revisionStatus === 'resubmitted' ? (
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:'1rem'}}>🔄</span>
+                <div>
+                  <div style={{fontWeight:700,fontSize:'var(--text-sm)',color:'var(--teal)'}}>Revision submitted</div>
+                  <div style={{fontSize:'var(--text-xs)',color:'var(--muted)',marginTop:2}}>Your revised version is awaiting review. Version {study.version||1}.</div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                  <span style={{fontSize:'1rem'}}>✏️</span>
+                  <div style={{fontWeight:700,fontSize:'var(--text-sm)',color:'var(--gold)'}}>Revision requested by your teacher</div>
+                </div>
+                <p style={{fontSize:'var(--text-xs)',color:'var(--slate)',marginBottom:10,lineHeight:1.5}}>
+                  Your teacher has reviewed your study and is requesting changes. Please revise and resubmit below. Your original version will be preserved in history.
+                </p>
+                {isOwner && (
+                  <button className="btn btn-gold btn-sm" onClick={()=>setShowResubmitModal(true)} style={{display:'flex',alignItems:'center',gap:5}}>
+                    ✏️ Revise &amp; Resubmit
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Revision history toggle */}
+        {isOwner && study.version > 1 && (
+          <div style={{marginTop:10}}>
+            <button className="btn btn-ol btn-sm" style={{fontSize:'0.72rem'}} onClick={()=>{ if(!showRevHistory){loadRevisions();} setShowRevHistory(v=>!v); }}>
+              📋 {showRevHistory?'Hide':'View'} Revision History ({(study.version||1)-1} previous version{study.version>2?'s':''})
+            </button>
+            {showRevHistory&&(
+              <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:8}}>
+                {revisionsLoading ? <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>Loading…</div> : revisions.length===0 ? <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic'}}>No previous versions found.</div> : revisions.map((rev,i)=>(
+                  <div key={rev.id} style={{padding:'10px 12px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--radius)',borderLeft:'3px solid var(--gold)'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+                      <span style={{fontSize:'0.68rem',fontWeight:700,color:'var(--gold)',textTransform:'uppercase',letterSpacing:'0.5px'}}>Version {rev.version}</span>
+                      <span style={{fontSize:'0.65rem',color:'var(--muted)'}}>{fmtDate(rev.archivedAt)}</span>
+                    </div>
+                    <div style={{fontWeight:500,fontSize:'var(--text-sm)',marginBottom:3}}>{rev.title}</div>
+                    <div style={{fontSize:'var(--text-xs)',color:'var(--slate)',lineHeight:1.5,display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{rev.abstract}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -5240,12 +5477,60 @@ function TeacherFeedbackSection({ study, currentUser }) {
             <textarea placeholder="What should the student improve or explore further?" value={recommendations} onChange={e=>setRecommendations(e.target.value)} style={{minHeight:60}}/>
           </div>
 
+          {/* Requests revision checkbox */}
+          <div style={{padding:'10px 14px',background:requestsRevision?'var(--gold-bg)':'var(--surface)',border:`1.5px solid ${requestsRevision?'var(--gold)':'var(--border)'}`,borderRadius:'var(--radius)',marginBottom:4,cursor:'pointer',transition:'all .15s'}}
+            onClick={()=>setRequestsRevision(v=>!v)}>
+            <label style={{display:'flex',alignItems:'flex-start',gap:10,cursor:'pointer'}}>
+              <input type="checkbox" checked={requestsRevision} onChange={e=>setRequestsRevision(e.target.checked)}
+                style={{marginTop:2,width:16,height:16,accentColor:'var(--gold)',flexShrink:0}} onClick={e=>e.stopPropagation()}/>
+              <div>
+                <div style={{fontWeight:600,fontSize:'var(--text-sm)',color:requestsRevision?'var(--gold)':'var(--ink)'}}>✏️ Request revision from student</div>
+                <div style={{fontSize:'var(--text-xs)',color:'var(--muted)',marginTop:2,lineHeight:1.4}}>
+                  Student will be notified to revise and resubmit. Their original version will be archived in history.
+                </div>
+              </div>
+            </label>
+          </div>
+
           <div style={{display:'flex',gap:9,justifyContent:'flex-end',flexWrap:'wrap'}}>
             <button className="btn btn-ol" onClick={()=>setShowForm(false)}>Cancel</button>
             <button className="btn btn-teal" onClick={submit} disabled={submitting||!grade||!comments.trim()}>
-              {submitting?<><span className="spin spin-dark"/>Saving…</>:'Submit Feedback'}
+              {submitting?<><span className="spin spin-dark"/>Saving…</>:requestsRevision?'Submit & Request Revision':'Submit Feedback'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Resubmit Modal */}
+      {showResubmitModal&&<ResubmitModal study={study} currentUser={currentUser} onClose={()=>setShowResubmitModal(false)} onDone={load}/>}
+
+      {/* Resubmitted badge for teacher */}
+      {study.revisionStatus==='resubmitted'&&(
+        <div style={{marginTop:10,padding:'10px 14px',background:'var(--teal-light)',border:'1.5px solid var(--teal)',borderRadius:'var(--radius)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+          <span style={{fontSize:'1rem'}}>🔄</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:700,fontSize:'var(--text-sm)',color:'var(--teal)'}}>Student submitted a revision</div>
+            <div style={{fontSize:'var(--text-xs)',color:'var(--muted)',marginTop:2}}>The study has been updated. Review the new version and re-grade if needed.</div>
+          </div>
+          <button className="btn btn-ol btn-sm" onClick={()=>{ if(!showRevHistory){loadRevisions();} setShowRevHistory(v=>!v); }}>
+            📋 {showRevHistory?'Hide':'View'} History
+          </button>
+        </div>
+      )}
+
+      {/* Revision history (teacher) */}
+      {showRevHistory&&(
+        <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:8}}>
+          {revisionsLoading ? <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>Loading…</div> : revisions.length===0 ? <div style={{fontSize:'0.78rem',color:'var(--muted)',fontStyle:'italic'}}>No previous versions archived yet.</div> : revisions.map(rev=>(
+            <div key={rev.id} style={{padding:'10px 12px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--radius)',borderLeft:'3px solid var(--gold)'}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+                <span style={{fontSize:'0.68rem',fontWeight:700,color:'var(--gold)',textTransform:'uppercase',letterSpacing:'0.5px'}}>Version {rev.version}</span>
+                <span style={{fontSize:'0.65rem',color:'var(--muted)'}}>{fmtDate(rev.archivedAt)}</span>
+              </div>
+              <div style={{fontWeight:500,fontSize:'var(--text-sm)',marginBottom:3}}>{rev.title}</div>
+              <div style={{fontSize:'var(--text-xs)',color:'var(--slate)',lineHeight:1.5,display:'-webkit-box',WebkitLineClamp:4,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{rev.abstract}</div>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -6034,6 +6319,8 @@ function StudyCard({ study, onOpen }) {
         {(study.favoriteCount||0)>0&&<span data-tip="Bookmarked by students" style={{color:'var(--purple)'}}>📌{study.favoriteCount}</span>}
         {(study.avgRating||0)>0&&<span data-tip={`Avg rating: ${study.avgRating}`} style={{color:'#f59e0b'}}>★{study.avgRating}</span>}
         {study.teacherGrade&&<span style={{background:'var(--teal-light)',color:'var(--teal)',fontWeight:700,fontSize:'0.68rem',padding:'1px 7px',borderRadius:99,border:'1px solid var(--teal)'}} data-tip={`Teacher grade: ${study.teacherGrade}`}>✓ {study.teacherGrade}</span>}
+        {study.revisionStatus==='revision_requested'&&<span style={{background:'var(--gold-bg)',color:'var(--gold)',fontWeight:700,fontSize:'0.68rem',padding:'1px 7px',borderRadius:99,border:'1px solid var(--gold)'}} data-tip="Teacher requested revision">✏️ Revision needed</span>}
+        {study.revisionStatus==='resubmitted'&&<span style={{background:'var(--blue-light)',color:'var(--blue)',fontWeight:700,fontSize:'0.68rem',padding:'1px 7px',borderRadius:99,border:'1px solid var(--blue)'}} data-tip="Student submitted revision">🔄 Revised</span>}
         <span style={{marginLeft:'auto'}}>{fmtDate(study.createdAt)}</span>
       </div>
     </div>
@@ -7178,6 +7465,7 @@ function StreakCard({ streak, longestStreak }) {
 // ══════════════════════════════════════════════════════════════════
 function MyStatsPage({ currentUser }) {
   const [myStudies, setMyStudies] = useState([]);
+  const [coAuthoredStudies, setCoAuthoredStudies] = useState([]);
   const [readCount, setReadCount] = useState(0);
   const [streakData, setStreakData] = useState({ streak: 0, longestStreak: 0 });
   const [favorites, setFavorites] = useState([]);
@@ -7190,11 +7478,13 @@ function MyStatsPage({ currentUser }) {
       API.getReadCount(currentUser.id),
       API.getStreak(currentUser.id),
       API.getFavorites(currentUser.id),
-    ]).then(([res, rc, sk, favs]) => {
+      API.getCoAuthoredStudies(currentUser.id),
+    ]).then(([res, rc, sk, favs, coAuthored]) => {
       setMyStudies(res.data);
       setReadCount(rc);
       setStreakData(sk);
       setFavorites(favs);
+      setCoAuthoredStudies(coAuthored);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [currentUser.id]);
@@ -7227,6 +7517,7 @@ function MyStatsPage({ currentUser }) {
       {/* KPI grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 10, marginBottom: 18 }}>
         <StatPill label="Studies Uploaded" value={myStudies.length} color="var(--gold)" />
+        <StatPill label="Co-authored" value={coAuthoredStudies.length} color="var(--teal)" />
         <StatPill label="Total Views" value={totalViews} color="var(--teal)" />
         <StatPill label="Downloads" value={totalDownloads} color="var(--blue)" />
         <StatPill label="Citations" value={totalCitations} color="var(--purple)" />
@@ -7318,6 +7609,8 @@ function MyStatsPage({ currentUser }) {
                     <span style={{ fontSize: '0.72rem', color: 'var(--teal)', fontWeight: 600 }}>👁 {s.viewCount || 0}</span>
                     <span style={{ fontSize: '0.72rem', color: 'var(--blue)', fontWeight: 600 }}>⬇ {s.downloadCount || 0}</span>
                     <span style={{ fontSize: '0.72rem', color: 'var(--purple)', fontWeight: 600 }}>📋 {s.citationCount || 0}</span>
+                    {s.revisionStatus==='revision_requested'&&<span style={{fontSize:'0.68rem',background:'var(--gold-bg)',color:'var(--gold)',borderRadius:6,padding:'2px 7px',fontWeight:700,border:'1px solid var(--gold)',whiteSpace:'nowrap'}}>✏️ Revise</span>}
+                    {s.revisionStatus==='resubmitted'&&<span style={{fontSize:'0.68rem',background:'var(--blue-light)',color:'var(--blue)',borderRadius:6,padding:'2px 7px',fontWeight:700,border:'1px solid var(--blue)',whiteSpace:'nowrap'}}>🔄 Revised</span>}
                     <button
                       className="btn btn-ol btn-sm"
                       style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', padding: '5px 10px', minHeight: 32 }}
@@ -7332,6 +7625,34 @@ function MyStatsPage({ currentUser }) {
             </div>
           )}
       </div>
+      {/* Co-authored studies */}
+      {coAuthoredStudies.length > 0 && (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="card-hd" style={{ marginBottom: 12 }}>
+            <span className="card-title">🤝 Co-authored Studies</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{coAuthoredStudies.length} tagged</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {coAuthoredStudies.map(s => (
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 500, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: 2 }}>
+                    by {(s.authors || []).join(', ')} · {s.year}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 12, flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--teal)', fontWeight: 600 }}>👁 {s.viewCount || 0}</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--blue)', fontWeight: 600 }}>⬇ {s.downloadCount || 0}</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--purple)', fontWeight: 600 }}>📋 {s.citationCount || 0}</span>
+                  <span style={{ fontSize: '0.68rem', background: 'var(--teal-light)', color: 'var(--teal)', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>co-author</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {historyStudy && <StudyHistoryModal study={historyStudy} onClose={() => setHistoryStudy(null)} />}
     </div>
   );
@@ -8946,6 +9267,8 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
   const [filterCat, setFilterCat] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [addAwardFor, setAddAwardFor] = useState(null);
+  const [awardForm, setAwardForm] = useState({ award:'', year:String(new Date().getFullYear()) });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -8969,6 +9292,23 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
     setEditId(entry.id);
     setForm({ title:entry.title, authors:entry.authors, award:entry.award, year:entry.year, description:entry.description||'', institution:entry.institution||'', category:entry.category||'' });
     setShowForm(true);
+  };
+
+  const openAddAward = group => {
+    setAddAwardFor({ title: group.title, authors: group.authors, category: group.category||'', institution: group.institution||'', description: group.description||'' });
+    setAwardForm({ award:'', year:String(new Date().getFullYear()) });
+  };
+
+  const submitNewAward = async () => {
+    if (!awardForm.award.trim()) { toast.err('Award name is required.'); return; }
+    setSaving(true);
+    try {
+      await API.addRecognizedStudy({ ...addAwardFor, award: awardForm.award.trim(), year: awardForm.year, addedBy: currentUser.name });
+      toast.ok('Award added!');
+      setAddAwardFor(null);
+      await load();
+    } catch(e) { toast.err(e.message); }
+    setSaving(false);
   };
 
   const submit = async () => {
@@ -9005,9 +9345,27 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
     return matchSearch && matchCat;
   });
 
-  const AWARD_COLORS = {
-    default: { bg:'var(--gold-bg)', color:'var(--gold)', border:'var(--gold)' },
-  };
+  // Group filtered entries by title (case-insensitive), sorted by award count desc
+  const groupedFiltered = useMemo(() => {
+    const map = {};
+    filtered.forEach(e => {
+      const key = e.title.trim().toLowerCase();
+      if (!map[key]) map[key] = { title: e.title, authors: e.authors, category: e.category, institution: e.institution, description: e.description, year: e.year, addedBy: e.addedBy, createdAt: e.createdAt, awards: [], ids: [] };
+      // merge fields: prefer non-empty values
+      if (e.category && !map[key].category) map[key].category = e.category;
+      if (e.institution && !map[key].institution) map[key].institution = e.institution;
+      if (e.description && !map[key].description) map[key].description = e.description;
+      map[key].awards.push({ award: e.award, year: e.year, id: e.id, addedBy: e.addedBy, createdAt: e.createdAt });
+      map[key].ids.push(e.id);
+    });
+    return Object.values(map).sort((a, b) => b.awards.length - a.awards.length);
+  }, [filtered]);
+
+  const RANK_STYLES = [
+    { border:'var(--gold)',  trophy:'🥇', rankBg:'var(--gold-bg)',   rankColor:'var(--gold)',   rankLabel:'#1' },
+    { border:'var(--slate)', trophy:'🥈', rankBg:'var(--surface)',   rankColor:'var(--slate)',  rankLabel:'#2' },
+    { border:'#b87333',      trophy:'🥉', rankBg:'#fdf3ec',          rankColor:'#b87333',       rankLabel:'#3' },
+  ];
 
   return (
     <div>
@@ -9015,7 +9373,7 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
       <div className="page-hd">
         <div className="page-hd-left">
           <h2>Recognized Studies</h2>
-          <p className="muted">{entries.length} recognized {entries.length===1?'study':'studies'}{filterCat && <span style={{color:'var(--gold)',marginLeft:5}}>· {filterCat}</span>}</p>
+          <p className="muted">{groupedFiltered.length} {groupedFiltered.length===1?'study':'studies'}{filterCat && <span style={{color:'var(--gold)',marginLeft:5}}>· {filterCat}</span>} · sorted by awards won</p>
         </div>
         {isAdmin && (
           <button className="btn btn-gold" onClick={openNew}>
@@ -9063,7 +9421,7 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
           title="No recognized studies yet"
           message={isAdmin ? 'Highlight award-winning or outstanding research by clicking "Add Recognition" above.' : 'Outstanding research will be showcased here once recognized by your teachers.'}
         />
-      ) : filtered.length === 0 ? (
+      ) : groupedFiltered.length === 0 ? (
         <EmptyState
           icon="🔍"
           title="No results found"
@@ -9071,61 +9429,83 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
         />
       ) : (
         <div style={{display:'flex',flexDirection:'column',gap:14}}>
-          {filtered.map((entry, idx) => (
-            <div key={entry.id} className="card" style={{position:'relative',borderLeft:'4px solid var(--gold)',transition:'box-shadow var(--transition)'}}>
-              {/* Rank badge */}
-              <div style={{position:'absolute',top:16,right:16,display:'flex',gap:6,alignItems:'center'}}>
-                {isAdmin && (
-                  <>
-                    <button className="btn btn-ol btn-sm" onClick={()=>openEdit(entry)} data-tip="Edit entry" aria-label={`Edit ${entry.title}`}><Ico.edit/></button>
-                    <button className="btn btn-red btn-sm" onClick={()=>setDeleteConfirm(entry.id)} data-tip-pos="left" data-tip="Delete entry" aria-label={`Delete ${entry.title}`}><Ico.trash/></button>
-                  </>
-                )}
-              </div>
-
-              <div style={{display:'flex',alignItems:'flex-start',gap:14,flexWrap:'wrap',paddingRight:isAdmin?100:0}}>
-                {/* Trophy icon */}
-                <div style={{width:44,height:44,borderRadius:10,background:'var(--gold-bg)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.4rem',flexShrink:0}}>
-                  🏆
-                </div>
-                <div style={{flex:1,minWidth:200}}>
-                  <h3 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-lg)',fontWeight:700,color:'var(--ink)',marginBottom:4,lineHeight:1.3}}>{entry.title}</h3>
-                  <p style={{fontSize:'var(--text-sm)',color:'var(--slate)',marginBottom:8}}>By: <strong>{entry.authors}</strong></p>
-
-                  {/* Category + Award badges */}
-                  <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:entry.description||entry.institution?10:0}}>
-                    {entry.category && (
-                      <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 10px',borderRadius:99,background:'var(--purple-light)',color:'var(--purple)',border:'1.5px solid var(--purple)',fontSize:'var(--text-xs)',fontWeight:600}}>
-                        🏷️ {entry.category}
-                      </span>
-                    )}
-                    <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 11px',borderRadius:99,background:'var(--gold-bg)',color:'var(--gold)',border:'1.5px solid var(--gold)',fontSize:'var(--text-xs)',fontWeight:700}}>
-                      🥇 {entry.award}
-                    </span>
-                  </div>
-
-                  {(entry.description || entry.institution) && (
-                    <div style={{display:'flex',flexDirection:'column',gap:4}}>
-                      {entry.institution && (
-                        <p style={{fontSize:'var(--text-xs)',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}>
-                          🏫 {entry.institution}
-                        </p>
-                      )}
-                      {entry.description && (
-                        <p style={{fontSize:'var(--text-sm)',color:'var(--slate)',lineHeight:1.55}}>{entry.description}</p>
-                      )}
-                    </div>
+          {groupedFiltered.map((group, idx) => {
+            const rs = RANK_STYLES[idx] || { border:'var(--border)', trophy:'🏆', rankBg:'var(--surface)', rankColor:'var(--muted)', rankLabel:`#${idx+1}` };
+            const awardCount = group.awards.length;
+            return (
+              <div key={group.title} className="card" style={{position:'relative',borderLeft:`4px solid ${rs.border}`,transition:'box-shadow var(--transition)'}}>
+                {/* Rank + admin buttons */}
+                <div style={{position:'absolute',top:14,right:14,display:'flex',gap:6,alignItems:'center'}}>
+                  {/* Award count badge */}
+                  <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 10px',borderRadius:99,background:rs.rankBg,color:rs.rankColor,border:`1.5px solid ${rs.border}`,fontSize:'var(--text-xs)',fontWeight:700,whiteSpace:'nowrap'}}>
+                    {rs.trophy} {awardCount} award{awardCount!==1?'s':''}
+                  </span>
+                  {isAdmin && (
+                    <>
+                      <button className="btn btn-teal btn-sm" onClick={()=>openAddAward(group)} data-tip="Add another award to this study" aria-label={`Add award to ${group.title}`} style={{display:'flex',alignItems:'center',gap:4}}><Ico.plus/> Award</button>
+                      <button className="btn btn-ol btn-sm" onClick={()=>openEdit({...group.awards[0], title:group.title, authors:group.authors, category:group.category||'', institution:group.institution||'', description:group.description||'', year:group.awards[0].year, id:group.awards[0].id})} data-tip="Edit latest entry" aria-label={`Edit ${group.title}`}><Ico.edit/></button>
+                      <button className="btn btn-red btn-sm" onClick={()=>setDeleteConfirm(group.awards[0].id)} data-tip-pos="left" data-tip="Delete latest entry" aria-label={`Delete ${group.title}`}><Ico.trash/></button>
+                    </>
                   )}
+                </div>
 
-                  <div style={{display:'flex',gap:14,marginTop:10,fontSize:'var(--text-xs)',color:'var(--muted)',flexWrap:'wrap'}}>
-                    <span><Ico.cal/> {entry.year}</span>
-                    <span>Added by {entry.addedBy}</span>
-                    <span>{fmtDate(entry.createdAt)}</span>
+                <div style={{display:'flex',alignItems:'flex-start',gap:14,flexWrap:'wrap',paddingRight:isAdmin?160:80}}>
+                  {/* Rank icon */}
+                  <div style={{width:46,height:46,borderRadius:10,background:rs.rankBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.5rem',flexShrink:0,border:`1.5px solid ${rs.border}`}}>
+                    {rs.trophy}
+                  </div>
+                  <div style={{flex:1,minWidth:200}}>
+                    {/* Rank label */}
+                    <div style={{fontSize:'var(--text-xs)',fontWeight:700,color:rs.rankColor,marginBottom:3,letterSpacing:'0.04em'}}>{rs.rankLabel} · RANK</div>
+                    <h3 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-lg)',fontWeight:700,color:'var(--ink)',marginBottom:4,lineHeight:1.3}}>{group.title}</h3>
+                    <p style={{fontSize:'var(--text-sm)',color:'var(--slate)',marginBottom:8}}>By: <strong>{group.authors}</strong></p>
+
+                    {/* Category badge */}
+                    {group.category && (
+                      <div style={{marginBottom:8}}>
+                        <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 10px',borderRadius:99,background:'var(--purple-light)',color:'var(--purple)',border:'1.5px solid var(--purple)',fontSize:'var(--text-xs)',fontWeight:600}}>
+                          🏷️ {group.category}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* All awards list */}
+                    <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:group.description||group.institution?10:0}}>
+                      {group.awards.map((aw,i)=>(
+                        <div key={aw.id} style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
+                          <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 11px',borderRadius:99,background:'var(--gold-bg)',color:'var(--gold)',border:'1.5px solid var(--gold)',fontSize:'var(--text-xs)',fontWeight:700}}>
+                            🥇 {aw.award}
+                          </span>
+                          <span style={{fontSize:'var(--text-xs)',color:'var(--muted)'}}>{aw.year}</span>
+                          {isAdmin && (
+                            <button className="btn btn-red btn-sm" style={{padding:'2px 8px',fontSize:'0.65rem',minHeight:24}} onClick={()=>setDeleteConfirm(aw.id)} aria-label={`Remove award: ${aw.award}`}><Ico.trash/></button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {(group.description || group.institution) && (
+                      <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                        {group.institution && (
+                          <p style={{fontSize:'var(--text-xs)',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}>
+                            🏫 {group.institution}
+                          </p>
+                        )}
+                        {group.description && (
+                          <p style={{fontSize:'var(--text-sm)',color:'var(--slate)',lineHeight:1.55}}>{group.description}</p>
+                        )}
+                      </div>
+                    )}
+
+                    <div style={{display:'flex',gap:14,marginTop:10,fontSize:'var(--text-xs)',color:'var(--muted)',flexWrap:'wrap'}}>
+                      <span>Added by {group.addedBy}</span>
+                      <span>{fmtDate(group.createdAt)}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -9153,6 +9533,27 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
           <div style={{display:'flex',gap:9,justifyContent:'flex-end',flexWrap:'wrap',marginTop:4}}>
             <button className="btn btn-ol" onClick={()=>setShowForm(false)}>Cancel</button>
             <button className="btn btn-gold" onClick={submit} disabled={saving}>{saving?<><span className="spin spin-dark"/>Saving…</>:editId?<><Ico.chk/> Save Changes</>:<><Ico.plus/> Add Recognition</>}</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Add Award Modal */}
+      {addAwardFor && isAdmin && (
+        <Modal title="Add Award" onClose={()=>setAddAwardFor(null)}>
+          <div style={{padding:'10px 14px',background:'var(--teal-light)',border:'1px solid var(--teal)',borderRadius:'var(--radius)',marginBottom:16,fontSize:'var(--text-sm)',color:'var(--teal)'}}>
+            🏆 Adding a new award to: <strong>{addAwardFor.title}</strong>
+          </div>
+          <div className="fg">
+            <label>Award / Recognition *</label>
+            <input placeholder="e.g. 2nd Place – Division Science Fair 2025" value={awardForm.award} onChange={e=>setAwardForm(f=>({...f,award:e.target.value}))} autoFocus/>
+          </div>
+          <div className="fg" style={{maxWidth:160}}>
+            <label>Year</label>
+            <input type="number" min="1900" max="2099" value={awardForm.year} onChange={e=>setAwardForm(f=>({...f,year:e.target.value}))}/>
+          </div>
+          <div style={{display:'flex',gap:9,justifyContent:'flex-end',marginTop:4}}>
+            <button className="btn btn-ol" onClick={()=>setAddAwardFor(null)}>Cancel</button>
+            <button className="btn btn-teal" onClick={submitNewAward} disabled={saving}>{saving?<><span className="spin spin-dark"/>Saving…</>:<><Ico.plus/> Add Award</>}</button>
           </div>
         </Modal>
       )}
@@ -9602,7 +10003,7 @@ function AdminNotifBell({ currentUser, count, onCountChange }) {
 // ══════════════════════════════════════════════════════════════════
 //  GENERAL USER NOTIFICATION BELL (feedback, announcements, etc.)
 // ══════════════════════════════════════════════════════════════════
-const NOTIF_ICONS = { feedback:'📝', announcement:'📢', default:'🔔' };
+const NOTIF_ICONS = { feedback:'📝', announcement:'📢', coauthor_tag:'🤝', revision_requested:'✏️', resubmitted:'🔄', default:'🔔' };
 function UserNotifBell({ currentUser, count, onCountChange, onOpenStudy }) {
   const [open, setOpen] = useState(false);
   const [notifs, setNotifs] = useState([]);
