@@ -2417,14 +2417,16 @@ tr:hover td { background: var(--surface); }
 .tour-card p {
   font-size: var(--text-sm); color: var(--slate); line-height: 1.55; margin: 0 0 16px;
 }
-.tour-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.tour-card-center .tour-card-footer { justify-content: center; flex-direction: column; gap: 12px; }
-.tour-dots { display: flex; gap: 5px; align-items: center; }
+.tour-card-footer { display: flex; flex-direction: column; gap: 12px; }
+.tour-card-center .tour-card-footer { align-items: center; }
+.tour-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tour-dots { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; max-width: 160px; }
 .tour-dot {
   width: 6px; height: 6px; border-radius: 50%; background: var(--border);
   transition: background .2s ease, transform .2s ease; flex-shrink: 0;
 }
 .tour-dot.active { background: var(--gold); transform: scale(1.4); }
+.tour-step-counter { font-size: 0.72rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .tour-actions { display: flex; align-items: center; gap: 8px; }
 .tour-skip {
   background: none; border: none; color: var(--muted); font-size: var(--text-xs);
@@ -10819,37 +10821,15 @@ const NAV_TOUR_COPY = {
 };
 
 function buildTourSteps(isAdmin) {
-  const adminNavSummary = 'Dashboard, Users, All Studies, Categories, Analytics, Grade Overview, Audit Log, Repository, Recognized Studies, Announcements, and AI Assistant.';
-  const studentNavSummary = 'Dashboard, My Stats, Browse Studies, Recognized Studies, Announcements, and AI Assistant.';
-
-  return [
-    {
-      id: 'welcome',
-      center: true,
-      title: isAdmin ? 'Welcome, Teacher! 👋' : 'Welcome to SABNAHIS STE 👋',
-      body: isAdmin
-        ? "Let's take a quick tour so you know where everything is. It'll only take a moment."
-        : "Let's take a quick tour of the portal so you always know where to find things.",
-    },
-    {
-      id: 'sidebar-overview',
-      target: isAdmin ? '[data-tour="nav-dashboard"]' : '[data-tour="nav-dashboard"]',
-      area: 'sidebar',
-      placement: 'right',
-      eyebrow: isAdmin ? 'Teacher Panel' : 'Navigation',
-      title: 'Your Sidebar',
-      body: isAdmin
-        ? `Everything you need is here: ${adminNavSummary}`
-        : `All your pages live here: ${studentNavSummary}`,
-    },
+  const shared = [
     {
       id: 'collapse',
       target: '[data-tour="sidebar-collapse"]',
       area: 'sidebar',
       placement: 'right',
       eyebrow: 'Sidebar tip',
-      title: 'Need more room?',
-      body: 'Collapse the sidebar down to icons-only any time — your navigation stays just one click away.',
+      title: 'Need more screen space?',
+      body: 'Click this to collapse the sidebar into icon-only mode. All your navigation is still one click away — just hover over an icon to see its label.',
       skipIf: () => window.innerWidth <= 768,
     },
     {
@@ -10858,44 +10838,227 @@ function buildTourSteps(isAdmin) {
       area: 'sidebar',
       placement: 'right',
       eyebrow: 'Sidebar tip',
-      title: 'Light or dark — your call',
-      body: 'Switch themes whenever you like. Your preference is saved for next time.',
+      title: 'Light or Dark — your choice',
+      body: 'Toggle between light and dark mode anytime using these buttons. Your preference is saved automatically so it stays the same next time you log in.',
     },
     {
       id: 'search',
       target: '[data-tour="global-search"]',
       area: 'topbar',
       placement: 'bottom',
-      eyebrow: 'Topbar tip',
+      eyebrow: 'Topbar — Global Search',
       title: 'Find anything, fast',
-      body: 'Search studies, authors, and keywords from anywhere. Tip: press / to jump straight here.',
-    },
-    {
-      id: 'notif',
-      target: isAdmin ? '[data-tour="study-notif-bell"]' : '[data-tour="user-notif-bell"]',
-      area: 'topbar',
-      placement: 'bottom',
-      eyebrow: 'Topbar tip',
-      title: 'Stay in the loop',
-      body: isAdmin
-        ? "You'll be notified here whenever a student submits a new study for review."
-        : "You'll be notified here about grades, revisions, and updates on your work.",
+      body: 'Use the search bar to look up any research study, author name, or keyword across the entire portal. Pro tip: press the "/" key anywhere on the page to jump straight into the search box.',
     },
     {
       id: 'account',
       target: '[data-tour="account-menu"]',
       area: 'topbar',
       placement: 'bottom',
-      eyebrow: 'Topbar tip',
-      title: 'Your account',
-      body: 'Update your profile, change settings, or sign out from here. You can replay this tour anytime from this menu.',
+      eyebrow: 'Topbar — Account Menu',
+      title: 'Your Account',
+      body: 'Click your avatar to access your profile, change settings like your theme, or sign out. You can also restart this tour anytime from here.',
     },
     {
       id: 'done',
       center: true,
       title: "You're all set! 🎉",
-      body: "That's the full tour. Explore at your own pace — and remember, you can restart it anytime from the account menu in the top right.",
+      body: "That's the full tour! Every feature is just a click away from the sidebar. Explore at your own pace — and remember, you can restart this tour anytime from your account menu in the top right.",
     },
+  ];
+
+  if (isAdmin) {
+    return [
+      {
+        id: 'welcome',
+        center: true,
+        title: 'Welcome, Teacher! 👋',
+        body: "This is your SABNAHIS STE Teacher Panel. Let's walk through every section so you know exactly what each one does. Use the Next button or arrow keys to navigate.",
+      },
+      {
+        id: 'nav-dashboard',
+        target: '[data-tour="nav-dashboard"]',
+        area: 'sidebar',
+        placement: 'right',
+        eyebrow: 'Teacher Panel · Dashboard',
+        title: '🏠 Dashboard',
+        body: "Your command center. See a real-time overview of the portal — how many students are registered, how many studies have been submitted, recent activity, and pending approvals waiting for your attention.",
+      },
+      {
+        id: 'nav-users',
+        target: '[data-tour="nav-users"]',
+        area: 'sidebar',
+        placement: 'right',
+        eyebrow: 'Teacher Panel · Users',
+        title: '👥 Users',
+        body: "Manage all student accounts here. When a student registers, they appear here as pending — you approve or reject them before they can access the portal. You can also assign or update their grade level and section.",
+      },
+      {
+        id: 'nav-studies-admin',
+        target: '[data-tour="nav-studies-admin"]',
+        area: 'sidebar',
+        placement: 'right',
+        eyebrow: 'Teacher Panel · All Studies',
+        title: '📚 All Studies',
+        body: "See every research study submitted by every student across all grades and sections. You can review the full paper, leave feedback, assign a grade, request revisions, or remove a study if needed.",
+      },
+      {
+        id: 'nav-categories',
+        target: '[data-tour="nav-categories"]',
+        area: 'sidebar',
+        placement: 'right',
+        eyebrow: 'Teacher Panel · Categories',
+        title: '🏷️ Categories',
+        body: "Create and manage the subject categories that students use to tag their research — like Science, Technology, or Mathematics. Keeping these organized helps students find related studies faster.",
+      },
+      {
+        id: 'nav-analytics',
+        target: '[data-tour="nav-analytics"]',
+        area: 'sidebar',
+        placement: 'right',
+        eyebrow: 'Teacher Panel · Analytics',
+        title: '📊 Analytics',
+        body: "Track class-wide engagement with charts and stats — which studies are most viewed, which students are most active, download trends, and activity over time. Great for spotting who needs encouragement.",
+      },
+      {
+        id: 'nav-grade-overview',
+        target: '[data-tour="nav-grade-overview"]',
+        area: 'sidebar',
+        placement: 'right',
+        eyebrow: 'Teacher Panel · Grade Overview',
+        title: '🎓 Grade Overview',
+        body: "A consolidated view of all the grades you've given — organized by section. Quickly see which students have been graded, what scores they received, and who still hasn't submitted or been reviewed.",
+      },
+      {
+        id: 'nav-audit-log',
+        target: '[data-tour="nav-audit-log"]',
+        area: 'sidebar',
+        placement: 'right',
+        eyebrow: 'Teacher Panel · Audit Log',
+        title: '🔍 Audit Log',
+        body: "A timestamped record of all important actions taken across the portal — approvals, deletions, grade changes, and more. Useful for accountability and keeping track of what happened and when.",
+      },
+      {
+        id: 'nav-repository',
+        target: '[data-tour="nav-repository"]',
+        area: 'sidebar',
+        placement: 'right',
+        eyebrow: 'Teacher Panel · Repository',
+        title: '🔎 Repository',
+        body: "Browse the full research repository exactly the way your students do. Search by keyword, filter by category or grade level, and read any published study. Great for spotting research gaps or finding exemplary work.",
+      },
+      {
+        id: 'nav-recognized',
+        target: '[data-tour="nav-recognized"]',
+        area: 'sidebar',
+        placement: 'right',
+        eyebrow: 'Teacher Panel · Recognized Studies',
+        title: '🏆 Recognized Studies',
+        body: "Spotlight the best student work here. Studies you mark as recognized get featured in a dedicated section visible to all students — a great way to motivate and celebrate outstanding research.",
+      },
+      {
+        id: 'nav-announcements',
+        target: '[data-tour="nav-announcements"]',
+        area: 'sidebar',
+        placement: 'right',
+        eyebrow: 'Teacher Panel · Announcements',
+        title: '📢 Announcements',
+        body: "Post notices, reminders, or updates for your students. You can set a priority level (Normal, Important, or Urgent), schedule it to appear later, and target specific grade levels or sections — so only the right students see it.",
+      },
+      {
+        id: 'nav-chatbot',
+        target: '[data-tour="nav-chatbot"]',
+        area: 'sidebar',
+        placement: 'right',
+        eyebrow: 'Teacher Panel · AI Assistant',
+        title: '🤖 AI Assistant',
+        body: "An AI research assistant that knows your portal's repository. Ask it to summarize studies, identify research gaps, suggest topics, or answer questions about the submitted work. Powered by Claude.",
+      },
+      {
+        id: 'notif',
+        target: '[data-tour="study-notif-bell"]',
+        area: 'topbar',
+        placement: 'bottom',
+        eyebrow: 'Topbar — Notifications',
+        title: '🔔 Study Notifications',
+        body: "This bell lights up whenever a student submits a new study for your review. Click it to see what's waiting — you'll get a quick preview of the title and author so you can jump straight to it.",
+      },
+      ...shared,
+    ];
+  }
+
+  // Student tour
+  return [
+    {
+      id: 'welcome',
+      center: true,
+      title: 'Welcome to SABNAHIS STE 👋',
+      body: "This is your student research portal. Let's walk through every section so you know exactly what each one does. Use the Next button or arrow keys to navigate.",
+    },
+    {
+      id: 'nav-dashboard',
+      target: '[data-tour="nav-dashboard"]',
+      area: 'sidebar',
+      placement: 'right',
+      eyebrow: 'Navigation · Dashboard',
+      title: '🏠 Dashboard',
+      body: "Your home base. Every time you log in, this is where you start — see your recent activity, your current reading streak, quick links to studies you've been reading, and a summary of your submissions.",
+    },
+    {
+      id: 'nav-my-stats',
+      target: '[data-tour="nav-my-stats"]',
+      area: 'sidebar',
+      placement: 'right',
+      eyebrow: 'Navigation · My Stats',
+      title: '📈 My Stats',
+      body: "Track your personal progress here. See how many studies you've read, your reading streak (keep it going!), which badges you've earned, and a chart of your activity over time. The more you read, the more badges you unlock.",
+    },
+    {
+      id: 'nav-repository',
+      target: '[data-tour="nav-repository"]',
+      area: 'sidebar',
+      placement: 'right',
+      eyebrow: 'Navigation · Browse Studies',
+      title: '📖 Browse Studies',
+      body: "Explore the full research repository — all studies submitted by students across every grade and section. Search by keyword, filter by category, and open any study to read it in full. You can also cite, download, or leave a review.",
+    },
+    {
+      id: 'nav-recognized',
+      target: '[data-tour="nav-recognized"]',
+      area: 'sidebar',
+      placement: 'right',
+      eyebrow: 'Navigation · Recognized Studies',
+      title: '🏆 Recognized Studies',
+      body: "The best of the best — studies that your teachers have handpicked and recognized as outstanding. Check here for inspiration and to see what excellent research looks like.",
+    },
+    {
+      id: 'nav-announcements',
+      target: '[data-tour="nav-announcements"]',
+      area: 'sidebar',
+      placement: 'right',
+      eyebrow: 'Navigation · Announcements',
+      title: '📢 Announcements',
+      body: "Stay updated with notices and reminders from your teachers. Urgent or important announcements will also pop up automatically when you log in so you never miss anything critical.",
+    },
+    {
+      id: 'nav-chatbot',
+      target: '[data-tour="nav-chatbot"]',
+      area: 'sidebar',
+      placement: 'right',
+      eyebrow: 'Navigation · AI Assistant',
+      title: '🤖 AI Assistant',
+      body: "Your personal AI research assistant. Ask it anything — summarize a study, find research gaps, brainstorm topics, or get help understanding a paper. It knows the entire repository and can guide your research process.",
+    },
+    {
+      id: 'notif',
+      target: '[data-tour="user-notif-bell"]',
+      area: 'topbar',
+      placement: 'bottom',
+      eyebrow: 'Topbar — Notifications',
+      title: '🔔 Notifications',
+      body: "This bell notifies you about everything important — when your teacher grades your study, requests a revision, or when a new announcement is posted just for your class. Always check here first when you log in.",
+    },
+    ...shared,
   ];
 }
 
@@ -10983,14 +11146,16 @@ function OnboardingTour({ isAdmin, sidebarOpen, setSidebarOpen, onFinish }) {
   const isMobileNow = window.innerWidth <= 768;
   let cardStyle = {};
   if (!step.center && rect && !isMobileNow) {
-    const cardW = Math.min(330, window.innerWidth - 28);
-    const cardH = 200;
+    const cardW = Math.min(340, window.innerWidth - 28);
+    const cardH = 280; // more realistic estimate for cards with long body text
+    const vp = window.innerHeight;
     let top, left;
     switch (step.placement) {
       case 'left':
         left = rect.left - cardW - 16;
-        top = Math.min(Math.max(rect.top, 16), window.innerHeight - cardH - 16);
-        if (left < 16) { left = Math.min(Math.max(rect.left, 16), window.innerWidth - cardW - 16); top = rect.top + rect.height + 12; }
+        top = Math.min(Math.max(rect.top, 16), vp - cardH - 16);
+        if (left < 16) { left = rect.left + rect.width + 16; }
+        if (left + cardW > window.innerWidth - 16) { left = 16; top = rect.bottom + 12; }
         break;
       case 'top':
         top = rect.top - cardH - 12;
@@ -10999,18 +11164,22 @@ function OnboardingTour({ isAdmin, sidebarOpen, setSidebarOpen, onFinish }) {
         break;
       case 'right':
         left = rect.left + rect.width + 16;
-        top = Math.min(Math.max(rect.top, 16), window.innerHeight - cardH - 16);
+        top = Math.min(Math.max(rect.top, 16), vp - cardH - 16);
+        // If card goes off right edge, fall back below the element
         if (left + cardW > window.innerWidth - 16) {
-          left = Math.min(Math.max(rect.left, 16), window.innerWidth - cardW - 16);
+          left = Math.max(16, window.innerWidth - cardW - 16);
           top = rect.top + rect.height + 12;
         }
         break;
       default:
         top = rect.top + rect.height + 12;
         left = Math.min(Math.max(rect.left, 16), window.innerWidth - cardW - 16);
-        if (top + cardH > window.innerHeight - 16) top = rect.top - cardH - 12;
+        if (top + cardH > vp - 16) top = Math.max(8, rect.top - cardH - 12);
     }
-    cardStyle = { top: Math.max(8, top), left: Math.max(8, left) };
+    // Final clamp — never go off-screen
+    top  = Math.max(8, Math.min(top,  vp - cardH - 8));
+    left = Math.max(8, Math.min(left, window.innerWidth - cardW - 8));
+    cardStyle = { top, left, width: cardW, maxHeight: vp - 32, overflowY: 'auto' };
   }
 
   return (
@@ -11024,16 +11193,16 @@ function OnboardingTour({ isAdmin, sidebarOpen, setSidebarOpen, onFinish }) {
           <div className="tour-progress-bar-track" aria-hidden="true">
             <div className="tour-progress-bar-fill" style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }}/>
           </div>
-          <div className="tour-eyebrow">{step.eyebrow || (step.center ? 'Quick tour' : 'Sidebar guide')} · Step {stepIndex + 1} of {steps.length}</div>
+          <div className="tour-eyebrow">{step.eyebrow || (step.center ? 'Quick tour' : 'Guide')}</div>
           <h3>{step.title}</h3>
           <p>{step.body}</p>
           <div className="tour-card-footer">
-            <div className="tour-dots" aria-hidden="true">
-              {steps.map((s, i) => <span key={s.id} className={`tour-dot${i === stepIndex ? ' active' : ''}`}/>)}
-            </div>
-            <div className="tour-actions">
-              {stepIndex > 0 && <button className="tour-btn tour-btn-ghost" onClick={() => goTo(stepIndex - 1)}>Back</button>}
-              <button className="tour-btn tour-btn-primary" onClick={() => goTo(stepIndex + 1)}>{stepIndex === steps.length - 1 ? 'Done' : 'Next'}</button>
+            <div className="tour-footer-row">
+              <span className="tour-step-counter">{stepIndex + 1} / {steps.length}</span>
+              <div className="tour-actions">
+                {stepIndex > 0 && <button className="tour-btn tour-btn-ghost" onClick={() => goTo(stepIndex - 1)}>Back</button>}
+                <button className="tour-btn tour-btn-primary" onClick={() => goTo(stepIndex + 1)}>{stepIndex === steps.length - 1 ? 'Done' : 'Next'}</button>
+              </div>
             </div>
           </div>
           {stepIndex < steps.length - 1 && <button className="tour-skip" onClick={() => onFinish?.()}>Skip tour</button>}
