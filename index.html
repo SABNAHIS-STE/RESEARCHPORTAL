@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+z<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -2671,6 +2671,7 @@ document.addEventListener('keydown', function(e) {
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef, useMemo, memo } = React;
 
@@ -2893,9 +2894,8 @@ const API = {
     } catch { return null; }
   },
 
-  async getStudies({ search='', category='', year='', uploadedBy='', status='active', page=1, perPage=6 }={}) {
+  async getStudies({ search='', category='', year='', uploadedBy='', status='active', grade='', section='', page=1, perPage=6 }={}) {
     try {
-      // Fetch raw list once and cache it; filtering/pagination happens in-memory
       const allRaw = await Cache.wrap('studies:raw', 'studies', async () => {
         const snap = await db.collection('studies').orderBy('createdAt','desc').get();
         return snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -2905,6 +2905,8 @@ const API = {
       if (uploadedBy) items = items.filter(s=>s.uploadedBy===uploadedBy);
       if (category)   items = items.filter(s=>(s.categories||[]).includes(category));
       if (year)       items = items.filter(s=>String(s.year)===String(year));
+      if (grade)      items = items.filter(s=>String(s.uploaderGrade||'')===String(grade));
+      if (section)    items = items.filter(s=>(s.uploaderSection||'').trim().toLowerCase()===(section.trim().toLowerCase()));
       if (search) {
         const q = search.toLowerCase();
         items = items.filter(s=>[s.title,...(s.authors||[]),s.abstract||'',...(s.keywords||[])].join(' ').toLowerCase().includes(q));
@@ -2923,7 +2925,7 @@ const API = {
     });
   },
 
-  async createStudy({ title, authors, coAuthors, abstract, keywords, categories, year, gdrive, uploadedBy, uploadedByName }) {
+  async createStudy({ title, authors, coAuthors, abstract, keywords, categories, year, gdrive, uploadedBy, uploadedByName, uploaderGrade='', uploaderSection='' }) {
     if (!title||!abstract)   throw new Error('Title and abstract are required.');
     if (!authors?.length)    throw new Error('At least one author is required.');
     if (!categories?.length) throw new Error('At least one category is required.');
@@ -2939,7 +2941,7 @@ const API = {
       title:title.trim(), titleNorm: normalized, authors, coAuthors:coAuthors||[], abstract:abstract.trim(),
       keywords:keywords||[], categories,
       year:parseInt(year)||new Date().getFullYear(),
-      gdrive:gdrive||null, uploadedBy, uploadedByName,
+      gdrive:gdrive||null, uploadedBy, uploadedByName, uploaderGrade, uploaderSection,
       viewCount:0, downloadCount:0, status:'active',
       createdAt:new Date().toISOString()
     });
@@ -5403,6 +5405,163 @@ const CRITERIA_LABELS = {
   originality:   { label:'Originality',     max:25 },
 };
 
+
+// ══════════════════════════════════════════════════════════════════
+//  CERTIFICATE GENERATOR
+// ══════════════════════════════════════════════════════════════════
+const PASSING_GRADES = new Set(['A+','A','A-','B+','B','B-','C+','C']);
+
+function generateCertificate(study, feedback) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const W = 297, H = 210;
+
+  // Background
+  doc.setFillColor(253, 248, 236);
+  doc.rect(0, 0, W, H, 'F');
+
+  // Outer border — double rule
+  doc.setDrawColor(201, 162, 39);
+  doc.setLineWidth(3);
+  doc.rect(8, 8, W - 16, H - 16);
+  doc.setLineWidth(0.8);
+  doc.rect(11, 11, W - 22, H - 22);
+
+  // Corner ornaments
+  const corners = [[12,12],[W-12,12],[12,H-12],[W-12,H-12]];
+  doc.setFillColor(201, 162, 39);
+  corners.forEach(([cx,cy]) => { doc.circle(cx, cy, 2.5, 'F'); });
+
+  // Header band
+  doc.setFillColor(201, 162, 39);
+  doc.rect(11, 11, W - 22, 18, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('SABNAHIS STE RESEARCH PORTAL', W / 2, 22, { align: 'center' });
+
+  // Title
+  doc.setTextColor(13, 15, 20);
+  doc.setFont('times', 'bold');
+  doc.setFontSize(26);
+  doc.text('Certificate of Recognition', W / 2, 50, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(74, 81, 116);
+  doc.text('This is to certify that the following research study has been reviewed and recognized', W / 2, 60, { align: 'center' });
+  doc.text('for its outstanding academic contribution.', W / 2, 66, { align: 'center' });
+
+  // Divider
+  doc.setDrawColor(201, 162, 39);
+  doc.setLineWidth(0.5);
+  doc.line(40, 71, W - 40, 71);
+
+  // Study Title
+  const titleText = study.title || 'Untitled Study';
+  doc.setFont('times', 'bolditalic');
+  doc.setFontSize(15);
+  doc.setTextColor(13, 15, 20);
+  const titleLines = doc.splitTextToSize('"' + titleText + '"', W - 80);
+  doc.text(titleLines, W / 2, 82, { align: 'center' });
+  const afterTitle = 82 + (titleLines.length - 1) * 7;
+
+  // Author
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(74, 81, 116);
+  doc.text('AUTHOR', W / 2, afterTitle + 11, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.setTextColor(13, 15, 20);
+  const mainAuthor = study.uploadedByName || (study.authors && study.authors[0]) || 'Unknown';
+  doc.text(mainAuthor, W / 2, afterTitle + 18, { align: 'center' });
+  let yNext = afterTitle + 18;
+
+  // Co-authors
+  const coAuthors = (study.coAuthors && study.coAuthors.length > 0)
+    ? study.coAuthors.map(ca => ca.name || ca).filter(Boolean)
+    : (study.authors || []).slice(1);
+  if (coAuthors.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(74, 81, 116);
+    doc.text('CO-AUTHOR(S)', W / 2, yNext + 10, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(13, 15, 20);
+    doc.text(coAuthors.join('  ·  '), W / 2, yNext + 17, { align: 'center' });
+    yNext += 17;
+  } else {
+    yNext += 8;
+  }
+
+  // Meta row
+  const metaY = yNext + 16;
+  const cols = [
+    { label: 'YEAR', value: String(study.year || new Date().getFullYear()) },
+    { label: 'GRADE LEVEL', value: String(study.uploaderGrade || 'N/A') },
+    { label: 'SECTION', value: String(study.uploaderSection || 'N/A') },
+    { label: 'GRADE RECEIVED', value: (feedback.grade || '') + ' — ' + ((GRADE_LABELS[feedback.grade]||{}).desc||'') },
+  ];
+  const colW = (W - 80) / cols.length;
+  cols.forEach((col, i) => {
+    const cx = 40 + colW * i + colW / 2;
+    doc.setFillColor(245, 246, 250);
+    doc.roundedRect(40 + colW * i + 2, metaY - 8, colW - 4, 18, 3, 3, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(124, 133, 168);
+    doc.text(col.label, cx, metaY - 1, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(26, 127, 110);
+    doc.text(col.value, cx, metaY + 7, { align: 'center' });
+  });
+
+  // Signature lines
+  const sigY = metaY + 26;
+  doc.setDrawColor(201, 162, 39);
+  doc.setLineWidth(0.5);
+  doc.line(40, sigY + 14, 100, sigY + 14);
+  doc.line(W - 100, sigY + 14, W - 40, sigY + 14);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(74, 81, 116);
+  doc.text('Reviewed by', 70, sigY + 19, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(13, 15, 20);
+  doc.text(feedback.teacherName || 'Teacher', 70, sigY + 25, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(74, 81, 116);
+  doc.text('Date Awarded', W - 70, sigY + 19, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(13, 15, 20);
+  const awardDate = feedback.gradedAt
+    ? new Date(feedback.gradedAt).toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' })
+    : new Date().toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' });
+  doc.text(awardDate, W - 70, sigY + 25, { align: 'center' });
+
+  // Footer band
+  doc.setFillColor(201, 162, 39);
+  doc.rect(11, H - 29, W - 22, 18, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(8);
+  doc.text('This certificate is an official recognition issued by SABNAHIS STE Research Portal. Unauthorized reproduction is prohibited.', W / 2, H - 22, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.text('Score: ' + (feedback.totalScore || 0) + '/100', W / 2, H - 16, { align: 'center' });
+
+  const safeTitle = (study.title || 'certificate').replace(/[^a-z0-9]/gi, '_').slice(0, 40);
+  doc.save('Certificate_' + safeTitle + '.pdf');
+}
+
 function ScoreInput({ label, max, value, onChange, readOnly }) {
   return (
     <div className="tf-criterion">
@@ -5604,6 +5763,23 @@ function TeacherFeedbackSection({ study, currentUser }) {
           <div style={{width:20,height:20,borderRadius:'50%',background:'var(--teal)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.6rem',fontWeight:700,flexShrink:0}}>{feedback.teacherName?.charAt(0).toUpperCase()}</div>
           {feedback.teacherName} · Teacher
         </div>
+
+        {/* Certificate of Recognition */}
+        {PASSING_GRADES.has(feedback.grade) && (
+          <div style={{marginTop:14,padding:'14px 16px',background:'linear-gradient(135deg,#fdf8ec,#fff9f0)',border:'1.5px solid var(--gold)',borderRadius:'var(--radius)',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+            <span style={{fontSize:'1.6rem',flexShrink:0}}>🏆</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:700,fontSize:'var(--text-sm)',color:'var(--gold)'}}>Congratulations! You passed.</div>
+              <div style={{fontSize:'var(--text-xs)',color:'var(--muted)',marginTop:2}}>Your study received a passing grade. Download your Certificate of Recognition as a PDF.</div>
+            </div>
+            <button
+              className="btn btn-gold btn-sm"
+              style={{flexShrink:0,display:'flex',alignItems:'center',gap:6}}
+              onClick={()=>generateCertificate(study, feedback)}>
+              🏅 Download Certificate
+            </button>
+          </div>
+        )}
 
         {/* Revision request banner */}
         {feedback.requestsRevision && (
@@ -6317,7 +6493,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
       const coAuthors=authorTags.slice(1).map(t=>({name:t.name,userId:t.userId||null,registered:!!t.registered}));
       const keywords=form.keywords.split(',').map(k=>k.trim()).filter(Boolean);
       const gdrive=gdriveInfo?{driveUrl:gdriveInfo.viewUrl,downloadUrl:gdriveInfo.downloadUrl,driveId:gdriveInfo.id}:null;
-      await API.createStudy({title:form.title,authors,coAuthors,abstract:form.abstract,keywords,categories:selCats,year:form.year,gdrive,uploadedBy:currentUser.id,uploadedByName:currentUser.name});
+      await API.createStudy({title:form.title,authors,coAuthors,abstract:form.abstract,keywords,categories:selCats,year:form.year,gdrive,uploadedBy:currentUser.id,uploadedByName:currentUser.name,uploaderGrade:currentUser.gradeLevel||'',uploaderSection:currentUser.section||''});
       clearDraft(draftKey);
       toast.ok('Study uploaded successfully!');onUpload();onClose();
     }catch(e){toast.err(e.message);}
@@ -6645,6 +6821,10 @@ function StudiesPage({ currentUser }) {
   const [filterCat,setFilterCat]=useState('');
   const [sortBy,setSortBy]=useState('newest');
   const [filterYear,setFilterYear]=useState('');
+  const [filterGrade,setFilterGrade]=useState('');
+  const [filterSection,setFilterSection]=useState('');
+  const [availableGrades,setAvailableGrades]=useState([]);
+  const [availableSections,setAvailableSections]=useState([]);
   const [page,setPage]=useState(1);
   const [selected,setSelected]=useState(null);
   const [showUpload,setShowUpload]=useState(false);
@@ -6654,22 +6834,26 @@ function StudiesPage({ currentUser }) {
   const [showSearchHistory,setShowSearchHistory]=useState(false);
   const searchInputRef=useRef(null);
 
-  // Load available years once on mount
+  // Load available years, grades, sections once on mount
   useEffect(()=>{
     API.getAllStudies().then(all=>{
       const yrs=[...new Set(all.map(s=>s.year).filter(Boolean))].sort((a,b)=>b-a);
       setAvailableYears(yrs);
+      const grades=[...new Set(all.map(s=>s.uploaderGrade).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
+      setAvailableGrades(grades);
+      const secs=[...new Set(all.map(s=>(s.uploaderSection||'').trim()).filter(Boolean))].sort();
+      setAvailableSections(secs);
     }).catch(()=>{});
   },[]);
 
   const load=useCallback(async()=>{
     setLoading(true);
     try{
-      const [res,catsArr]=await Promise.all([API.getStudies({search,category:filterCat,year:filterYear,page,perPage:6}),API.getCategories()]);
+      const [res,catsArr]=await Promise.all([API.getStudies({search,category:filterCat,year:filterYear,grade:filterGrade,section:filterSection,page,perPage:6}),API.getCategories()]);
       setStudies(res.data);setTotal(res.total);setTotalPages(res.totalPages);setCats(catsArr);
     }catch(e){toast.err('Failed to load studies.');}
     setLoading(false);
-  },[search,filterCat,filterYear,page]);
+  },[search,filterCat,filterYear,filterGrade,filterSection,page]);
 
   useEffect(()=>{load();},[load]);
 
@@ -6729,7 +6913,8 @@ function StudiesPage({ currentUser }) {
     }
   };
 
-  const hasFilters = search || filterCat || filterYear;
+  const hasFilters = search || filterCat || filterYear || filterGrade || filterSection;
+  const clearAllFilters = () => { setFilterCat('');setFilterYear('');setFilterGrade('');setFilterSection('');setSearchInput('');setSearch('');setPage(1); };
 
   const sortedStudies = React.useMemo(()=>{
     const arr = [...studies];
@@ -6782,12 +6967,20 @@ function StudiesPage({ currentUser }) {
             <option value="">All Categories</option>
             {cats.map(c=><option key={c}>{c}</option>)}
           </select>
+          <select value={filterGrade} onChange={e=>{setFilterGrade(e.target.value);setFilterSection('');setPage(1);}} style={{flex:1,minWidth:120,padding:'10px 13px'}} aria-label="Filter by grade">
+            <option value="">All Grades</option>
+            {availableGrades.map(g=><option key={g} value={g}>Grade {g}</option>)}
+          </select>
+          <select value={filterSection} onChange={e=>{setFilterSection(e.target.value);setPage(1);}} style={{flex:1,minWidth:120,padding:'10px 13px'}} aria-label="Filter by section">
+            <option value="">All Sections</option>
+            {availableSections.filter(s=>!filterGrade||true).map(s=><option key={s} value={s}>{s}</option>)}
+          </select>
           <select value={filterYear} onChange={e=>{setFilterYear(e.target.value);setPage(1);}} style={{flex:1,minWidth:110,padding:'10px 13px'}} aria-label="Filter by year">
             <option value="">All Years</option>
             {availableYears.map(yr=><option key={yr} value={yr}>{yr}</option>)}
           </select>
           {hasFilters&&(
-            <button className="btn btn-ol btn-sm" onClick={()=>{setFilterCat('');setFilterYear('');setSearchInput('');setSearch('');setPage(1);}} data-tip="Clear all filters" style={{whiteSpace:'nowrap'}}>✕ Clear</button>
+            <button className="btn btn-ol btn-sm" onClick={clearAllFilters} data-tip="Clear all filters" style={{whiteSpace:'nowrap'}}>✕ Clear</button>
           )}
         </div>
       </div>
@@ -6822,6 +7015,14 @@ function StudiesPage({ currentUser }) {
           <option value="">All Categories</option>
           {cats.map(c=><option key={c}>{c}</option>)}
         </select>
+        <select value={filterGrade} onChange={e=>{setFilterGrade(e.target.value);setFilterSection('');setPage(1);}} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by grade">
+          <option value="">All Grades</option>
+          {availableGrades.map(g=><option key={g} value={g}>Grade {g}</option>)}
+        </select>
+        <select value={filterSection} onChange={e=>{setFilterSection(e.target.value);setPage(1);}} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by section">
+          <option value="">All Sections</option>
+          {availableSections.map(s=><option key={s} value={s}>{s}</option>)}
+        </select>
         <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{width:'auto',padding:'10px 13px'}} aria-label="Sort studies">
           <option value="newest">Newest First</option>
           <option value="oldest">Oldest First</option>
@@ -6834,14 +7035,16 @@ function StudiesPage({ currentUser }) {
           {availableYears.map(yr=><option key={yr} value={yr}>{yr}</option>)}
         </select>
         {hasFilters&&(
-          <button className="btn btn-ol btn-sm" onClick={()=>{setFilterCat('');setFilterYear('');setSearchInput('');setSearch('');setPage(1);}} title="Clear all filters" style={{whiteSpace:'nowrap'}}>✕ Clear</button>
+          <button className="btn btn-ol btn-sm" onClick={clearAllFilters} title="Clear all filters" style={{whiteSpace:'nowrap'}}>✕ Clear</button>
         )}
       </div>
 
       {/* Active filter pills */}
-      {(filterCat||filterYear)&&(
+      {(filterCat||filterYear||filterGrade||filterSection)&&(
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
           {filterCat&&<span style={{display:'flex',alignItems:'center',gap:5,background:'var(--gold-bg)',color:'var(--gold)',border:'1px solid var(--gold)',borderRadius:99,padding:'3px 10px',fontSize:'var(--text-xs)',fontWeight:600}}>🏷️ {filterCat}<button onClick={()=>{setFilterCat('');setPage(1);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--gold)',padding:'0 0 0 2px',lineHeight:1,fontSize:'0.8rem'}}>✕</button></span>}
+          {filterGrade&&<span style={{display:'flex',alignItems:'center',gap:5,background:'var(--teal-light)',color:'var(--teal)',border:'1px solid var(--teal)',borderRadius:99,padding:'3px 10px',fontSize:'var(--text-xs)',fontWeight:600}}>🎓 Grade {filterGrade}<button onClick={()=>{setFilterGrade('');setFilterSection('');setPage(1);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',padding:'0 0 0 2px',lineHeight:1,fontSize:'0.8rem'}}>✕</button></span>}
+          {filterSection&&<span style={{display:'flex',alignItems:'center',gap:5,background:'var(--teal-light)',color:'var(--teal)',border:'1px solid var(--teal)',borderRadius:99,padding:'3px 10px',fontSize:'var(--text-xs)',fontWeight:600}}>🏫 {filterSection}<button onClick={()=>{setFilterSection('');setPage(1);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',padding:'0 0 0 2px',lineHeight:1,fontSize:'0.8rem'}}>✕</button></span>}
           {filterYear&&<span style={{display:'flex',alignItems:'center',gap:5,background:'var(--purple-light)',color:'var(--purple)',border:'1px solid var(--purple)',borderRadius:99,padding:'3px 10px',fontSize:'var(--text-xs)',fontWeight:600}}>📅 {filterYear}<button onClick={()=>{setFilterYear('');setPage(1);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--purple)',padding:'0 0 0 2px',lineHeight:1,fontSize:'0.8rem'}}>✕</button></span>}
         </div>
       )}
