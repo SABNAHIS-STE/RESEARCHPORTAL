@@ -3476,7 +3476,8 @@ const API = {
   async deleteUser(id) {
     const snap = await db.collection('studies').where('uploadedBy','==',id).get();
     const batch = db.batch();
-    snap.docs.forEach(d=>batch.delete(d.ref));
+    // Preserve studies — just orphan them so they remain visible in the repository
+    snap.docs.forEach(d => batch.update(d.ref, { uploadedBy: null, _uploaderDeleted: true }));
     batch.delete(db.collection('users').doc(id));
     await batch.commit();
     Cache.invalidate('users', 'studies', 'allStudies', 'stats');
@@ -3706,7 +3707,23 @@ const API = {
         _pwResetAt: new Date().toISOString()
       });
     });
-  }
+  },
+
+  // ── Statistical Analyses (Firestore) ──────────────────────────
+  async saveStatAnalysis(doc) {
+    const ref = doc.id
+      ? db.collection('stat_analyses').doc(doc.id)
+      : db.collection('stat_analyses').doc();
+    await ref.set({ ...doc, id: ref.id, updatedAt: new Date().toISOString() }, { merge: true });
+    return ref.id;
+  },
+  async getStatAnalyses() {
+    const snap = await db.collection('stat_analyses').orderBy('updatedAt','desc').get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+  async deleteStatAnalysis(id) {
+    await db.collection('stat_analyses').doc(id).delete();
+  },
 };
 
 // ══════════════════════════════════════════════════════════════════
@@ -4380,6 +4397,7 @@ const ADMIN_NAV_ITEMS = [
   {id:'analytics',label:'Analytics',icon:'eye'},
   {id:'grade-overview',label:'Grade Overview',icon:'doc'},
   {id:'audit-log',label:'Audit Log',icon:'settings'},
+  {id:'stat-analysis',label:'Statistical Analysis',icon:'search'},
   {id:'repository',label:'Repository',icon:'search'},
   {id:'recognized',label:'Recognized Studies',icon:'award'},
   {id:'announcements',label:'Announcements',icon:'bell'},
@@ -4388,7 +4406,9 @@ const ADMIN_NAV_ITEMS = [
 const STUDENT_NAV_ITEMS = [
   {id:'dashboard',label:'Dashboard',icon:'home'},
   {id:'my-stats',label:'My Stats',icon:'eye'},
+  {id:'stat-analysis',label:'Statistical Analysis',icon:'search'},
   {id:'repository',label:'Browse Studies',icon:'book'},
+  {id:'offline-reading',label:'Offline Reading',icon:'dl'},
   {id:'recognized',label:'Recognized Studies',icon:'award'},
   {id:'announcements',label:'Announcements',icon:'bell'},
   {id:'chatbot',label:'AI Assistant',icon:'bot'},
@@ -4936,6 +4956,152 @@ function AuthPage({ onLogin }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+//  OFFLINE READING — IndexedDB wrapper
+// ══════════════════════════════════════════════════════════════════
+const OfflineDB = (() => {
+  const DB_NAME = 'sabnahis_offline';
+  const STORE   = 'studies';
+  const VERSION = 1;
+  let _db = null;
+
+  function open() {
+    if (_db) return Promise.resolve(_db);
+    return new Promise((res, rej) => {
+      const req = indexedDB.open(DB_NAME, VERSION);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE)) {
+          db.createObjectStore(STORE, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = e => { _db = e.target.result; res(_db); };
+      req.onerror   = e => rej(e.target.error);
+    });
+  }
+
+  async function save(study) {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put({ ...study, savedAt: new Date().toISOString() });
+      tx.oncomplete = res;
+      tx.onerror    = e => rej(e.target.error);
+    });
+  }
+
+  async function remove(id) {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).delete(id);
+      tx.oncomplete = res;
+      tx.onerror    = e => rej(e.target.error);
+    });
+  }
+
+  async function getAll() {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const tx  = db.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).getAll();
+      req.onsuccess = e => res(e.target.result || []);
+      req.onerror   = e => rej(e.target.error);
+    });
+  }
+
+  async function has(id) {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const tx  = db.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).getKey(id);
+      req.onsuccess = e => res(!!e.target.result);
+      req.onerror   = e => rej(e.target.error);
+    });
+  }
+
+  return { save, remove, getAll, has };
+})();
+
+// ══════════════════════════════════════════════════════════════════
+//  OFFLINE READING PAGE
+// ══════════════════════════════════════════════════════════════════
+function OfflineReadingPage({ currentUser, onOpenStudy }) {
+  const [studies, setStudies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const toast = useToast();
+
+  useEffect(() => {
+    OfflineDB.getAll().then(all => {
+      setStudies(all.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt)));
+      setLoading(false);
+    });
+  }, []);
+
+  const handleRemove = async (id) => {
+    await OfflineDB.remove(id);
+    setStudies(prev => prev.filter(s => s.id !== id));
+    toast.ok('Removed from offline library.');
+  };
+
+  return (
+    <div className="page-wrap">
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,flexWrap:'wrap'}}>
+        <div>
+          <h1 style={{fontSize:'1.35rem',fontWeight:700,margin:0}}>📥 Offline Reading</h1>
+          <p style={{margin:'4px 0 0',color:'var(--muted)',fontSize:'0.82rem'}}>Studies saved to your device — readable without internet.</p>
+        </div>
+        <span style={{marginLeft:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:99,padding:'4px 14px',fontSize:'0.78rem',fontWeight:600,color:'var(--muted)'}}>
+          {studies.length} saved
+        </span>
+      </div>
+
+      {loading && <div style={{color:'var(--muted)',padding:40,textAlign:'center'}}>Loading saved studies…</div>}
+
+      {!loading && studies.length === 0 && (
+        <div style={{textAlign:'center',padding:'60px 20px',color:'var(--muted)'}}>
+          <div style={{fontSize:'2.5rem',marginBottom:12}}>📭</div>
+          <div style={{fontWeight:600,marginBottom:6}}>No offline studies yet</div>
+          <div style={{fontSize:'0.82rem'}}>Open any study and tap <strong>Save Offline</strong> to read it without internet.</div>
+        </div>
+      )}
+
+      <div style={{display:'grid',gap:14}}>
+        {studies.map(s => (
+          <div key={s.id} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius)',padding:'16px 18px',display:'flex',gap:14,alignItems:'flex-start'}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:600,fontSize:'0.92rem',marginBottom:4,lineHeight:1.35}}>{s.title}</div>
+              <div style={{fontSize:'0.75rem',color:'var(--muted)',marginBottom:8}}>
+                {(s.authors||[]).join(', ')} {s.year ? `· ${s.year}` : ''}
+              </div>
+              {s.abstract && (
+                <p style={{fontSize:'0.78rem',color:'var(--ink-2)',margin:'0 0 10px',lineHeight:1.55,display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden'}}>
+                  {s.abstract}
+                </p>
+              )}
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+                {(s.categories||[]).map(c=>(
+                  <span key={c} style={{fontSize:'0.68rem',background:'var(--blue-light)',color:'var(--blue)',padding:'2px 8px',borderRadius:99,fontWeight:600}}>{c}</span>
+                ))}
+                <span style={{fontSize:'0.68rem',color:'var(--muted)',marginLeft:'auto'}}>Saved {new Date(s.savedAt).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})}</span>
+              </div>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:7,flexShrink:0}}>
+              <button className="btn btn-primary btn-sm" onClick={() => {
+                API.trackStudy(s.id,'viewCount',currentUser).catch(()=>{});
+                API.setLastRead(currentUser.id,s).catch(()=>{});
+                trackRecentlyViewed(s);
+                onOpenStudy && onOpenStudy(s);
+              }}>Read</button>
+              <button className="btn btn-ol btn-sm" style={{color:'var(--red)',borderColor:'var(--red)'}} onClick={() => handleRemove(s.id)}>Remove</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 //  STUDY DETAIL MODAL
 // ══════════════════════════════════════════════════════════════════
 function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[], onOpenStudy }) {
@@ -4949,6 +5115,8 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[]
   const [favBy, setFavBy] = useState([]);
   const [showFavBy, setShowFavBy] = useState(false);
   const [absExpanded, setAbsExpanded] = useState(false);
+  const [savedOffline, setSavedOffline] = useState(false);
+  const [offlineLoading, setOfflineLoading] = useState(false);
   const isOwner = currentUser.id === study.uploadedBy;
   const ABS_CLAMP = 60;
   const absWords = (study.abstract||'').split(/\s+/).filter(Boolean);
@@ -4958,6 +5126,7 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[]
   useEffect(()=>{
     API.isFavorited(currentUser.id, study.id).then(v=>{setFaved(v);setFavLoading(false);});
     if(isOwner) API.getFavoritedBy(study.id).then(setFavBy);
+    OfflineDB.has(study.id).then(setSavedOffline);
   },[]);
 
   // Reading badge tracking — only counts toward badges after the student
@@ -5097,13 +5266,36 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[]
       )}
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6,paddingTop:14,borderTop:'1px solid var(--border)',flexWrap:'wrap',gap:9}}>
-        <button
-          className={faved?'btn btn-gold btn-sm':'btn btn-ol btn-sm'}
-          onClick={toggleFav}
-          disabled={favLoading}
-          data-tip={faved?'Remove bookmark':'Bookmark this study'}>
-          {favLoading?<span className="spin" style={{width:13,height:13}}/>:<>{faved?'📌 Bookmarked':'🔖 Bookmark'}</>}
-        </button>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button
+            className={faved?'btn btn-gold btn-sm':'btn btn-ol btn-sm'}
+            onClick={toggleFav}
+            disabled={favLoading}
+            data-tip={faved?'Remove bookmark':'Bookmark this study'}>
+            {favLoading?<span className="spin" style={{width:13,height:13}}/>:<>{faved?'📌 Bookmarked':'🔖 Bookmark'}</>}
+          </button>
+          <button
+            className={savedOffline?'btn btn-teal btn-sm':'btn btn-ol btn-sm'}
+            disabled={offlineLoading}
+            data-tip={savedOffline?'Remove from offline library':'Save to read without internet'}
+            onClick={async()=>{
+              setOfflineLoading(true);
+              try {
+                if(savedOffline){
+                  await OfflineDB.remove(study.id);
+                  setSavedOffline(false);
+                  toast.ok('Removed from offline library.');
+                } else {
+                  await OfflineDB.save(study);
+                  setSavedOffline(true);
+                  toast.ok('📥 Saved for offline reading!');
+                }
+              } catch(e){ toast.err('Could not save offline: '+e.message); }
+              setOfflineLoading(false);
+            }}>
+            {offlineLoading?<span className="spin" style={{width:13,height:13}}/>:<>{savedOffline?'📥 Saved Offline':'📥 Save Offline'}</>}
+          </button>
+        </div>
         {canDel&&<button className="btn btn-red btn-sm" data-tip="Permanently remove this study" onClick={()=>{onDelete(study.id);onClose();}}><Ico.trash/> Delete Study</button>}
       </div>
       {/* ── Similar Studies ── */}
@@ -8399,6 +8591,656 @@ function StatPill({ label, value, color }) {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  STATISTICAL ANALYSIS TOOL  (teacher input · student viewer)
+// ══════════════════════════════════════════════════════════════════
+function StatAnalysisTool({ currentUser }) {
+  const isTeacher = currentUser.role === 'admin';
+  const [analyses, setAnalyses] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [showMyTool, setShowMyTool] = useState(false); // students: personal sandbox
+  const [editing, setEditing]   = useState(null); // analysis obj being edited
+  const [viewing, setViewing]   = useState(null); // analysis obj being viewed
+  const [showStatTour, setShowStatTour] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try { setAnalyses(await API.getStatAnalyses()); } catch(e) { toast.err('Failed to load analyses.'); }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this analysis?')) return;
+    await API.deleteStatAnalysis(id);
+    toast.ok('Deleted.');
+    load();
+  };
+
+  const TEST_COLORS = { 'Descriptive':'var(--blue)','T-Test':'var(--teal)','ANOVA':'var(--purple)','Pearson':'var(--gold)','Chi-Square':'var(--red)' };
+
+  return (
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:10,marginBottom:22}}>
+        <div>
+          <h2 data-tour="stat-title" style={{fontFamily:'var(--font-display)',fontSize:'var(--text-2xl)',marginBottom:3}}>🔬 Statistical Analysis Tool</h2>
+          <p className="muted">{isTeacher ? 'Create and publish statistical analyses for your students.' : 'Run your own statistical analysis, or view analyses shared by your teachers.'}</p>
+        </div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button className="btn btn-ol btn-sm" data-tour="stat-how-to-use" onClick={()=>setShowStatTour(true)}>📖 How to Use</button>
+          <button className="btn btn-ol btn-sm" onClick={load}>↻ Refresh</button>
+          {!isTeacher && <button className="btn btn-ol btn-sm" data-tour="stat-my-analysis" style={{borderColor:'var(--teal)',color:'var(--teal)'}} onClick={()=>setShowMyTool(true)}>🧮 Run My Own Analysis</button>}
+          {isTeacher && <button className="btn btn-gold btn-sm" data-tour="stat-new-analysis" style={{marginLeft:8}} onClick={()=>{setEditing(null);setShowCreate(true);}}>+ New Analysis</button>}
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          {[1,2,3].map(i=><div key={i} className="card"><div className="skel" style={{height:18,width:'50%',borderRadius:5,marginBottom:8}}/><div className="skel" style={{height:13,width:'30%',borderRadius:5}}/></div>)}
+        </div>
+      ) : analyses.length === 0 ? (
+        <div className="card" style={{textAlign:'center',padding:'48px 24px'}}>
+          <div style={{fontSize:'2.5rem',marginBottom:10}}>🔬</div>
+          <div style={{fontWeight:600,marginBottom:6}}>{isTeacher ? 'No analyses yet' : 'No analyses published yet'}</div>
+          <p className="muted" style={{fontSize:'0.82rem',marginBottom:16}}>{isTeacher ? 'Click "New Analysis" to create your first statistical analysis.' : 'Your teacher hasn\'t published any analyses yet. You can still run your own analysis below!'}</p>
+          {isTeacher && <button className="btn btn-gold btn-sm" onClick={()=>{setEditing(null);setShowCreate(true);}}>+ Create First Analysis</button>}
+          {!isTeacher && <button className="btn btn-ol btn-sm" style={{borderColor:'var(--teal)',color:'var(--teal)'}} onClick={()=>setShowMyTool(true)}>🧮 Run My Own Analysis</button>}
+        </div>
+      ) : (
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          {analyses.map(a => (
+            <div key={a.id} className="card card-clickable" style={{cursor:'pointer',borderLeft:`3px solid ${TEST_COLORS[a.testType]||'var(--border)'}`}}
+              onClick={()=>setViewing(a)}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:8}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4,flexWrap:'wrap'}}>
+                    <span style={{fontWeight:600,fontSize:'var(--text-sm)',color:'var(--ink)'}}>{a.title}</span>
+                    <span style={{padding:'2px 8px',borderRadius:99,fontSize:'0.68rem',fontWeight:700,background:TEST_COLORS[a.testType]?TEST_COLORS[a.testType]+'22':'var(--surface)',color:TEST_COLORS[a.testType]||'var(--muted)',border:`1px solid ${TEST_COLORS[a.testType]||'var(--border)'}`}}>{a.testType}</span>
+                  </div>
+                  {a.description && <p style={{fontSize:'0.78rem',color:'var(--muted)',margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.description}</p>}
+                  <div style={{fontSize:'0.68rem',color:'var(--muted)',marginTop:4}}>By {a.createdByName||'Teacher'} · {fmtDate(a.updatedAt)}</div>
+                </div>
+                <div style={{display:'flex',gap:6,flexShrink:0}} onClick={e=>e.stopPropagation()}>
+                  {isTeacher && <>
+                    <button className="btn btn-ol btn-sm" onClick={()=>{setEditing(a);setShowCreate(true);}}>Edit</button>
+                    <button className="btn btn-ol btn-sm" style={{color:'var(--red)',borderColor:'var(--red)'}} onClick={()=>handleDelete(a.id)}>Delete</button>
+                  </>}
+                  <button className="btn btn-gold btn-sm" onClick={()=>setViewing(a)}>View →</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showCreate && <StatCreateModal currentUser={currentUser} existing={editing} onClose={()=>setShowCreate(false)} onSaved={()=>{setShowCreate(false);load();}}/>}
+      {showMyTool && <StatCreateModal currentUser={currentUser} existing={null} allowSave={false} onClose={()=>setShowMyTool(false)} onSaved={()=>setShowMyTool(false)}/>}
+      {viewing && <StatViewModal analysis={viewing} onClose={()=>setViewing(null)}/>}
+      {showStatTour && <StatTour isTeacher={isTeacher} onFinish={()=>setShowStatTour(false)}/>}
+    </div>
+  );
+}
+
+// ── Modal: Teacher creates / edits an analysis ─────────────────
+function StatCreateModal({ currentUser, existing, allowSave=true, onClose, onSaved }) {
+  const [title, setTitle]     = useState(existing?.title||'');
+  const [desc,  setDesc]      = useState(existing?.description||'');
+  const [testType, setTestType] = useState(existing?.testType||'Descriptive');
+  const [groups, setGroups]   = useState(existing?.groups || [{ label:'Group 1', values:'' }]);
+  const [saving, setSaving]   = useState(false);
+  const [result, setResult]   = useState(existing?.result||null);
+  const [error,  setError]    = useState('');
+
+  const TEST_TYPES = ['Descriptive','T-Test','ANOVA','Pearson','Chi-Square'];
+
+  const parseVals = str => str.split(/[\s,;]+/).map(Number).filter(n=>!isNaN(n)&&n!==undefined&&str.trim()!=='');
+
+  const addGroup = () => setGroups(g=>[...g,{label:`Group ${g.length+1}`,values:''}]);
+  const removeGroup = i => setGroups(g=>g.filter((_,j)=>j!==i));
+  const setGroupLabel = (i,v) => setGroups(g=>g.map((x,j)=>j===i?{...x,label:v}:x));
+  const setGroupVals  = (i,v) => setGroups(g=>g.map((x,j)=>j===i?{...x,values:v}:x));
+
+  const needsGroups = {'T-Test':2,'ANOVA':'2+','Pearson':2,'Chi-Square':1};
+  const groupHints  = {'Descriptive':'Enter your data values separated by commas or spaces.','T-Test':'Enter two groups to compare their means.','ANOVA':'Enter 2 or more groups to compare across categories.','Pearson':'Enter two sets of paired values (same length).','Chi-Square':'Enter observed counts for each category.'};
+
+  const runAnalysis = () => {
+    setError('');
+    const parsed = groups.map(g=>({label:g.label,values:parseVals(g.values)}));
+    const allHaveData = parsed.every(g=>g.values.length>0);
+    if(!title.trim()){ setError('Please enter a title.'); return; }
+    if(!allHaveData){ setError('Please enter data values for all groups.'); return; }
+
+    let res = {};
+    try {
+      if(testType==='Descriptive') {
+        const all = parsed[0].values;
+        res = { type:'Descriptive', groups: parsed.map(g=>({
+          label:g.label, n:g.values.length, mean:+statMean(g.values).toFixed(4),
+          sd:+statSD(g.values).toFixed(4), median:+statMedian(g.values).toFixed(4),
+          min:statMin(g.values), max:statMax(g.values),
+          variance:+statVariance(g.values).toFixed(4),
+        }))};
+      } else if(testType==='T-Test') {
+        if(parsed.length<2||parsed[0].values.length<2||parsed[1].values.length<2){ setError('T-Test requires 2 groups with at least 2 values each.'); return; }
+        res = { type:'T-Test', labels:[parsed[0].label,parsed[1].label], ...tTest2(parsed[0].values,parsed[1].values),
+          desc: parsed.map(g=>({label:g.label,n:g.values.length,mean:+statMean(g.values).toFixed(4),sd:+statSD(g.values).toFixed(4)}))};
+      } else if(testType==='ANOVA') {
+        if(parsed.length<2){ setError('ANOVA requires at least 2 groups.'); return; }
+        const gvals = parsed.map(g=>g.values).filter(v=>v.length>0);
+        res = { type:'ANOVA', labels:parsed.map(g=>g.label), ...anovaOneway(gvals),
+          desc: parsed.map(g=>({label:g.label,n:g.values.length,mean:+statMean(g.values).toFixed(4),sd:+statSD(g.values).toFixed(4)}))};
+      } else if(testType==='Pearson') {
+        if(parsed.length<2){ setError('Pearson requires 2 variables.'); return; }
+        if(parsed[0].values.length!==parsed[1].values.length){ setError('Both variables must have the same number of values.'); return; }
+        res = { type:'Pearson', labelX:parsed[0].label, labelY:parsed[1].label, ...pearson(parsed[0].values,parsed[1].values),
+          descX:{n:parsed[0].values.length,mean:+statMean(parsed[0].values).toFixed(4),sd:+statSD(parsed[0].values).toFixed(4)},
+          descY:{n:parsed[1].values.length,mean:+statMean(parsed[1].values).toFixed(4),sd:+statSD(parsed[1].values).toFixed(4)},
+          pairs: parsed[0].values.map((v,i)=>([v,parsed[1].values[i]])),
+        };
+      } else if(testType==='Chi-Square') {
+        const obs = parsed[0].values;
+        if(obs.length<2){ setError('Chi-Square needs at least 2 categories.'); return; }
+        const cats = groups[0].values.split(/[\s,;]+/).filter(v=>v.trim()&&!isNaN(Number(v)));
+        res = { type:'Chi-Square', labels: parsed.slice(1).map(g=>g.label).length ? parsed.slice(1).map(g=>g.label) : obs.map((_,i)=>`Cat ${i+1}`),
+          observed:obs, expected:+(obs.reduce((a,b)=>a+b,0)/obs.length).toFixed(2),
+          ...chiSquare(obs) };
+      }
+      setResult(res);
+    } catch(e) { setError('Error running analysis: '+e.message); }
+  };
+
+  const handleSave = async () => {
+    if(!result){ setError('Run the analysis first before saving.'); return; }
+    setSaving(true);
+    try {
+      await API.saveStatAnalysis({
+        ...(existing||{}),
+        title: title.trim(), description: desc.trim(),
+        testType, groups, result,
+        createdBy: currentUser.id, createdByName: currentUser.name,
+        createdAt: existing?.createdAt || new Date().toISOString(),
+      });
+      toast.ok(existing?'Analysis updated!':'Analysis published!');
+      onSaved();
+    } catch(e) { toast.err('Failed to save: '+e.message); }
+    setSaving(false);
+  };
+
+  const SIG = s => (
+    <span style={{padding:'3px 10px',borderRadius:99,fontSize:'0.75rem',fontWeight:700,
+      background:s?'var(--green-light)':'var(--red-light)',color:s?'var(--green)':'var(--red)'}}>
+      {s?'✓ Significant (p < 0.05)':'✗ Not Significant (p ≥ 0.05)'}
+    </span>
+  );
+
+  const numGroups = testType==='Descriptive'?1:testType==='Chi-Square'?1:testType==='Pearson'?2:groups.length;
+  const canAddGroup = testType==='ANOVA' || testType==='Descriptive';
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:2000,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'24px 16px',overflowY:'auto'}}>
+      <div style={{background:'var(--white)',borderRadius:'var(--radius-xl)',width:'100%',maxWidth:680,boxShadow:'var(--shadow-xl)',padding:'28px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+          <h3 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-xl)',margin:0}}>{!allowSave ? '🧮 My Statistical Analysis' : existing?'Edit':'New'} {allowSave ? 'Statistical Analysis' : ''}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:'1.4rem',cursor:'pointer',color:'var(--muted)',lineHeight:1}}>×</button>
+        </div>
+
+        {!allowSave && (
+          <div style={{marginBottom:16,padding:'10px 14px',background:'var(--teal-light)',borderRadius:8,border:'1px solid var(--teal)',fontSize:'0.8rem',color:'var(--teal)',display:'flex',alignItems:'center',gap:8}}>
+            <span>🧪</span>
+            <span><b>Personal sandbox</b> — your results are not saved or shared. Run as many analyses as you like!</span>
+          </div>
+        )}
+
+        {/* Title & Description */}
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:'0.78rem',fontWeight:600,color:'var(--ink)',display:'block',marginBottom:5}}>Analysis Title *</label>
+          <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Comparison of Test Scores by Section"
+            style={{width:'100%',padding:'9px 12px',borderRadius:8,border:'1.5px solid var(--border)',background:'var(--surface)',color:'var(--ink)',fontSize:'0.88rem',boxSizing:'border-box'}}/>
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:'0.78rem',fontWeight:600,color:'var(--ink)',display:'block',marginBottom:5}}>Description / Context <span style={{color:'var(--muted)',fontWeight:400}}>(optional)</span></label>
+          <textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={2} placeholder="What does this analysis measure? What is the hypothesis?"
+            style={{width:'100%',padding:'9px 12px',borderRadius:8,border:'1.5px solid var(--border)',background:'var(--surface)',color:'var(--ink)',fontSize:'0.82rem',resize:'vertical',boxSizing:'border-box'}}/>
+        </div>
+
+        {/* Test Type */}
+        <div style={{marginBottom:18}}>
+          <label style={{fontSize:'0.78rem',fontWeight:600,color:'var(--ink)',display:'block',marginBottom:8}}>Statistical Test</label>
+          <div data-tour="stat-test-types" style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+            {TEST_TYPES.map(t=>(
+              <button key={t} onClick={()=>{setTestType(t);setGroups(t==='Pearson'?[{label:'Variable X',values:''},{label:'Variable Y',values:''}]:t==='T-Test'?[{label:'Group A',values:''},{label:'Group B',values:''}]:[{label:'Group 1',values:''}]);setResult(null);}}
+                style={{padding:'6px 14px',borderRadius:8,border:`1.5px solid ${testType===t?'var(--gold)':'var(--border)'}`,background:testType===t?'var(--gold-bg)':'var(--surface)',color:testType===t?'var(--gold)':'var(--muted)',fontWeight:testType===t?700:400,fontSize:'0.8rem',cursor:'pointer'}}>
+                {t}
+              </button>
+            ))}
+          </div>
+          <p style={{fontSize:'0.72rem',color:'var(--muted)',marginTop:8}}>{groupHints[testType]}</p>
+        </div>
+
+        {/* Data Input Groups */}
+        <div data-tour="stat-data-input" style={{marginBottom:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <label style={{fontSize:'0.78rem',fontWeight:600,color:'var(--ink)'}}>Data Input</label>
+            {canAddGroup && <button onClick={addGroup} className="btn btn-ol btn-sm">+ Add Group</button>}
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {(testType==='T-Test'?groups.slice(0,2):testType==='Pearson'?groups.slice(0,2):testType==='Chi-Square'?groups.slice(0,1):groups).map((g,i)=>(
+              <div key={i} style={{padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)'}}>
+                <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
+                  <input value={g.label} onChange={e=>setGroupLabel(i,e.target.value)}
+                    style={{flex:1,padding:'6px 10px',borderRadius:7,border:'1.5px solid var(--border)',background:'var(--white)',color:'var(--ink)',fontSize:'0.82rem',fontWeight:600}}
+                    placeholder={testType==='Pearson'?`Variable ${i===0?'X':'Y'}`:`Group ${i+1} name`}/>
+                  {canAddGroup && groups.length>1 && <button onClick={()=>removeGroup(i)} style={{background:'none',border:'none',color:'var(--red)',cursor:'pointer',fontSize:'1.1rem',lineHeight:1}}>×</button>}
+                </div>
+                <textarea value={g.values} onChange={e=>setGroupVals(i,e.target.value)} rows={2}
+                  placeholder={testType==='Chi-Square'?"Observed counts e.g: 12, 18, 25, 9":"Values e.g: 85, 90, 78, 92, 88"}
+                  style={{width:'100%',padding:'8px 10px',borderRadius:7,border:'1.5px solid var(--border)',background:'var(--white)',color:'var(--ink)',fontSize:'0.82rem',fontFamily:'var(--font-mono)',resize:'vertical',boxSizing:'border-box'}}/>
+                <div style={{fontSize:'0.65rem',color:'var(--muted)',marginTop:4}}>
+                  {parseVals(g.values).length} value{parseVals(g.values).length!==1?'s':''} entered · Separate with commas, spaces, or new lines
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {error && <div style={{padding:'9px 14px',background:'var(--red-light)',color:'var(--red)',borderRadius:8,fontSize:'0.82rem',marginBottom:14}}>{error}</div>}
+
+        {/* Run + Results Preview */}
+        <button onClick={runAnalysis} className="btn btn-gold" style={{width:'100%',marginBottom:16,fontWeight:700}}>▶ Run Analysis</button>
+
+        {result && (
+          <div style={{padding:'16px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)',marginBottom:16}}>
+            <div style={{fontWeight:700,fontSize:'0.88rem',marginBottom:12,color:'var(--ink)'}}>📊 Results Preview</div>
+
+            {result.type==='Descriptive' && result.groups.map(g=>(
+              <div key={g.label} style={{marginBottom:10}}>
+                <div style={{fontWeight:600,fontSize:'0.78rem',color:'var(--muted)',marginBottom:6,textTransform:'uppercase'}}>{g.label}</div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:8}}>
+                  {[['N',g.n],['Mean',g.mean],['SD',g.sd],['Median',g.median],['Min',g.min],['Max',g.max],['Variance',g.variance]].map(([l,v])=>(
+                    <div key={l} style={{padding:'8px 10px',background:'var(--white)',borderRadius:7,border:'1px solid var(--border)'}}>
+                      <div style={{fontSize:'0.62rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600}}>{l}</div>
+                      <div style={{fontFamily:'var(--font-mono)',fontWeight:700,color:'var(--blue)'}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {result.type==='T-Test' && <>
+              <div style={{display:'flex',gap:10,marginBottom:10,flexWrap:'wrap'}}>
+                {[['t',result.t],['p-value',result.p],['df',result.df]].map(([l,v])=>(
+                  <div key={l} style={{padding:'10px 14px',background:'var(--white)',borderRadius:8,border:'1px solid var(--border)',flex:1,minWidth:90}}>
+                    <div style={{fontSize:'0.62rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600}}>{l}</div>
+                    <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.1rem',color:'var(--teal)'}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginBottom:8}}>{SIG(result.sig)}</div>
+              <div style={{display:'flex',gap:8}}>
+                {result.desc.map(d=>(
+                  <div key={d.label} style={{flex:1,padding:'8px 10px',background:'var(--white)',borderRadius:7,border:'1px solid var(--border)'}}>
+                    <div style={{fontSize:'0.72rem',fontWeight:600,color:'var(--muted)',marginBottom:3}}>{d.label}</div>
+                    <div style={{fontSize:'0.78rem'}}><b>M</b> = {d.mean} &nbsp; <b>SD</b> = {d.sd} &nbsp; <b>n</b> = {d.n}</div>
+                  </div>
+                ))}
+              </div>
+            </>}
+
+            {result.type==='ANOVA' && <>
+              <div style={{display:'flex',gap:10,marginBottom:10,flexWrap:'wrap'}}>
+                {[['F',result.F],['p-value',result.p],['df Between',result.dfB],['df Within',result.dfW]].map(([l,v])=>(
+                  <div key={l} style={{padding:'10px 14px',background:'var(--white)',borderRadius:8,border:'1px solid var(--border)',flex:1,minWidth:90}}>
+                    <div style={{fontSize:'0.62rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600}}>{l}</div>
+                    <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.1rem',color:'var(--purple)'}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginBottom:10}}>{SIG(result.sig)}</div>
+              <div style={{overflowX:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.78rem'}}>
+                  <thead><tr style={{borderBottom:'2px solid var(--border)'}}>
+                    {['Group','n','Mean','SD'].map(h=><th key={h} style={{padding:'5px 8px',textAlign:'left',color:'var(--muted)',fontWeight:600,fontSize:'0.68rem',textTransform:'uppercase'}}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>{result.desc.map(d=><tr key={d.label} style={{borderBottom:'1px solid var(--border)'}}>
+                    <td style={{padding:'6px 8px',fontWeight:500}}>{d.label}</td>
+                    <td style={{padding:'6px 8px',fontFamily:'var(--font-mono)'}}>{d.n}</td>
+                    <td style={{padding:'6px 8px',fontFamily:'var(--font-mono)'}}>{d.mean}</td>
+                    <td style={{padding:'6px 8px',fontFamily:'var(--font-mono)'}}>{d.sd}</td>
+                  </tr>)}</tbody>
+                </table>
+              </div>
+            </>}
+
+            {result.type==='Pearson' && <>
+              <div style={{display:'flex',gap:10,marginBottom:10,flexWrap:'wrap'}}>
+                {[['r',result.r],['p-value',result.p],['n',result.n]].map(([l,v])=>(
+                  <div key={l} style={{padding:'10px 14px',background:'var(--white)',borderRadius:8,border:'1px solid var(--border)',flex:1,minWidth:80}}>
+                    <div style={{fontSize:'0.62rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600}}>{l}</div>
+                    <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.1rem',color:'var(--gold)'}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginBottom:8}}>{SIG(result.sig)}</div>
+              <div style={{height:8,background:'var(--border)',borderRadius:99,overflow:'hidden',marginTop:8}}>
+                <div style={{height:'100%',width:`${Math.abs(result.r)*100}%`,background:'var(--gold)',borderRadius:99}}/>
+              </div>
+              <div style={{fontSize:'0.72rem',color:'var(--muted)',marginTop:4}}>|r| = {Math.abs(result.r).toFixed(3)} — {Math.abs(result.r)>=0.7?'Strong':Math.abs(result.r)>=0.4?'Moderate':Math.abs(result.r)>=0.2?'Weak':'Negligible'} {result.r>=0?'positive':'negative'} correlation</div>
+            </>}
+
+            {result.type==='Chi-Square' && <>
+              <div style={{display:'flex',gap:10,marginBottom:10,flexWrap:'wrap'}}>
+                {[['χ²',result.chi2],['p-value',result.p],['df',result.df],['Expected',result.expected]].map(([l,v])=>(
+                  <div key={l} style={{padding:'10px 14px',background:'var(--white)',borderRadius:8,border:'1px solid var(--border)',flex:1,minWidth:80}}>
+                    <div style={{fontSize:'0.62rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600}}>{l}</div>
+                    <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.1rem',color:'var(--red)'}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div>{SIG(result.sig)}</div>
+            </>}
+          </div>
+        )}
+
+        <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+          <button onClick={onClose} className="btn btn-ol">Cancel</button>
+          <button onClick={runAnalysis} className="btn btn-ol" style={{borderColor:'var(--teal)',color:'var(--teal)'}}>▶ Run Analysis</button>
+          {allowSave && <button onClick={handleSave} className="btn btn-gold" disabled={saving||!result}>{saving?'Saving…':existing?'Update Analysis':'Publish Analysis'}</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Modal: View a published analysis (students + teachers) ─────
+function StatViewModal({ analysis: a, onClose }) {
+  const SIG = s => (
+    <span style={{padding:'3px 10px',borderRadius:99,fontSize:'0.75rem',fontWeight:700,
+      background:s?'var(--green-light)':'var(--red-light)',color:s?'var(--green)':'var(--red)'}}>
+      {s?'✓ Significant (p < 0.05)':'✗ Not Significant (p ≥ 0.05)'}
+    </span>
+  );
+  const r = a.result || {};
+  const TEST_COLORS = { 'Descriptive':'var(--blue)','T-Test':'var(--teal)','ANOVA':'var(--purple)','Pearson':'var(--gold)','Chi-Square':'var(--red)' };
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:2000,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'24px 16px',overflowY:'auto'}}>
+      <div style={{background:'var(--white)',borderRadius:'var(--radius-xl)',width:'100%',maxWidth:660,boxShadow:'var(--shadow-xl)',padding:'28px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+          <div style={{flex:1,paddingRight:16}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:4}}>
+              <h3 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-xl)',margin:0}}>{a.title}</h3>
+              <span style={{padding:'2px 10px',borderRadius:99,fontSize:'0.72rem',fontWeight:700,background:(TEST_COLORS[a.testType]||'var(--muted)')+'22',color:TEST_COLORS[a.testType]||'var(--muted)',border:`1px solid ${TEST_COLORS[a.testType]||'var(--border)'}`}}>{a.testType}</span>
+            </div>
+            {a.description && <p style={{fontSize:'0.82rem',color:'var(--muted)',margin:'0 0 4px'}}>{a.description}</p>}
+            <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>Published by {a.createdByName||'Teacher'} · {fmtDate(a.updatedAt)}</div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:'1.4rem',cursor:'pointer',color:'var(--muted)',lineHeight:1,flexShrink:0}}>×</button>
+        </div>
+
+        <hr style={{border:'none',borderTop:'1px solid var(--border)',margin:'16px 0'}}/>
+
+        {r.type==='Descriptive' && (
+          <div>
+            <div style={{fontWeight:600,fontSize:'0.88rem',marginBottom:12}}>📐 Descriptive Statistics</div>
+            {r.groups.map(g=>(
+              <div key={g.label} style={{marginBottom:14}}>
+                <div style={{fontWeight:600,fontSize:'0.78rem',color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.04em'}}>{g.label}</div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:8}}>
+                  {[['N',g.n],['Mean',g.mean],['Std Dev',g.sd],['Median',g.median],['Variance',g.variance],['Min',g.min],['Max',g.max]].map(([l,v])=>(
+                    <div key={l} style={{padding:'10px 12px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
+                      <div style={{fontSize:'0.62rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600,marginBottom:2}}>{l}</div>
+                      <div style={{fontFamily:'var(--font-mono)',fontWeight:700,color:'var(--blue)',fontSize:'0.95rem'}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {r.type==='T-Test' && (
+          <div>
+            <div style={{fontWeight:600,fontSize:'0.88rem',marginBottom:12}}>📊 Independent Samples T-Test (Welch's)</div>
+            <div style={{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap'}}>
+              {[['t-statistic',r.t,'var(--teal)'],['p-value',r.p,'var(--teal)'],['df (Welch)',r.df,'var(--muted)']].map(([l,v,c])=>(
+                <div key={l} style={{flex:1,minWidth:100,padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)'}}>
+                  <div style={{fontSize:'0.65rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600,marginBottom:4}}>{l}</div>
+                  <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.2rem',color:c}}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{marginBottom:14}}>{SIG(r.sig)}</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+              {r.desc.map(d=>(
+                <div key={d.label} style={{padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1.5px solid var(--teal)',borderColor:'var(--border)'}}>
+                  <div style={{fontWeight:700,fontSize:'0.82rem',marginBottom:6,color:'var(--teal)'}}>{d.label}</div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
+                    {[['n',d.n],['Mean',d.mean],['SD',d.sd]].map(([l,v])=>(
+                      <div key={l}><div style={{fontSize:'0.62rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600}}>{l}</div><div style={{fontFamily:'var(--font-mono)',fontWeight:700}}>{v}</div></div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop:14,padding:'10px 14px',background:'var(--surface)',borderRadius:8,fontSize:'0.78rem',color:'var(--muted)'}}>
+              <b style={{color:'var(--ink)'}}>Interpretation:</b> {r.sig ? `There is a statistically significant difference between ${r.desc[0]?.label} (M=${r.desc[0]?.mean}) and ${r.desc[1]?.label} (M=${r.desc[1]?.mean}), t(${r.df}) = ${r.t}, p = ${r.p}.` : `There is no statistically significant difference between the two groups, t(${r.df}) = ${r.t}, p = ${r.p}.`}
+            </div>
+          </div>
+        )}
+
+        {r.type==='ANOVA' && (
+          <div>
+            <div style={{fontWeight:600,fontSize:'0.88rem',marginBottom:12}}>⚗️ One-Way ANOVA</div>
+            <div style={{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap'}}>
+              {[['F-statistic',r.F,'var(--purple)'],['p-value',r.p,'var(--purple)'],['df Between',r.dfB,'var(--muted)'],['df Within',r.dfW,'var(--muted)']].map(([l,v,c])=>(
+                <div key={l} style={{flex:1,minWidth:90,padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)'}}>
+                  <div style={{fontSize:'0.65rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600,marginBottom:4}}>{l}</div>
+                  <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.2rem',color:c}}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{marginBottom:14}}>{SIG(r.sig)}</div>
+            <div style={{overflowX:'auto'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.82rem'}}>
+                <thead><tr style={{borderBottom:'2px solid var(--border)'}}>
+                  {['Group','n','Mean','SD'].map(h=><th key={h} style={{padding:'7px 10px',textAlign:'left',color:'var(--muted)',fontWeight:600,fontSize:'0.7rem',textTransform:'uppercase'}}>{h}</th>)}
+                </tr></thead>
+                <tbody>{r.desc.map(d=><tr key={d.label} style={{borderBottom:'1px solid var(--border)'}}>
+                  <td style={{padding:'8px 10px',fontWeight:500,color:'var(--ink)'}}>{d.label}</td>
+                  <td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',color:'var(--ink)'}}>{d.n}</td>
+                  <td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',color:'var(--purple)',fontWeight:700}}>{d.mean}</td>
+                  <td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',color:'var(--muted)'}}>{d.sd}</td>
+                </tr>)}</tbody>
+              </table>
+            </div>
+            <div style={{marginTop:14,padding:'10px 14px',background:'var(--surface)',borderRadius:8,fontSize:'0.78rem',color:'var(--muted)'}}>
+              <b style={{color:'var(--ink)'}}>Interpretation:</b> {r.sig ? `There is a statistically significant difference in means across groups, F(${r.dfB}, ${r.dfW}) = ${r.F}, p = ${r.p}.` : `There is no statistically significant difference across groups, F(${r.dfB}, ${r.dfW}) = ${r.F}, p = ${r.p}.`}
+            </div>
+          </div>
+        )}
+
+        {r.type==='Pearson' && (
+          <div>
+            <div style={{fontWeight:600,fontSize:'0.88rem',marginBottom:12}}>🔗 Pearson Correlation</div>
+            <div style={{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap'}}>
+              {[['r (correlation)',r.r,'var(--gold)'],['p-value',r.p,'var(--gold)'],['n (pairs)',r.n,'var(--muted)']].map(([l,v,c])=>(
+                <div key={l} style={{flex:1,minWidth:100,padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)'}}>
+                  <div style={{fontSize:'0.65rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600,marginBottom:4}}>{l}</div>
+                  <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.2rem',color:c}}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{marginBottom:10}}>{SIG(r.sig)}</div>
+            <div style={{height:10,background:'var(--border)',borderRadius:99,overflow:'hidden',margin:'10px 0 4px'}}>
+              <div style={{height:'100%',width:`${Math.abs(r.r)*100}%`,background:'var(--gold)',borderRadius:99}}/>
+            </div>
+            <div style={{fontSize:'0.72rem',color:'var(--muted)',marginBottom:14}}>{r.labelX} ↔ {r.labelY} · |r| = {Math.abs(r.r).toFixed(3)} · {Math.abs(r.r)>=0.7?'Strong':Math.abs(r.r)>=0.4?'Moderate':Math.abs(r.r)>=0.2?'Weak':'Negligible'} {r.r>=0?'positive':'negative'} correlation</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+              {[['X: '+r.labelX,r.descX],['Y: '+r.labelY,r.descY]].map(([label,d])=>(
+                <div key={label} style={{padding:'10px 12px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
+                  <div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--gold)',marginBottom:6}}>{label}</div>
+                  {[['n',d?.n],['Mean',d?.mean],['SD',d?.sd]].map(([l,v])=>(
+                    <div key={l} style={{display:'flex',justifyContent:'space-between',fontSize:'0.78rem',borderBottom:'1px solid var(--border)',padding:'3px 0'}}><span style={{color:'var(--muted)'}}>{l}</span><span style={{fontFamily:'var(--font-mono)',fontWeight:700,color:'var(--ink)'}}>{v}</span></div>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <div style={{padding:'10px 14px',background:'var(--surface)',borderRadius:8,fontSize:'0.78rem',color:'var(--muted)'}}>
+              <b style={{color:'var(--ink)'}}>Interpretation:</b> {r.sig ? `There is a statistically significant ${Math.abs(r.r)>=0.7?'strong':Math.abs(r.r)>=0.4?'moderate':'weak'} ${r.r>=0?'positive':'negative'} correlation between ${r.labelX} and ${r.labelY} (r = ${r.r}, p = ${r.p}).` : `There is no statistically significant linear correlation between ${r.labelX} and ${r.labelY} (r = ${r.r}, p = ${r.p}).`}
+            </div>
+          </div>
+        )}
+
+        {r.type==='Chi-Square' && (
+          <div>
+            <div style={{fontWeight:600,fontSize:'0.88rem',marginBottom:12}}>χ² Chi-Square Goodness of Fit</div>
+            <div style={{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap'}}>
+              {[['χ² statistic',r.chi2,'var(--red)'],['p-value',r.p,'var(--red)'],['df',r.df,'var(--muted)'],['Expected (each)',r.expected,'var(--muted)']].map(([l,v,c])=>(
+                <div key={l} style={{flex:1,minWidth:90,padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)'}}>
+                  <div style={{fontSize:'0.65rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600,marginBottom:4}}>{l}</div>
+                  <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.2rem',color:c}}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{marginBottom:14}}>{SIG(r.sig)}</div>
+            {r.observed && (
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
+                {r.observed.map((v,i)=>(
+                  <div key={i} style={{padding:'8px 12px',background:'var(--surface)',borderRadius:8,border:'1.5px solid var(--border)',textAlign:'center',minWidth:64}}>
+                    <div style={{fontSize:'0.65rem',color:'var(--muted)',fontWeight:600,marginBottom:3}}>Cat {i+1}</div>
+                    <div style={{fontFamily:'var(--font-mono)',fontWeight:700,color:'var(--red)',fontSize:'1rem'}}>{v}</div>
+                    <div style={{fontSize:'0.6rem',color:'var(--muted)'}}>observed</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{padding:'10px 14px',background:'var(--surface)',borderRadius:8,fontSize:'0.78rem',color:'var(--muted)'}}>
+              <b style={{color:'var(--ink)'}}>Interpretation:</b> {r.sig ? `The observed distribution differs significantly from a uniform distribution, χ²(${r.df}) = ${r.chi2}, p = ${r.p}.` : `The observed distribution does not differ significantly from a uniform distribution, χ²(${r.df}) = ${r.chi2}, p = ${r.p}.`}
+            </div>
+          </div>
+        )}
+
+        <div style={{marginTop:20,display:'flex',justifyContent:'flex-end'}}>
+          <button onClick={onClose} className="btn btn-gold">Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Statistical Analysis Helpers ─────────────────────────────────
+const statMean = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+const statVariance = arr => { if(arr.length<2) return 0; const m=statMean(arr); return arr.reduce((s,x)=>s+(x-m)**2,0)/(arr.length-1); };
+const statSD = arr => Math.sqrt(statVariance(arr));
+const statMedian = arr => { if(!arr.length) return 0; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
+const statMin = arr => arr.length?Math.min(...arr):0;
+const statMax = arr => arr.length?Math.max(...arr):0;
+
+// One-sample t-test (vs mu=0)
+const tTest1 = (arr, mu=0) => {
+  if(arr.length<2) return {t:0,df:0,p:1,sig:false};
+  const n=arr.length, m=statMean(arr), sd=statSD(arr), se=sd/Math.sqrt(n);
+  if(se===0) return {t:0,df:n-1,p:1,sig:false};
+  const t=Math.abs((m-mu)/se), df=n-1;
+  const p=2*(1-tDistCDF(t,df));
+  return {t:+t.toFixed(4),df,p:+p.toFixed(4),sig:p<0.05};
+};
+// Two-sample independent t-test (Welch)
+const tTest2 = (a, b) => {
+  if(a.length<2||b.length<2) return {t:0,df:0,p:1,sig:false};
+  const m1=statMean(a),m2=statMean(b),v1=statVariance(a),v2=statVariance(b),n1=a.length,n2=b.length;
+  const se=Math.sqrt(v1/n1+v2/n2);
+  if(se===0) return {t:0,df:n1+n2-2,p:1,sig:false};
+  const t=Math.abs((m1-m2)/se);
+  const df=(v1/n1+v2/n2)**2/((v1/n1)**2/(n1-1)+(v2/n2)**2/(n2-1));
+  const p=2*(1-tDistCDF(t,df));
+  return {t:+t.toFixed(4),df:+df.toFixed(1),p:+p.toFixed(4),sig:p<0.05,mean1:+m1.toFixed(3),mean2:+m2.toFixed(3)};
+};
+// One-way ANOVA
+const anovaOneway = groups => {
+  const k=groups.length, allVals=groups.flat(), N=allVals.length;
+  if(N<k+1||k<2) return {F:0,dfB:0,dfW:0,p:1,sig:false};
+  const grandMean=statMean(allVals);
+  const SSB=groups.reduce((s,g)=>s+g.length*(statMean(g)-grandMean)**2,0);
+  const SSW=groups.reduce((s,g)=>s+g.reduce((ss,x)=>ss+(x-statMean(g))**2,0),0);
+  const dfB=k-1, dfW=N-k;
+  if(SSW===0||dfW===0) return {F:0,dfB,dfW,p:1,sig:false};
+  const F=(SSB/dfB)/(SSW/dfW);
+  const p=1-fDistCDF(F,dfB,dfW);
+  return {F:+F.toFixed(4),dfB,dfW,p:+p.toFixed(4),sig:p<0.05,SSB:+SSB.toFixed(2),SSW:+SSW.toFixed(2)};
+};
+// Pearson correlation
+const pearson = (x,y) => {
+  const n=Math.min(x.length,y.length); if(n<2) return {r:0,p:1,sig:false};
+  const mx=statMean(x.slice(0,n)),my=statMean(y.slice(0,n));
+  let num=0,dx=0,dy=0;
+  for(let i=0;i<n;i++){num+=(x[i]-mx)*(y[i]-my);dx+=(x[i]-mx)**2;dy+=(y[i]-my)**2;}
+  const r=dx&&dy?num/Math.sqrt(dx*dy):0;
+  const t=Math.abs(r)*Math.sqrt((n-2)/(1-r**2));
+  const p=n>2?2*(1-tDistCDF(t,n-2)):1;
+  return {r:+r.toFixed(4),p:+p.toFixed(4),sig:p<0.05,n};
+};
+// Chi-square goodness of fit (observed vs equal expected)
+const chiSquare = observed => {
+  const n=observed.length; if(n<2) return {chi2:0,df:0,p:1,sig:false};
+  const total=observed.reduce((a,b)=>a+b,0), expected=total/n;
+  if(expected===0) return {chi2:0,df:n-1,p:1,sig:false};
+  const chi2=observed.reduce((s,o)=>s+(o-expected)**2/expected,0);
+  const df=n-1, p=1-chi2CDF(chi2,df);
+  return {chi2:+chi2.toFixed(4),df,p:+p.toFixed(4),sig:p<0.05};
+};
+// Distribution approximations
+function tDistCDF(t,df){
+  // Beta regularized approximation
+  const x=df/(df+t*t);
+  return 1-0.5*betaInc(df/2,0.5,x);
+}
+function fDistCDF(f,d1,d2){
+  const x=d1*f/(d1*f+d2);
+  return betaInc(d1/2,d2/2,x);
+}
+function chi2CDF(x,k){
+  if(x<=0) return 0;
+  return lowerGammaReg(k/2,x/2);
+}
+function lowerGammaReg(a,x){
+  // Series expansion
+  if(x<0) return 0;
+  let sum=0,term=1/a,n=0;
+  while(n<200){sum+=term;n++;term*=x/(a+n);if(term<1e-10) break;}
+  return Math.min(1,sum*Math.exp(-x+a*Math.log(x)-logGamma(a)));
+}
+function logGamma(z){
+  const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];
+  let x=z,y=z,tmp=x+5.5;
+  tmp-=(x+0.5)*Math.log(tmp);
+  let ser=1.000000000190015;
+  for(let j=0;j<6;j++) ser+=c[j]/++y;
+  return -tmp+Math.log(2.5066282746310005*ser/x);
+}
+function betaInc(a,b,x){
+  // Continued fraction approximation (Lentz)
+  if(x===0) return 0; if(x===1) return 1;
+  const lbeta=logGamma(a)+logGamma(b)-logGamma(a+b);
+  const front=Math.exp(Math.log(x)*a+Math.log(1-x)*b-lbeta)/a;
+  return front*betaCF(a,b,x);
+}
+function betaCF(a,b,x){
+  const maxIter=200,eps=3e-7;
+  let c=1,d=1-(a+b)*x/(a+1); if(Math.abs(d)<1e-30) d=1e-30; d=1/d;
+  let h=d;
+  for(let m=1;m<=maxIter;m++){
+    let aa=m*(b-m)*x/((a+2*m-1)*(a+2*m));
+    d=1+aa*d; if(Math.abs(d)<1e-30) d=1e-30; c=1+aa/c; if(Math.abs(c)<1e-30) c=1e-30; d=1/d; h*=d*c;
+    aa=-(a+m)*(a+b+m)*x/((a+2*m)*(a+2*m+1));
+    d=1+aa*d; if(Math.abs(d)<1e-30) d=1e-30; c=1+aa/c; if(Math.abs(c)<1e-30) c=1e-30; d=1/d;
+    const del=d*c; h*=del;
+    if(Math.abs(del-1)<eps) break;
+  }
+  return h;
+}
+
 function AdminAnalytics({ currentUser }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -8483,6 +9325,7 @@ function AdminAnalytics({ currentUser }) {
         {TAB('overview','Overview','🏠')}
         {TAB('students','Students','👥')}
         {TAB('studies','Studies','📚')}
+        {TAB('statistics','Statistical Analysis','🔬')}
       </div>
 
       {tab==='overview' && (
@@ -8657,6 +9500,226 @@ function AdminAnalytics({ currentUser }) {
           </div>
         </div>
       )}
+
+      {tab==='statistics' && (() => {
+        // ── Build numeric arrays from real data ──
+        const uploadsPerStudent = approved.map(u => allStudies.filter(s=>s.uploadedBy===u.id).length);
+        const viewsPerStudy     = allStudies.map(s=>s.viewCount||0);
+        const downloadsPerStudy = allStudies.map(s=>s.downloadCount||0);
+        const citesPerStudy     = allStudies.map(s=>s.citationCount||0);
+
+        // Group uploads by grade for ANOVA
+        const gradeGroups = ['8','9','10','11','12'].map(g =>
+          approved.filter(u=>u.gradeLevel===g).map(u=>allStudies.filter(s=>s.uploadedBy===u.id).length)
+        ).filter(g=>g.length>0);
+        const gradeLabels = ['8','9','10','11','12'].filter(g=>approved.some(u=>u.gradeLevel===g));
+
+        // Descriptive stats for uploads/student
+        const descUploads = {
+          n: uploadsPerStudent.length,
+          mean: +statMean(uploadsPerStudent).toFixed(3),
+          sd: +statSD(uploadsPerStudent).toFixed(3),
+          median: +statMedian(uploadsPerStudent).toFixed(3),
+          min: statMin(uploadsPerStudent),
+          max: statMax(uploadsPerStudent),
+        };
+        const descViews = {
+          n: viewsPerStudy.length,
+          mean: +statMean(viewsPerStudy).toFixed(3),
+          sd: +statSD(viewsPerStudy).toFixed(3),
+          median: +statMedian(viewsPerStudy).toFixed(3),
+          min: statMin(viewsPerStudy),
+          max: statMax(viewsPerStudy),
+        };
+
+        // One-way ANOVA: uploads by grade
+        const anovaResult = anovaOneway(gradeGroups);
+
+        // Welch t-test: views vs downloads per study
+        const tResult = tTest2(viewsPerStudy, downloadsPerStudy);
+
+        // Pearson: views ↔ downloads
+        const corrVD = pearson(viewsPerStudy, downloadsPerStudy);
+        const corrVC = pearson(viewsPerStudy, citesPerStudy);
+        const corrDC = pearson(downloadsPerStudy, citesPerStudy);
+
+        // Chi-square: observed uploads per grade vs uniform distribution
+        const chiObs = gradeLabels.map(g=>approved.filter(u=>u.gradeLevel===g).reduce((s,u)=>s+allStudies.filter(st=>st.uploadedBy===u.id).length,0));
+        const chiResult = chiSquare(chiObs);
+
+        // Descriptive per grade
+        const gradeDesc = gradeLabels.map((g,i)=>({
+          grade: g,
+          n: gradeGroups[i]?.length||0,
+          mean: +(statMean(gradeGroups[i]||[])).toFixed(2),
+          sd: +(statSD(gradeGroups[i]||[])).toFixed(2),
+          total: (chiObs[i]||0),
+        }));
+
+        const SIG = s => (
+          <span style={{padding:'2px 8px',borderRadius:99,fontSize:'0.68rem',fontWeight:700,
+            background:s?'var(--green-light)':'var(--red-light)',
+            color:s?'var(--green)':'var(--red)'}}>
+            {s?'Significant (p<0.05)':'Not Significant'}
+          </span>
+        );
+        const StatRow = ({label,value,sub}) => (
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
+            <span style={{fontSize:'0.82rem',color:'var(--ink)'}}>{label}</span>
+            <span style={{fontWeight:700,fontSize:'0.88rem',color:'var(--gold)',fontFamily:'var(--font-mono)'}}>{value}{sub&&<span style={{fontSize:'0.65rem',color:'var(--muted)',marginLeft:4}}>{sub}</span>}</span>
+          </div>
+        );
+
+        return (
+          <div style={{display:'flex',flexDirection:'column',gap:16}}>
+            <div style={{padding:'12px 16px',background:'var(--blue-light)',borderRadius:10,border:'1px solid var(--blue)',fontSize:'0.82rem',color:'var(--blue)'}}>
+              ℹ️ All tests use real data from Firestore. α = 0.05. Welch t-test used for unequal variances.
+            </div>
+
+            {/* Descriptive Statistics */}
+            <div className="card">
+              <div className="card-hd" style={{marginBottom:14}}><span className="card-title">📐 Descriptive Statistics</span></div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:14}}>
+                <div>
+                  <div style={{fontWeight:600,fontSize:'0.78rem',color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}}>Uploads per Student</div>
+                  <StatRow label="N (students)" value={descUploads.n}/>
+                  <StatRow label="Mean" value={descUploads.mean}/>
+                  <StatRow label="Std Deviation" value={descUploads.sd}/>
+                  <StatRow label="Median" value={descUploads.median}/>
+                  <StatRow label="Min" value={descUploads.min}/>
+                  <StatRow label="Max" value={descUploads.max}/>
+                </div>
+                <div>
+                  <div style={{fontWeight:600,fontSize:'0.78rem',color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}}>Views per Study</div>
+                  <StatRow label="N (studies)" value={descViews.n}/>
+                  <StatRow label="Mean" value={descViews.mean}/>
+                  <StatRow label="Std Deviation" value={descViews.sd}/>
+                  <StatRow label="Median" value={descViews.median}/>
+                  <StatRow label="Min" value={descViews.min}/>
+                  <StatRow label="Max" value={descViews.max}/>
+                </div>
+              </div>
+            </div>
+
+            {/* Per-Grade Breakdown */}
+            <div className="card">
+              <div className="card-hd" style={{marginBottom:14}}><span className="card-title">🎓 Uploads by Grade Level</span></div>
+              <div style={{overflowX:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.82rem'}}>
+                  <thead>
+                    <tr style={{borderBottom:'2px solid var(--border)'}}>
+                      {['Grade','N Students','Mean Uploads','SD','Total Uploads'].map(h=>(
+                        <th key={h} style={{textAlign:'left',padding:'6px 10px',fontWeight:600,color:'var(--muted)',fontSize:'0.72rem',textTransform:'uppercase',letterSpacing:'0.04em'}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {gradeDesc.map(g=>(
+                      <tr key={g.grade} style={{borderBottom:'1px solid var(--border)'}}>
+                        <td style={{padding:'8px 10px',fontWeight:700,color:GRADE_COLORS[g.grade]||'var(--ink)'}}>{g.grade}</td>
+                        <td style={{padding:'8px 10px',color:'var(--ink)'}}>{g.n}</td>
+                        <td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',color:'var(--ink)'}}>{g.mean}</td>
+                        <td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',color:'var(--muted)'}}>{g.sd}</td>
+                        <td style={{padding:'8px 10px',fontWeight:700,color:'var(--gold)',fontFamily:'var(--font-mono)'}}>{g.total}</td>
+                      </tr>
+                    ))}
+                    {gradeDesc.length===0&&<tr><td colSpan={5}><p className="muted" style={{padding:'10px',fontSize:'0.82rem'}}>No grade data available.</p></td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* One-Way ANOVA */}
+            <div className="card" style={{borderLeft:`3px solid var(--purple)`}}>
+              <div className="card-hd" style={{marginBottom:6}}>
+                <span className="card-title">⚗️ One-Way ANOVA — Uploads by Grade</span>
+                {SIG(anovaResult.sig)}
+              </div>
+              <p style={{fontSize:'0.78rem',color:'var(--muted)',marginBottom:12}}>Tests whether mean uploads differ significantly across grade levels.</p>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:10}}>
+                {[['F-statistic',anovaResult.F],['p-value',anovaResult.p],['df (between)',anovaResult.dfB],['df (within)',anovaResult.dfW],['SS Between',anovaResult.SSB],['SS Within',anovaResult.SSW]].map(([l,v])=>(
+                  <div key={l} style={{padding:'10px 12px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
+                    <div style={{fontSize:'0.65rem',color:'var(--muted)',fontWeight:600,marginBottom:4,textTransform:'uppercase'}}>{l}</div>
+                    <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1rem',color:'var(--purple)'}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              {gradeGroups.length<2&&<p style={{fontSize:'0.78rem',color:'var(--red)'}}>⚠️ Need at least 2 grade groups with data to run ANOVA.</p>}
+            </div>
+
+            {/* Independent Samples T-Test */}
+            <div className="card" style={{borderLeft:`3px solid var(--teal)`}}>
+              <div className="card-hd" style={{marginBottom:6}}>
+                <span className="card-title">📊 Welch's T-Test — Views vs Downloads</span>
+                {SIG(tResult.sig)}
+              </div>
+              <p style={{fontSize:'0.78rem',color:'var(--muted)',marginBottom:12}}>Tests whether average views and downloads per study differ significantly.</p>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10}}>
+                {[['t-statistic',tResult.t],['p-value',tResult.p],['df (Welch)',tResult.df],['Mean Views',tResult.mean1],['Mean Downloads',tResult.mean2]].map(([l,v])=>(
+                  <div key={l} style={{padding:'10px 12px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
+                    <div style={{fontSize:'0.65rem',color:'var(--muted)',fontWeight:600,marginBottom:4,textTransform:'uppercase'}}>{l}</div>
+                    <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1rem',color:'var(--teal)'}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Chi-Square */}
+            <div className="card" style={{borderLeft:`3px solid var(--gold)`}}>
+              <div className="card-hd" style={{marginBottom:6}}>
+                <span className="card-title">χ² Chi-Square — Upload Distribution by Grade</span>
+                {SIG(chiResult.sig)}
+              </div>
+              <p style={{fontSize:'0.78rem',color:'var(--muted)',marginBottom:12}}>Tests whether total uploads are distributed equally across grade levels (goodness of fit).</p>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10}}>
+                {[['χ² statistic',chiResult.chi2],['p-value',chiResult.p],['df',chiResult.df]].map(([l,v])=>(
+                  <div key={l} style={{padding:'10px 12px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
+                    <div style={{fontSize:'0.65rem',color:'var(--muted)',fontWeight:600,marginBottom:4,textTransform:'uppercase'}}>{l}</div>
+                    <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1rem',color:'var(--gold)'}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Pearson Correlations */}
+            <div className="card" style={{borderLeft:`3px solid var(--blue)`}}>
+              <div className="card-hd" style={{marginBottom:14}}><span className="card-title">🔗 Pearson Correlation Matrix</span></div>
+              <p style={{fontSize:'0.78rem',color:'var(--muted)',marginBottom:14}}>Linear relationships between engagement metrics per study.</p>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {[
+                  {label:'Views ↔ Downloads', res:corrVD, color:'var(--blue)'},
+                  {label:'Views ↔ Citations',  res:corrVC, color:'var(--purple)'},
+                  {label:'Downloads ↔ Citations', res:corrDC, color:'var(--teal)'},
+                ].map(({label,res,color})=>{
+                  const absR=Math.abs(res.r), pct=absR*100;
+                  return (
+                    <div key={label} style={{padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                        <span style={{fontWeight:600,fontSize:'0.82rem',color:'var(--ink)'}}>{label}</span>
+                        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                          <span style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'0.9rem',color}}> r = {res.r}</span>
+                          <span style={{fontFamily:'var(--font-mono)',fontSize:'0.72rem',color:'var(--muted)'}}>p = {res.p}</span>
+                          {SIG(res.sig)}
+                        </div>
+                      </div>
+                      <div style={{height:8,background:'var(--border)',borderRadius:99,overflow:'hidden'}}>
+                        <div style={{height:'100%',width:`${pct}%`,background:color,borderRadius:99,transition:'width 0.5s ease'}}/>
+                      </div>
+                      <div style={{fontSize:'0.65rem',color:'var(--muted)',marginTop:4}}>
+                        |r| = {absR.toFixed(3)} · n = {res.n} · {absR>=0.7?'Strong':absR>=0.4?'Moderate':absR>=0.2?'Weak':'Negligible'} {res.r>=0?'positive':'negative'} correlation
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{padding:'10px 14px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)',fontSize:'0.72rem',color:'var(--muted)'}}>
+              📌 <strong style={{color:'var(--ink)'}}>Interpretation guide:</strong> p &lt; 0.05 = statistically significant. |r| ≥ 0.7 = strong, 0.4–0.7 = moderate, 0.2–0.4 = weak correlation. ANOVA F-statistic compares between-group to within-group variance.
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -8747,7 +9810,7 @@ function AdminUsers({ currentUser }) {
   useEffect(()=>{load();},[statusFilter,search]);
 
   const upd=async(id,status)=>{const u=students.find(s=>s.id===id);await API.updateUserStatus(id,status);API.logAction(currentUser,`${status==='approved'?'Approved':status==='rejected'?'Rejected':'Updated'} user`,u?.name||id);toast.ok(`Account ${status}.`);load();};
-  const del=async id=>{const u=students.find(s=>s.id===id);if(!confirm('Delete this user and all their studies?'))return;await API.deleteUser(id);API.logAction(currentUser,'Deleted user',u?.name||id);toast.ok('User deleted.');load();};
+  const del=async id=>{const u=students.find(s=>s.id===id);if(!confirm('Delete this user? Their studies will be kept in the repository.'))return;await API.deleteUser(id);API.logAction(currentUser,'Deleted user',u?.name||id);toast.ok('User deleted.');load();};
 
   const toggleSelect=id=>setSelected(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});
   const toggleAll=(list)=>setSelected(s=>{const ids=list.map(u=>u.id);const allSel=ids.every(id=>s.has(id));const n=new Set(s);allSel?ids.forEach(id=>n.delete(id)):ids.forEach(id=>n.add(id));return n;});
@@ -10307,6 +11370,7 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
     {id:'analytics',label:'Analytics',icon:<Ico.eye/>},
     {id:'grade-overview',label:'Grade Overview',icon:<Ico.doc/>},
     {id:'audit-log',label:'Audit Log',icon:<Ico.settings/>},
+    {id:'stat-analysis',label:'Statistical Analysis',icon:<Ico.search/>},
     {id:'repository',label:'Repository',icon:<Ico.search/>},
     {id:'recognized',label:'Recognized Studies',icon:<Ico.award/>},
     {id:'announcements',label:'Announcements',icon:<Ico.bell/>},
@@ -10315,6 +11379,7 @@ const Sidebar = memo(function Sidebar({ currentUser, activeTab, setActiveTab, on
   const studentNav=[
     {id:'dashboard',label:'Dashboard',icon:<Ico.home/>},
     {id:'my-stats',label:'My Stats',icon:<Ico.eye/>},
+    {id:'stat-analysis',label:'Statistical Analysis',icon:<Ico.search/>},
     {id:'repository',label:'Browse Studies',icon:<Ico.book/>},
     {id:'recognized',label:'Recognized Studies',icon:<Ico.award/>},
     {id:'announcements',label:'Announcements',icon:<Ico.bell/>},
@@ -10820,6 +11885,239 @@ const NAV_TOUR_COPY = {
   },
 };
 
+// ══════════════════════════════════════════════════════════════════
+//  STATISTICAL ANALYSIS TOUR
+// ══════════════════════════════════════════════════════════════════
+function buildStatTourSteps(isTeacher) {
+  const shared = [
+    {
+      id: 'stat-welcome',
+      center: true,
+      eyebrow: 'Statistical Analysis Tutorial',
+      title: '🔬 Welcome to the Statistical Analysis Tool',
+      body: isTeacher
+        ? "This tool lets you run statistical analyses and publish the results for your students to study. Let's walk through how it works step by step."
+        : "This tool lets you run statistical analyses on your own data — no coding needed! Let's walk through each part so you know exactly what to do.",
+    },
+    {
+      id: 'stat-title-intro',
+      target: '[data-tour="stat-title"]',
+      placement: 'bottom',
+      eyebrow: 'Step 1 · Overview',
+      title: '🔬 Statistical Analysis Tool',
+      body: isTeacher
+        ? "From here you can create analyses and publish them for students, view previously saved analyses, or edit/delete existing ones."
+        : "Here you can view analyses your teacher has published, or run your own personal analysis using the buttons above.",
+    },
+    {
+      id: 'stat-how-to-use',
+      target: '[data-tour="stat-how-to-use"]',
+      placement: 'bottom',
+      eyebrow: 'Step 2 · This Tour',
+      title: '📖 How to Use Button',
+      body: "This is the button you just clicked! You can restart this tutorial at any time by clicking it again. It's always available so you never get lost.",
+    },
+  ];
+
+  const teacherSteps = [
+    {
+      id: 'stat-new-analysis',
+      target: '[data-tour="stat-new-analysis"]',
+      placement: 'bottom',
+      eyebrow: 'Step 3 · Creating Analyses',
+      title: '+ New Analysis',
+      body: "Click this to create a new statistical analysis. You'll be taken through a form where you enter your data, pick a test type, run the analysis, and then publish the results for students to view.",
+    },
+  ];
+
+  const studentSteps = [
+    {
+      id: 'stat-my-analysis',
+      target: '[data-tour="stat-my-analysis"]',
+      placement: 'bottom',
+      eyebrow: 'Step 3 · Your Sandbox',
+      title: '🧮 Run My Own Analysis',
+      body: "Click this to open your personal analysis sandbox. Enter your own data, pick a test, and get instant results — everything stays private and is not saved anywhere. Perfect for practicing or checking your research data.",
+    },
+  ];
+
+  const formSteps = [
+    {
+      id: 'stat-test-types-intro',
+      center: true,
+      eyebrow: 'Step 4 · Test Types',
+      title: '🧪 The 5 Statistical Tests',
+      body: "The tool supports five tests. Here's when to use each one:\n\n📊 Descriptive — Summarize your data (mean, median, SD, min, max).\n📐 T-Test — Compare two groups to see if their means are significantly different.\n⚗️ ANOVA — Compare three or more groups at once.\n🔗 Pearson — Measure the strength of a linear relationship between two variables.\nχ² Chi-Square — Test if observed counts match an expected distribution.",
+    },
+    {
+      id: 'stat-descriptive',
+      center: true,
+      eyebrow: 'Test Type: Descriptive',
+      title: '📊 Descriptive Statistics',
+      body: "Use this when you just want to summarize a set of numbers.\n\nEnter your values separated by commas or spaces, e.g.:\n  85, 90, 78, 92, 88\n\nYou'll get: Mean, Median, SD, Min, Max, and Variance.\n\nYou can add multiple groups to compare their descriptives side by side.",
+    },
+    {
+      id: 'stat-ttest',
+      center: true,
+      eyebrow: 'Test Type: T-Test',
+      title: '📐 Independent Samples T-Test',
+      body: "Use this when comparing the means of exactly two groups.\n\nExample: 'Did Group A score higher than Group B?'\n\nEnter Group A values: 85, 90, 78, 92\nEnter Group B values: 70, 75, 68, 80\n\nYou'll get: t-statistic, p-value, and degrees of freedom. If p < 0.05, the difference is statistically significant.",
+    },
+    {
+      id: 'stat-anova',
+      center: true,
+      eyebrow: 'Test Type: ANOVA',
+      title: '⚗️ One-Way ANOVA',
+      body: "Use this when comparing three or more groups.\n\nExample: 'Do Section A, B, and C have different average scores?'\n\nAdd as many groups as you need using the '+ Add Group' button. Each group needs at least 2 values.\n\nYou'll get an F-statistic and p-value. If p < 0.05, at least one group mean is significantly different.",
+    },
+    {
+      id: 'stat-pearson',
+      center: true,
+      eyebrow: 'Test Type: Pearson',
+      title: '🔗 Pearson Correlation',
+      body: "Use this when testing if two variables move together.\n\nExample: 'Does study time relate to test score?'\n\nEnter paired values (must be the same count):\n  Variable X (hours studied): 1, 2, 3, 4, 5\n  Variable Y (test score): 60, 65, 72, 80, 90\n\nYou'll get r (−1 to +1): closer to ±1 = stronger. p < 0.05 = significant.",
+    },
+    {
+      id: 'stat-chisquare',
+      center: true,
+      eyebrow: 'Test Type: Chi-Square',
+      title: 'χ² Chi-Square',
+      body: "Use this to test whether observed counts match what you'd expect if there were no pattern.\n\nExample: 'Are students equally distributed across 3 sections?'\n\nEnter the observed counts: 30, 25, 45\n\nThe tool assumes equal expected distribution and gives you a χ² statistic and p-value. If p < 0.05, the distribution is significantly unequal.",
+    },
+    {
+      id: 'stat-data-entry',
+      center: true,
+      eyebrow: 'Step 5 · Entering Data',
+      title: '⌨️ How to Enter Your Data',
+      body: "In the Data Input section, type your numbers separated by commas, spaces, or semicolons. All of these work:\n\n  85, 90, 78, 92, 88\n  85 90 78 92 88\n  85;90;78;92;88\n\nYou can also rename each group by clicking on the group name field. Non-numbers are automatically ignored.",
+    },
+    {
+      id: 'stat-pvalue',
+      center: true,
+      eyebrow: 'Step 6 · Reading Results',
+      title: '📈 Understanding Your Results',
+      body: "After running an analysis, look for:\n\n✅ p-value — If p < 0.05, the result is statistically significant (there's a real pattern, not just chance).\n\n✅ Significance badge — A green badge means significant, red means not significant.\n\n✅ Interpretation — Every result includes a plain-English sentence explaining what the numbers mean so you don't have to figure it out yourself.",
+    },
+  ];
+
+  const done = [
+    {
+      id: 'stat-done',
+      center: true,
+      eyebrow: 'Tutorial Complete',
+      title: "You're ready! 🎉",
+      body: isTeacher
+        ? "You now know how to use every part of the Statistical Analysis Tool. Click '+ New Analysis' to get started, or click '📖 How to Use' anytime to replay this tutorial."
+        : "You now know how to use every test in the tool. Click '🧮 Run My Own Analysis' to try it, or click '📖 How to Use' anytime to replay this tutorial.",
+    },
+  ];
+
+  return [
+    ...shared,
+    ...(isTeacher ? teacherSteps : studentSteps),
+    ...formSteps,
+    ...done,
+  ];
+}
+
+function StatTour({ isTeacher, onFinish }) {
+  const steps = useMemo(() => buildStatTourSteps(isTeacher), [isTeacher]);
+  const [stepIndex, setStepIndex] = useState(0);
+  const [rect, setRect] = useState(null);
+  const [ready, setReady] = useState(false);
+  const step = steps[stepIndex];
+
+  const goTo = useCallback(idx => {
+    if (idx < 0) return;
+    if (idx >= steps.length) { onFinish?.(); return; }
+    setReady(false);
+    setStepIndex(idx);
+  }, [steps.length, onFinish]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = () => {
+      if (cancelled) return;
+      if (step.center || !step.target) { setRect(null); setReady(true); return; }
+      const el = document.querySelector(step.target);
+      if (!el || el.offsetParent === null) { setRect(null); setReady(true); return; }
+      el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      const r = el.getBoundingClientRect();
+      setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+      setReady(true);
+    };
+    const raf = requestAnimationFrame(() => requestAnimationFrame(run));
+    return () => { cancelled = true; cancelAnimationFrame(raf); };
+  }, [stepIndex]);
+
+  useEffect(() => {
+    const onKey = e => {
+      if (e.key === 'Escape') onFinish?.();
+      else if (e.key === 'ArrowRight') goTo(stepIndex + 1);
+      else if (e.key === 'ArrowLeft') goTo(stepIndex - 1);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [stepIndex, goTo, onFinish]);
+
+  const PAD = 8;
+  let cardStyle = {};
+  if (!step.center && rect) {
+    const cardW = Math.min(360, window.innerWidth - 28);
+    const cardH = 320;
+    const vp = window.innerHeight;
+    let top, left;
+    switch (step.placement) {
+      case 'left':
+        left = rect.left - cardW - 16;
+        top = Math.min(Math.max(rect.top, 16), vp - cardH - 16);
+        if (left < 16) { left = rect.left + rect.width + 16; }
+        break;
+      case 'top':
+        top = rect.top - cardH - 12;
+        left = Math.min(Math.max(rect.left, 16), window.innerWidth - cardW - 16);
+        if (top < 16) top = rect.top + rect.height + 12;
+        break;
+      default:
+        top = rect.top + rect.height + 12;
+        left = Math.min(Math.max(rect.left, 16), window.innerWidth - cardW - 16);
+        if (top + cardH > vp - 16) top = Math.max(8, rect.top - cardH - 12);
+    }
+    top  = Math.max(8, Math.min(top,  vp - cardH - 8));
+    left = Math.max(8, Math.min(left, window.innerWidth - cardW - 8));
+    cardStyle = { top, left, width: cardW, maxHeight: vp - 32, overflowY: 'auto' };
+  }
+
+  return (
+    <>
+      <div className={`tour-overlay${step.center ? ' tour-center-bg' : ''}`} aria-hidden="true"/>
+      {rect && !step.center && (
+        <div className="tour-spotlight pulse" style={{ top: rect.top - PAD, left: rect.left - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2 }} aria-hidden="true"/>
+      )}
+      {ready && (
+        <div className={`tour-card${step.center ? ' tour-card-center' : ''}`} style={{...cardStyle, whiteSpace:'pre-line'}} role="dialog" aria-modal="true" aria-label={`Stats tutorial, step ${stepIndex + 1} of ${steps.length}`}>
+          <div className="tour-progress-bar-track" aria-hidden="true">
+            <div className="tour-progress-bar-fill" style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }}/>
+          </div>
+          <div className="tour-eyebrow">{step.eyebrow || 'Statistical Analysis Tutorial'}</div>
+          <h3>{step.title}</h3>
+          <p style={{whiteSpace:'pre-line'}}>{step.body}</p>
+          <div className="tour-card-footer">
+            <div className="tour-footer-row">
+              <span className="tour-step-counter">{stepIndex + 1} / {steps.length}</span>
+              <div className="tour-actions">
+                {stepIndex > 0 && <button className="tour-btn tour-btn-ghost" onClick={() => goTo(stepIndex - 1)}>Back</button>}
+                <button className="tour-btn tour-btn-primary" onClick={() => goTo(stepIndex + 1)}>{stepIndex === steps.length - 1 ? 'Done' : 'Next'}</button>
+              </div>
+            </div>
+          </div>
+          {stepIndex < steps.length - 1 && <button className="tour-skip" onClick={() => onFinish?.()}>Skip tutorial</button>}
+        </div>
+      )}
+    </>
+  );
+}
+
 function buildTourSteps(isAdmin) {
   const shared = [
     {
@@ -11023,6 +12321,15 @@ function buildTourSteps(isAdmin) {
       body: "Explore the full research repository — all studies submitted by students across every grade and section. Search by keyword, filter by category, and open any study to read it in full. You can also cite, download, or leave a review.",
     },
     {
+      id: 'nav-offline-reading',
+      target: '[data-tour="nav-offline-reading"]',
+      area: 'sidebar',
+      placement: 'right',
+      eyebrow: 'Navigation · Offline Reading',
+      title: '📥 Offline Reading',
+      body: "Save any study to your device so you can read it even without an internet connection. Open a study, tap Save Offline, and it will appear here — perfect for reading on the go or in areas with no signal.",
+    },
+    {
       id: 'nav-recognized',
       target: '[data-tour="nav-recognized"]',
       area: 'sidebar',
@@ -11217,6 +12524,7 @@ function App() {
   const [authChecked,setAuthChecked]=useState(false);
   const [loaderDone,setLoaderDone]=useState(false);
   const [activeTab,setActiveTab]=useState('dashboard');
+  const [offlineStudy,setOfflineStudy]=useState(null);
   const [accountModal,setAccountModal]=useState(null); // 'profile' | 'settings' | null
   const [pendingCount,setPendingCount]=useState(0);
   const [studyNotifCount,setStudyNotifCount]=useState(0);
@@ -11324,7 +12632,7 @@ function App() {
     return ()=>{try{unsub();}catch{}};
   },[]);
 
-  const titles={dashboard:'Dashboard',users:'User Management',analytics:'Class Analytics','grade-overview':'Grade Overview',announcements:'Announcements','studies-admin':'Manage Studies',categories:'Manage Categories','audit-log':'Audit Log',repository:'Research Repository',chatbot:'AI Research Assistant',recognized:'Recognized Studies','my-stats':'My Stats'};
+  const titles={dashboard:'Dashboard',users:'User Management',analytics:'Class Analytics','grade-overview':'Grade Overview',announcements:'Announcements','studies-admin':'Manage Studies',categories:'Manage Categories','audit-log':'Audit Log',repository:'Research Repository',chatbot:'AI Research Assistant',recognized:'Recognized Studies','my-stats':'My Stats','stat-analysis':'Statistical Analysis'};
 
   if(!authChecked || !loaderDone){
     // Keep React from rendering anything until auth is known AND the loader has fully faded out
@@ -11376,8 +12684,10 @@ function App() {
       case 'analytics':     return isAdmin?<AdminAnalytics currentUser={currentUser}/>:null;
       case 'grade-overview':return isAdmin?<GradeOverviewPage currentUser={currentUser}/>:null;
       case 'my-stats':      return !isAdmin?<MyStatsPage currentUser={currentUser}/>:null;
+      case 'stat-analysis': return <StatAnalysisTool currentUser={currentUser}/>;
       case 'audit-log':     return isAdmin?<AdminAuditLog/>:null;
       case 'repository':    return <StudiesPage currentUser={currentUser}/>;
+      case 'offline-reading': return !isAdmin?<OfflineReadingPage currentUser={currentUser} onOpenStudy={s=>{setOfflineStudy(s);}}/>:null;
       case 'recognized':    return <RecognizedStudiesPage currentUser={currentUser} isAdmin={isAdmin}/>;
       case 'announcements': return <AnnouncementsPage currentUser={currentUser}/>
       case 'chatbot':       return <ChatPage currentUser={currentUser}/>;
@@ -11516,6 +12826,22 @@ function App() {
           onOpenStudy={async s=>{
             const snap=await db.collection('studies').doc(s.studyId||s.id).get();
             if(snap.exists){const d={id:snap.id,...snap.data()};setGlobalSelectedStudy(d);trackRecentlyViewed(d);}
+          }}
+        />
+      )}
+      {offlineStudy && (
+        <StudyDetailModal
+          study={offlineStudy}
+          onClose={()=>setOfflineStudy(null)}
+          currentUser={currentUser}
+          onDelete={()=>{}}
+          allStudies={[]}
+          onOpenStudy={s=>{
+            // track view + recently viewed even from offline page (silently fails if offline)
+            API.trackStudy(s.id,'viewCount',currentUser).catch(()=>{});
+            API.setLastRead(currentUser.id,s).catch(()=>{});
+            trackRecentlyViewed(s);
+            setOfflineStudy({...s,viewCount:(s.viewCount||0)+1});
           }}
         />
       )}
