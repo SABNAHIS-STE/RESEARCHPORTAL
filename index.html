@@ -1,4 +1,4 @@
-z<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -5411,155 +5411,196 @@ const CRITERIA_LABELS = {
 // ══════════════════════════════════════════════════════════════════
 const PASSING_GRADES = new Set(['A+','A','A-','B+','B','B-','C+','C']);
 
-function generateCertificate(study, feedback) {
+function generateCertificate(study, feedback, currentUser) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const W = 297, H = 210;
 
-  // Background
-  doc.setFillColor(253, 248, 236);
-  doc.rect(0, 0, W, H, 'F');
+  // ── Resolve grade level & section from study first, then currentUser fallback ──
+  const gradeLevel = (study.uploaderGrade && study.uploaderGrade !== 'N/A' && study.uploaderGrade !== '')
+    ? study.uploaderGrade
+    : (currentUser && currentUser.gradeLevel && currentUser.gradeLevel !== '' ? currentUser.gradeLevel : null);
+  const section = (study.uploaderSection && study.uploaderSection !== 'N/A' && study.uploaderSection !== '')
+    ? study.uploaderSection
+    : (currentUser && currentUser.section && currentUser.section !== '' ? currentUser.section : null);
 
-  // Outer border — double rule
-  doc.setDrawColor(201, 162, 39);
-  doc.setLineWidth(3);
-  doc.rect(8, 8, W - 16, H - 16);
-  doc.setLineWidth(0.8);
-  doc.rect(11, 11, W - 22, H - 22);
-
-  // Corner ornaments
-  const corners = [[12,12],[W-12,12],[12,H-12],[W-12,H-12]];
-  doc.setFillColor(201, 162, 39);
-  corners.forEach(([cx,cy]) => { doc.circle(cx, cy, 2.5, 'F'); });
-
-  // Header band
-  doc.setFillColor(201, 162, 39);
-  doc.rect(11, 11, W - 22, 18, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text('SABNAHIS STE RESEARCH PORTAL', W / 2, 22, { align: 'center' });
-
-  // Title
-  doc.setTextColor(13, 15, 20);
-  doc.setFont('times', 'bold');
-  doc.setFontSize(26);
-  doc.text('Certificate of Recognition', W / 2, 50, { align: 'center' });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(74, 81, 116);
-  doc.text('This is to certify that the following research study has been reviewed and recognized', W / 2, 60, { align: 'center' });
-  doc.text('for its outstanding academic contribution.', W / 2, 66, { align: 'center' });
-
-  // Divider
-  doc.setDrawColor(201, 162, 39);
-  doc.setLineWidth(0.5);
-  doc.line(40, 71, W - 40, 71);
-
-  // Study Title
-  const titleText = study.title || 'Untitled Study';
-  doc.setFont('times', 'bolditalic');
-  doc.setFontSize(15);
-  doc.setTextColor(13, 15, 20);
-  const titleLines = doc.splitTextToSize('"' + titleText + '"', W - 80);
-  doc.text(titleLines, W / 2, 82, { align: 'center' });
-  const afterTitle = 82 + (titleLines.length - 1) * 7;
-
-  // Author
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(74, 81, 116);
-  doc.text('AUTHOR', W / 2, afterTitle + 11, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.setTextColor(13, 15, 20);
+  // ── Build full author list: main author + co-authors all together ──
   const mainAuthor = study.uploadedByName || (study.authors && study.authors[0]) || 'Unknown';
-  doc.text(mainAuthor, W / 2, afterTitle + 18, { align: 'center' });
-  let yNext = afterTitle + 18;
-
-  // Co-authors
-  const coAuthors = (study.coAuthors && study.coAuthors.length > 0)
+  const coAuthorNames = (study.coAuthors && study.coAuthors.length > 0)
     ? study.coAuthors.map(ca => ca.name || ca).filter(Boolean)
     : (study.authors || []).slice(1);
-  if (coAuthors.length > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(74, 81, 116);
-    doc.text('CO-AUTHOR(S)', W / 2, yNext + 10, { align: 'center' });
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(13, 15, 20);
-    doc.text(coAuthors.join('  ·  '), W / 2, yNext + 17, { align: 'center' });
-    yNext += 17;
-  } else {
-    yNext += 8;
+  const allAuthors = [mainAuthor, ...coAuthorNames];
+
+  // ── Helper: load image as base64 for embedding ──
+  function embedImage(url, callback) {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width; canvas.height = img.height;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      callback(canvas.toDataURL('image/png'), img.width, img.height);
+    };
+    img.onerror = () => callback(null, 0, 0);
+    img.src = url;
   }
 
-  // Meta row
-  const metaY = yNext + 16;
-  const cols = [
-    { label: 'YEAR', value: String(study.year || new Date().getFullYear()) },
-    { label: 'GRADE LEVEL', value: String(study.uploaderGrade || 'N/A') },
-    { label: 'SECTION', value: String(study.uploaderSection || 'N/A') },
-    { label: 'GRADE RECEIVED', value: (feedback.grade || '') + ' — ' + ((GRADE_LABELS[feedback.grade]||{}).desc||'') },
-  ];
-  const colW = (W - 80) / cols.length;
-  cols.forEach((col, i) => {
-    const cx = 40 + colW * i + colW / 2;
-    doc.setFillColor(245, 246, 250);
-    doc.roundedRect(40 + colW * i + 2, metaY - 8, colW - 4, 18, 3, 3, 'F');
+  function buildPDF(logo1Data, logo1W, logo1H, logo2Data, logo2W, logo2H) {
+    // Background
+    doc.setFillColor(253, 248, 236);
+    doc.rect(0, 0, W, H, 'F');
+
+    // Outer border — double rule
+    doc.setDrawColor(201, 162, 39);
+    doc.setLineWidth(3);
+    doc.rect(8, 8, W - 16, H - 16);
+    doc.setLineWidth(0.8);
+    doc.rect(11, 11, W - 22, H - 22);
+
+    // Corner ornaments
+    doc.setFillColor(201, 162, 39);
+    [[12,12],[W-12,12],[12,H-12],[W-12,H-12]].forEach(([cx,cy]) => doc.circle(cx, cy, 2.5, 'F'));
+
+    // Header band
+    doc.setFillColor(13, 15, 20);
+    doc.rect(11, 11, W - 22, 22, 'F');
+
+    // Logos in header
+    const logoSize = 14;
+    const logoY = 14;
+    if (logo1Data) {
+      const aspect1 = logo1W / logo1H;
+      doc.addImage(logo1Data, 'PNG', 17, logoY, logoSize * aspect1, logoSize);
+    }
+    if (logo2Data) {
+      const aspect2 = logo2W / logo2H;
+      doc.addImage(logo2Data, 'PNG', W - 17 - logoSize * aspect2, logoY, logoSize * aspect2, logoSize);
+    }
+
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('SABNAHIS STE RESEARCH PORTAL', W / 2, 20, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(201, 162, 39);
+    doc.text('Certificate of Academic Recognition', W / 2, 27, { align: 'center' });
+
+    // Main title
+    doc.setTextColor(13, 15, 20);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(22);
+    doc.text('Certificate of Recognition', W / 2, 47, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(74, 81, 116);
+    doc.text('This is to certify that the following research study has been reviewed and recognized', W / 2, 56, { align: 'center' });
+    doc.text('for its outstanding academic contribution.', W / 2, 62, { align: 'center' });
+
+    // Gold divider
+    doc.setDrawColor(201, 162, 39);
+    doc.setLineWidth(0.5);
+    doc.line(40, 66, W - 40, 66);
+
+    // Study title
+    const titleText = study.title || 'Untitled Study';
+    doc.setFont('times', 'bolditalic');
+    doc.setFontSize(13);
+    doc.setTextColor(13, 15, 20);
+    const titleLines = doc.splitTextToSize('"' + titleText + '"', W - 70);
+    doc.text(titleLines, W / 2, 74, { align: 'center' });
+    const afterTitle = 74 + (titleLines.length - 1) * 6.5;
+
+    // Authors section — ALL authors together
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(74, 81, 116);
+    const authLabel = allAuthors.length > 1 ? 'AUTHORS' : 'AUTHOR';
+    doc.text(authLabel, W / 2, afterTitle + 10, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(13, 15, 20);
+    // All authors on one line, separated by middle dot; wrap if needed
+    const authLine = allAuthors.join('  ·  ');
+    const authLines = doc.splitTextToSize(authLine, W - 70);
+    doc.text(authLines, W / 2, afterTitle + 17, { align: 'center' });
+    const afterAuth = afterTitle + 17 + (authLines.length - 1) * 6;
+
+    // Meta row
+    const metaY = afterAuth + 16;
+    const cols = [
+      { label: 'YEAR',          value: String(study.year || new Date().getFullYear()) },
+      { label: 'GRADE LEVEL',   value: gradeLevel || 'N/A' },
+      { label: 'SECTION',       value: section || 'N/A' },
+      { label: 'GRADE RECEIVED',value: (feedback.grade || '') + ' — ' + ((GRADE_LABELS[feedback.grade]||{}).desc||'') },
+    ];
+    const colW = (W - 80) / cols.length;
+    cols.forEach((col, i) => {
+      const cx = 40 + colW * i + colW / 2;
+      doc.setFillColor(245, 246, 250);
+      doc.roundedRect(40 + colW * i + 2, metaY - 8, colW - 4, 18, 3, 3, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(124, 133, 168);
+      doc.text(col.label, cx, metaY - 1, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(26, 127, 110);
+      doc.text(col.value, cx, metaY + 7, { align: 'center' });
+    });
+
+    // Signature lines
+    const sigY = metaY + 26;
+    doc.setDrawColor(201, 162, 39);
+    doc.setLineWidth(0.5);
+    doc.line(40, sigY + 14, 100, sigY + 14);
+    doc.line(W - 100, sigY + 14, W - 40, sigY + 14);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(74, 81, 116);
+    doc.text('Reviewed by', 70, sigY + 19, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(13, 15, 20);
+    doc.text(feedback.teacherName || 'Teacher', 70, sigY + 25, { align: 'center' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(74, 81, 116);
+    doc.text('Date Awarded', W - 70, sigY + 19, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(13, 15, 20);
+    const awardDate = feedback.gradedAt
+      ? new Date(feedback.gradedAt).toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' })
+      : new Date().toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' });
+    doc.text(awardDate, W - 70, sigY + 25, { align: 'center' });
+
+    // Footer band
+    doc.setFillColor(13, 15, 20);
+    doc.rect(11, H - 27, W - 22, 16, 'F');
+    doc.setTextColor(201, 162, 39);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.text('Score: ' + (feedback.totalScore || 0) + '/100', W / 2, H - 21, { align: 'center' });
+    doc.setFont('helvetica', 'italic');
     doc.setFontSize(7);
-    doc.setTextColor(124, 133, 168);
-    doc.text(col.label, cx, metaY - 1, { align: 'center' });
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(26, 127, 110);
-    doc.text(col.value, cx, metaY + 7, { align: 'center' });
+    doc.setTextColor(180, 180, 180);
+    doc.text('This certificate is an official recognition issued by SABNAHIS STE Research Portal. Unauthorized reproduction is prohibited.', W / 2, H - 15, { align: 'center' });
+
+    const safeTitle = (study.title || 'certificate').replace(/[^a-z0-9]/gi, '_').slice(0, 40);
+    doc.save('Certificate_' + safeTitle + '.pdf');
+  }
+
+  // Load both logos then build
+  embedImage(SCHOOL_LOGO_URL || '', (d1, w1, h1) => {
+    embedImage(SCHOOL_LOGO_URL2 || '', (d2, w2, h2) => {
+      buildPDF(d1, w1 || 1, h1 || 1, d2, w2 || 1, h2 || 1);
+    });
   });
-
-  // Signature lines
-  const sigY = metaY + 26;
-  doc.setDrawColor(201, 162, 39);
-  doc.setLineWidth(0.5);
-  doc.line(40, sigY + 14, 100, sigY + 14);
-  doc.line(W - 100, sigY + 14, W - 40, sigY + 14);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(74, 81, 116);
-  doc.text('Reviewed by', 70, sigY + 19, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(13, 15, 20);
-  doc.text(feedback.teacherName || 'Teacher', 70, sigY + 25, { align: 'center' });
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(74, 81, 116);
-  doc.text('Date Awarded', W - 70, sigY + 19, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(13, 15, 20);
-  const awardDate = feedback.gradedAt
-    ? new Date(feedback.gradedAt).toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' })
-    : new Date().toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' });
-  doc.text(awardDate, W - 70, sigY + 25, { align: 'center' });
-
-  // Footer band
-  doc.setFillColor(201, 162, 39);
-  doc.rect(11, H - 29, W - 22, 18, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(8);
-  doc.text('This certificate is an official recognition issued by SABNAHIS STE Research Portal. Unauthorized reproduction is prohibited.', W / 2, H - 22, { align: 'center' });
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.text('Score: ' + (feedback.totalScore || 0) + '/100', W / 2, H - 16, { align: 'center' });
-
-  const safeTitle = (study.title || 'certificate').replace(/[^a-z0-9]/gi, '_').slice(0, 40);
-  doc.save('Certificate_' + safeTitle + '.pdf');
 }
 
 function ScoreInput({ label, max, value, onChange, readOnly }) {
@@ -5775,7 +5816,7 @@ function TeacherFeedbackSection({ study, currentUser }) {
             <button
               className="btn btn-gold btn-sm"
               style={{flexShrink:0,display:'flex',alignItems:'center',gap:6}}
-              onClick={()=>generateCertificate(study, feedback)}>
+              onClick={()=>generateCertificate(study, feedback, currentUser)}>
               🏅 Download Certificate
             </button>
           </div>
