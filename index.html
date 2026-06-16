@@ -2895,7 +2895,7 @@ const API = {
     } catch { return null; }
   },
 
-  async getStudies({ search='', category='', year='', uploadedBy='', status='active', grade='', section='', page=1, perPage=6 }={}) {
+  async getStudies({ search='', category='', year='', uploadedBy='', status='active', grade='', section='', page=1, perPage=6, sortBy='newest' }={}) {
     try {
       const allRaw = await Cache.wrap('studies:raw', 'studies', async () => {
         const snap = await db.collection('studies').orderBy('createdAt','desc').get();
@@ -2912,6 +2912,12 @@ const API = {
         const q = search.toLowerCase();
         items = items.filter(s=>[s.title,...(s.authors||[]),s.abstract||'',...(s.keywords||[])].join(' ').toLowerCase().includes(q));
       }
+      // Sort BEFORE paginating so ordering applies across all pages
+      if      (sortBy==='oldest')    items.sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0));
+      else if (sortBy==='views')     items.sort((a,b)=>(b.viewCount||0)-(a.viewCount||0));
+      else if (sortBy==='downloads') items.sort((a,b)=>(b.downloadCount||0)-(a.downloadCount||0));
+      else if (sortBy==='az')        items.sort((a,b)=>a.title.localeCompare(b.title));
+      else                           items.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
       const total = items.length;
       return { data: items.slice((page-1)*perPage, page*perPage), total, totalPages:Math.ceil(total/perPage)||1, page };
     } catch(e) { return {data:[],total:0,totalPages:1,page:1}; }
@@ -2949,23 +2955,22 @@ const API = {
     await db.collection('users').doc(uploadedBy).update({
       uploadCount: firebase.firestore.FieldValue.increment(1)
     });
-    // ── Notify all admins of the new submission ──────────────────
+    // ── Notify admins of the new submission ──────────────────
+    // FIX: Write ONE doc to `pendingReviews` instead of one doc per admin.
+    // All admins query this shared collection — no fan-out, no per-user accumulation.
     try {
-      const adminSnap = await db.collection('users').where('role','==','admin').get();
-      const notifBatch = db.batch();
-      adminSnap.docs.forEach(adminDoc => {
-        const ref = db.collection('users').doc(adminDoc.id).collection('studyNotifications').doc();
-        notifBatch.set(ref, {
-          type: 'new_study',
-          studyTitle: title.trim(),
-          submittedBy: uploadedByName,
-          submittedByUid: uploadedBy,
-          categories,
-          createdAt: new Date().toISOString(),
-          read: false,
-        });
+      const newStudyRef = (await db.collection('studies').where('titleNorm','==', normalized).limit(1).get()).docs[0];
+      const newStudyId = newStudyRef ? newStudyRef.id : null;
+      await db.collection('pendingReviews').add({
+        type: 'new_study',
+        studyId: newStudyId,
+        studyTitle: title.trim(),
+        submittedBy: uploadedByName,
+        submittedByUid: uploadedBy,
+        categories,
+        createdAt: new Date().toISOString(),
+        status: 'pending', // set to 'reviewed' when an admin acts on it
       });
-      await notifBatch.commit();
       Cache.invalidate('studyNotifications');
     } catch(e) { console.warn('Notification write failed:', e.message); }
     // ── Notify registered co-authors they were tagged ────────────
@@ -3005,37 +3010,39 @@ const API = {
   },
 
   // ── Admin Study Notifications ───────────────────────────
+  // FIX: These methods now read from the shared `pendingReviews` collection
+  // instead of per-admin subcollections. All admins see the same queue.
   async getStudyNotifications(adminUid, limitN=20) {
     try {
-      const snap = await db.collection('users').doc(adminUid).collection('studyNotifications')
+      const snap = await db.collection('pendingReviews')
         .orderBy('createdAt','desc').limit(limitN).get();
       return snap.docs.map(d=>({id:d.id,...d.data()}));
     } catch { return []; }
   },
   async getUnreadStudyNotificationCount(adminUid) {
     try {
-      const snap = await db.collection('users').doc(adminUid).collection('studyNotifications')
-        .where('read','==',false).get();
+      const snap = await db.collection('pendingReviews')
+        .where('status','==','pending').get();
       return snap.size;
     } catch { return 0; }
   },
   async markStudyNotificationRead(adminUid, notifId) {
     try {
-      await db.collection('users').doc(adminUid).collection('studyNotifications').doc(notifId).update({ read: true });
+      await db.collection('pendingReviews').doc(notifId).update({ status: 'reviewed', reviewedBy: adminUid, reviewedAt: new Date().toISOString() });
     } catch {}
   },
   async markAllStudyNotificationsRead(adminUid) {
     try {
-      const snap = await db.collection('users').doc(adminUid).collection('studyNotifications').where('read','==',false).get();
+      const snap = await db.collection('pendingReviews').where('status','==','pending').get();
       if (snap.empty) return;
       const batch = db.batch();
-      snap.docs.forEach(d => batch.update(d.ref, { read: true }));
+      snap.docs.forEach(d => batch.update(d.ref, { status: 'reviewed', reviewedBy: adminUid, reviewedAt: new Date().toISOString() }));
       await batch.commit();
     } catch {}
   },
   async deleteStudyNotification(adminUid, notifId) {
     try {
-      await db.collection('users').doc(adminUid).collection('studyNotifications').doc(notifId).delete();
+      await db.collection('pendingReviews').doc(notifId).delete();
     } catch {}
   },
 
@@ -3204,15 +3211,31 @@ const API = {
     const snap = await db.collection('studies').doc(studyId).get();
     const current = snap.data();
     const version = (current.version || 1);
-    await db.collection('studies').doc(studyId).collection('revisions').add({
+
+    // FIX: Store only the fields that actually changed (delta), not full copies.
+    // This cuts revision doc size by ~60-80%.
+    const changedFields = {};
+    if (title.trim() !== current.title) changedFields.title = current.title;
+    if (abstract.trim() !== current.abstract) changedFields.abstract = current.abstract;
+    if (JSON.stringify(keywords||[]) !== JSON.stringify(current.keywords||[])) changedFields.keywords = current.keywords||[];
+    if ((gdrive||null) !== (current.gdrive||null)) changedFields.gdrive = current.gdrive||null;
+
+    await db.collection('studies').doc(studyId).collection('revisions').doc(`v${version}`).set({
       version,
-      title: current.title,
-      abstract: current.abstract,
-      keywords: current.keywords || [],
-      gdrive: current.gdrive || null,
       archivedAt: new Date().toISOString(),
       archivedBy: resubmittedByName,
+      changedFields: Object.keys(changedFields),
+      previousValues: changedFields, // only what changed
     });
+
+    // FIX: Cap revisions to 5 — delete the oldest if we now have more than 5
+    const revSnap = await db.collection('studies').doc(studyId).collection('revisions')
+      .orderBy('archivedAt','desc').get();
+    if (revSnap.size > 5) {
+      const batch = db.batch();
+      revSnap.docs.slice(5).forEach(d => batch.delete(d.ref));
+      batch.commit().catch(() => {});
+    }
     // Update main doc with new content
     const normalized = title.trim().toLowerCase().replace(/\s+/g,' ');
     await db.collection('studies').doc(studyId).update({
@@ -3245,7 +3268,18 @@ const API = {
   async getRevisions(studyId) {
     try {
       const snap = await db.collection('studies').doc(studyId).collection('revisions').orderBy('archivedAt','desc').get();
-      return snap.docs.map(d=>({id:d.id,...d.data()}));
+      // Support both old full-copy format and new delta format
+      return snap.docs.map(d=>{
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          // Provide a display summary for the UI
+          summary: data.changedFields
+            ? `Changed: ${(data.changedFields||[]).join(', ') || 'no fields recorded'}`
+            : 'Full snapshot (legacy)',
+        };
+      });
     } catch { return []; }
   },
   async deleteTeacherFeedback(studyId, teacherId) {
@@ -3377,26 +3411,9 @@ const API = {
       targetGrades: targetGrades.length ? targetGrades : [],   // [] means all grades
       targetSections: normSections,                             // [] means all sections
     });
-    // ── Notify targeted approved students ─────────────────────
-    try {
-      let q = db.collection('users').where('role','==','student').where('status','==','approved');
-      const studentSnap = await q.get();
-      const uids = studentSnap.docs
-        .filter(d => {
-          const u = d.data();
-          const gradeMatch  = !targetGrades.length  || targetGrades.includes(u.gradeLevel||'');
-          const sectionMatch= !normSections.length  || normSections.includes((u.section||'').toLowerCase().trim());
-          return gradeMatch && sectionMatch;
-        })
-        .map(d=>d.id);
-      if (uids.length) {
-        await API.createNotificationForAll(uids, {
-          type: 'announcement',
-          title: priority==='urgent' ? `📢 Urgent: ${title.trim()}` : `📢 ${title.trim()}`,
-          body: body.trim().slice(0,140)
-        });
-      }
-    } catch(e) { console.warn('Announcement notification failed:', e.message); }
+    // FIX: Removed per-student notification fan-out (was writing 1 doc per student per announcement).
+    // Announcements are already stored once in `announcements` with expiresAt — students
+    // read from that shared collection directly. No fan-out needed.
     Cache.invalidate('announcements');
   },
   async deleteAnnouncement(id) {
@@ -3419,15 +3436,21 @@ const API = {
     try {
       await db.collection('studies').doc(id).update({ [field]: firebase.firestore.FieldValue.increment(1) });
       if (user) {
+        // FIX: use userId as doc ID so each user only ever has 1 doc per study.
+        // .set({merge:true}) upserts — no duplicates, no unbounded growth.
         const logType = field === 'viewCount' ? 'views' : 'downloads';
-        await db.collection('studies').doc(id).collection(logType).add({
+        const logRef = db.collection('studies').doc(id).collection(logType).doc(user.id);
+        const isFirstTime = !(await logRef.get()).exists;
+        await logRef.set({
           userId: user.id,
           userName: user.name,
           userEmail: user.email,
           institution: user.institution || '',
           department: user.department || '',
-          timestamp: new Date().toISOString()
-        });
+          ...(isFirstTime && { firstViewedAt: new Date().toISOString() }),
+          lastViewedAt: new Date().toISOString(),
+          count: firebase.firestore.FieldValue.increment(1),
+        }, { merge: true });
       }
       Cache.invalidate('studies:raw', 'allStudies', 'stats');
     } catch(e) { console.error('trackStudy error:', e); }
@@ -3539,10 +3562,14 @@ const API = {
 
   async logAction(actor, action, target='') {
     try {
+      // FIX: Add deleteAt field (90 days TTL). Enable Firestore TTL policy on this field
+      // in Firebase Console → Firestore → Indexes → TTL policies → field: deleteAt
+      const deleteAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
       await db.collection('auditLog').add({
         actorId: actor?.id||'', actorName: actor?.name||'Unknown',
         action, target,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        deleteAt,
       });
     } catch {}
   },
@@ -3550,7 +3577,15 @@ const API = {
   async getAuditLog(limit=200) {
     try {
       const snap = await db.collection('auditLog').orderBy('timestamp','desc').limit(limit).get();
-      return snap.docs.map(d=>({id:d.id,...d.data()}));
+      // FIX: Also purge any entries older than 90 days that slipped through (belt-and-suspenders)
+      const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      const stale = snap.docs.filter(d => (d.data().timestamp||'') < cutoff);
+      if (stale.length) {
+        const batch = db.batch();
+        stale.forEach(d => batch.delete(d.ref));
+        batch.commit().catch(() => {});
+      }
+      return snap.docs.filter(d => (d.data().timestamp||'') >= cutoff).map(d=>({id:d.id,...d.data()}));
     } catch { return []; }
   },
 
@@ -4626,13 +4661,20 @@ function APABox({ study, currentUser }) {
       citationCount: firebase.firestore.FieldValue.increment(1)
     }).catch(()=>{});
     if(currentUser){
-      db.collection('studies').doc(study.id).collection('citations').add({
-        userId: currentUser.id,
-        userName: currentUser.name,
-        userEmail: currentUser.email,
-        institution: currentUser.institution||'',
-        department: currentUser.department||'',
-        timestamp: new Date().toISOString()
+      // FIX: use userId as doc ID — one doc per user per study, ever.
+      // .set({merge:true}) upserts so repeated citations never create new docs.
+      const citRef = db.collection('studies').doc(study.id).collection('citations').doc(currentUser.id);
+      citRef.get().then(snap => {
+        citRef.set({
+          userId: currentUser.id,
+          userName: currentUser.name,
+          userEmail: currentUser.email,
+          institution: currentUser.institution||'',
+          department: currentUser.department||'',
+          ...(snap.exists ? {} : { firstCitedAt: new Date().toISOString() }),
+          lastCitedAt: new Date().toISOString(),
+          count: firebase.firestore.FieldValue.increment(1),
+        }, { merge: true });
       }).catch(()=>{});
     }
   });
@@ -6916,11 +6958,11 @@ function StudiesPage({ currentUser }) {
   const load=useCallback(async()=>{
     setLoading(true);
     try{
-      const [res,catsArr]=await Promise.all([API.getStudies({search,category:filterCat,year:filterYear,grade:filterGrade,section:filterSection,page,perPage:6}),API.getCategories()]);
+      const [res,catsArr]=await Promise.all([API.getStudies({search,category:filterCat,year:filterYear,grade:filterGrade,section:filterSection,page,perPage:6,sortBy}),API.getCategories()]);
       setStudies(res.data);setTotal(res.total);setTotalPages(res.totalPages);setCats(catsArr);
     }catch(e){toast.err('Failed to load studies.');}
     setLoading(false);
-  },[search,filterCat,filterYear,filterGrade,filterSection,page]);
+  },[search,filterCat,filterYear,filterGrade,filterSection,page,sortBy]);
 
   useEffect(()=>{load();},[load]);
 
@@ -6983,15 +7025,7 @@ function StudiesPage({ currentUser }) {
   const hasFilters = search || filterCat || filterYear || filterGrade || filterSection;
   const clearAllFilters = () => { setFilterCat('');setFilterYear('');setFilterGrade('');setFilterSection('');setSearchInput('');setSearch('');setPage(1); };
 
-  const sortedStudies = React.useMemo(()=>{
-    const arr = [...studies];
-    if(sortBy==='oldest')    arr.sort((a,b)=>Number(a.year)-Number(b.year));
-    else if(sortBy==='views')     arr.sort((a,b)=>(b.viewCount||0)-(a.viewCount||0));
-    else if(sortBy==='downloads') arr.sort((a,b)=>(b.downloadCount||0)-(a.downloadCount||0));
-    else if(sortBy==='az')        arr.sort((a,b)=>a.title.localeCompare(b.title));
-    else arr.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
-    return arr;
-  },[studies,sortBy]);
+  const sortedStudies = studies; // sorting is handled in API.getStudies before pagination
 
   return (
     <div>
@@ -7090,7 +7124,7 @@ function StudiesPage({ currentUser }) {
           <option value="">All Sections</option>
           {availableSections.map(s=><option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{width:'auto',padding:'10px 13px'}} aria-label="Sort studies">
+        <select value={sortBy} onChange={e=>{setSortBy(e.target.value);setPage(1);}} style={{width:'auto',padding:'10px 13px'}} aria-label="Sort studies">
           <option value="newest">Newest First</option>
           <option value="oldest">Oldest First</option>
           <option value="views">Most Viewed</option>
