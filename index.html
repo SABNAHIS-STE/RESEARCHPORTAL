@@ -2955,6 +2955,19 @@ const API = {
     await db.collection('users').doc(uploadedBy).update({
       uploadCount: firebase.firestore.FieldValue.increment(1)
     });
+    // ── Increment uploadCount for registered co-authors too ──
+    try {
+      const registeredCoAuthorIds = (coAuthors || []).filter(ca => ca.userId && ca.registered).map(ca => ca.userId);
+      if (registeredCoAuthorIds.length > 0) {
+        const coBatch = db.batch();
+        registeredCoAuthorIds.forEach(uid => {
+          coBatch.update(db.collection('users').doc(uid), {
+            uploadCount: firebase.firestore.FieldValue.increment(1)
+          });
+        });
+        await coBatch.commit();
+      }
+    } catch(e) { console.warn('Co-author uploadCount increment failed:', e.message); }
     // ── Notify admins of the new submission ──────────────────
     // FIX: Write ONE doc to `pendingReviews` instead of one doc per admin.
     // All admins query this shared collection — no fan-out, no per-user accumulation.
@@ -2997,15 +3010,63 @@ const API = {
     Cache.invalidate('studies', 'allStudies', 'stats');
   },
 
-  async deleteStudy(id) { await db.collection('studies').doc(id).delete(); Cache.invalidate('studies', 'allStudies', 'stats'); },
+  async deleteStudy(id) {
+    try {
+      const snap = await db.collection('studies').doc(id).get();
+      if (snap.exists) {
+        const data = snap.data();
+        // Decrement uploadCount for the author
+        if (data.uploadedBy) {
+          await db.collection('users').doc(data.uploadedBy).update({ uploadCount: firebase.firestore.FieldValue.increment(-1) }).catch(()=>{});
+        }
+        // Decrement uploadCount for registered co-authors
+        const coAuthorIds = (data.coAuthors || []).filter(ca => ca.userId && ca.registered).map(ca => ca.userId);
+        if (coAuthorIds.length > 0) {
+          const batch = db.batch();
+          coAuthorIds.forEach(uid => batch.update(db.collection('users').doc(uid), { uploadCount: firebase.firestore.FieldValue.increment(-1) }));
+          await batch.commit().catch(()=>{});
+        }
+      }
+    } catch(e) { console.warn('deleteStudy cleanup failed:', e.message); }
+    await db.collection('studies').doc(id).delete();
+    Cache.invalidate('studies', 'allStudies', 'stats');
+  },
+
+  async updateStudy(id, { title, authors, coAuthors, abstract, keywords, categories, year, gdrive }) {
+    if (!title || !abstract) throw new Error('Title and abstract are required.');
+    if (!authors?.length)    throw new Error('At least one author is required.');
+    if (!categories?.length) throw new Error('At least one category is required.');
+    const normalized = title.trim().toLowerCase().replace(/\s+/g,' ');
+    // Duplicate check — allow same title only if it's this study's own title
+    const existing = await db.collection('studies').where('titleNorm','==',normalized).limit(1).get();
+    if (!existing.empty && existing.docs[0].id !== id) throw new Error(`⚠️ Another study already has this title: "${existing.docs[0].data().title}"`);
+    await db.collection('studies').doc(id).update({
+      title: title.trim(), titleNorm: normalized, authors, coAuthors: coAuthors || [],
+      abstract: abstract.trim(), keywords: keywords || [], categories,
+      year: parseInt(year) || new Date().getFullYear(),
+      gdrive: gdrive || null,
+      updatedAt: new Date().toISOString(),
+    });
+    Cache.invalidate('studies', 'allStudies', 'stats');
+  },
 
   async getCoAuthoredStudies(userId) {
     try {
+      // Get the user's name for fallback name-matching
+      let userName = '';
+      try { const u = await db.collection('users').doc(userId).get(); userName = (u.data()?.name || '').trim().toLowerCase(); } catch {}
       const all = await this.getAllStudies();
-      return all.filter(s =>
-        Array.isArray(s.coAuthors) &&
-        s.coAuthors.some(ca => ca.userId === userId)
-      );
+      return all.filter(s => {
+        if (s.uploadedBy === userId) return false; // own study, not co-authored
+        // 1. Match via coAuthors[] objects
+        if (Array.isArray(s.coAuthors) && s.coAuthors.some(ca =>
+          (ca.userId && ca.userId === userId) ||
+          (!ca.userId && userName && (ca.name || '').trim().toLowerCase() === userName)
+        )) return true;
+        // 2. Fallback: match via authors[] string array (skip index 0 = uploader)
+        if (userName && Array.isArray(s.authors) && s.authors.slice(1).some(a => (a || '').trim().toLowerCase() === userName)) return true;
+        return false;
+      });
     } catch { return []; }
   },
 
@@ -4561,7 +4622,7 @@ function TopbarAccount({ currentUser, isAdmin, onProfile, onSettings, onStartTou
   );
 }
 
-function Modal({ title, onClose, children, wide }) {
+function Modal({ title, onClose, children, wide, zIndex }) {
   useEffect(()=>{
     const esc = e=>e.key==='Escape'&&onClose?.();
     document.addEventListener('keydown',esc);
@@ -4569,7 +4630,7 @@ function Modal({ title, onClose, children, wide }) {
     return ()=>{ document.removeEventListener('keydown',esc); document.body.style.overflow=''; };
   },[onClose]);
   return (
-    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose?.()}>
+    <div className="overlay" style={zIndex?{zIndex}:{}} onClick={e=>e.target===e.currentTarget&&onClose?.()}>
       <div className="modal" style={wide?{maxWidth:740}:{}} role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-hd">
           <h2 className="modal-title">{title}</h2>
@@ -5150,10 +5211,14 @@ function OfflineReadingPage({ currentUser, onOpenStudy }) {
 
 //  STUDY DETAIL MODAL
 // ══════════════════════════════════════════════════════════════════
-function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[], onOpenStudy }) {
+function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[], onOpenStudy, onStudyUpdated }) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [liveStudy, setLiveStudy] = useState(study);
+  const isOwner = currentUser.id === liveStudy.uploadedBy;
   const canDel = currentUser.role==='admin';
-  const handleDL = () => { API.trackStudy(study.id,'downloadCount',currentUser); toast.ok('Download tracked!'); };
-  const gdriveData = study.gdrive || study.file || null;
+  const canEdit = currentUser.role==='admin' || isOwner;
+  const handleDL = () => { API.trackStudy(liveStudy.id,'downloadCount',currentUser); toast.ok('Download tracked!'); };
+  const gdriveData = liveStudy.gdrive || liveStudy.file || null;
   const gdriveUrl = gdriveData ? (gdriveData.driveUrl || gdriveData.viewUrl || null) : null;
   const gdriveDownload = gdriveData ? (gdriveData.downloadUrl || null) : null;
   const [faved, setFaved] = useState(false);
@@ -5163,16 +5228,15 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[]
   const [absExpanded, setAbsExpanded] = useState(false);
   const [savedOffline, setSavedOffline] = useState(false);
   const [offlineLoading, setOfflineLoading] = useState(false);
-  const isOwner = currentUser.id === study.uploadedBy;
   const ABS_CLAMP = 60;
-  const absWords = (study.abstract||'').split(/\s+/).filter(Boolean);
+  const absWords = (liveStudy.abstract||'').split(/\s+/).filter(Boolean);
   const absIsLong = absWords.length > ABS_CLAMP;
-  const absPreview = absIsLong ? absWords.slice(0, ABS_CLAMP).join(' ') + '…' : study.abstract;
+  const absPreview = absIsLong ? absWords.slice(0, ABS_CLAMP).join(' ') + '…' : liveStudy.abstract;
 
   useEffect(()=>{
-    API.isFavorited(currentUser.id, study.id).then(v=>{setFaved(v);setFavLoading(false);});
-    if(isOwner) API.getFavoritedBy(study.id).then(setFavBy);
-    OfflineDB.has(study.id).then(setSavedOffline);
+    API.isFavorited(currentUser.id, liveStudy.id).then(v=>{setFaved(v);setFavLoading(false);});
+    if(isOwner) API.getFavoritedBy(liveStudy.id).then(setFavBy);
+    OfflineDB.has(liveStudy.id).then(setSavedOffline);
   },[]);
 
   // Reading badge tracking — only counts toward badges after the student
@@ -5208,19 +5272,35 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[]
     } catch(e){ setFaved(prev); toast.err(e.message); } // revert on error
   };
   return (
-    <Modal title="Study Details" onClose={onClose} wide>
-      <div className="sc-cats" style={{marginBottom:12}}>{(study.categories||[]).map(c=><span key={c} className="sc-cat">{c}</span>)}</div>
-      <h2 className="sd-title">{study.title}</h2>
+    <>
+    {editOpen && (
+      <EditStudyModal
+        study={liveStudy}
+        onClose={() => setEditOpen(false)}
+        cats={[]}
+        onSaved={async () => {
+          // Reload the study from Firestore so the modal reflects edits immediately
+          try {
+            const snap = await db.collection('studies').doc(liveStudy.id).get();
+            if (snap.exists) setLiveStudy({ id: snap.id, ...snap.data() });
+          } catch {}
+          if (onStudyUpdated) onStudyUpdated();
+        }}
+      />
+    )}
+    <Modal title="Study Details" onClose={editOpen ? ()=>{} : onClose} wide>
+      <div className="sc-cats" style={{marginBottom:12}}>{(liveStudy.categories||[]).map(c=><span key={c} className="sc-cat">{c}</span>)}</div>
+      <h2 className="sd-title">{liveStudy.title}</h2>
       <div className="sd-auth" style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:6,marginBottom:10}}>
         <span style={{fontSize:'var(--text-xs)',color:'var(--muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.5px',flexShrink:0}}>Authors</span>
-        {(study.coAuthors && study.coAuthors.length > 0)
+        {(liveStudy.coAuthors && liveStudy.coAuthors.length > 0)
           ? [
               <span key="uploader" className="author-tag self" style={{fontSize:'var(--text-xs)'}}>
-                <span className="author-tag-avatar"><span>{(study.uploadedByName||(study.authors&&study.authors[0])||'?').charAt(0).toUpperCase()}</span></span>
-                <span style={{overflow:'hidden',textOverflow:'ellipsis',maxWidth:160}}>{study.uploadedByName||(study.authors&&study.authors[0])||'Unknown'}</span>
+                <span className="author-tag-avatar"><span>{(liveStudy.uploadedByName||(liveStudy.authors&&liveStudy.authors[0])||'?').charAt(0).toUpperCase()}</span></span>
+                <span style={{overflow:'hidden',textOverflow:'ellipsis',maxWidth:160}}>{liveStudy.uploadedByName||(liveStudy.authors&&liveStudy.authors[0])||'Unknown'}</span>
                 <span style={{fontSize:'0.6rem',opacity:0.6,fontWeight:400,marginLeft:1}}>(owner)</span>
               </span>,
-              ...study.coAuthors.map((ca,i)=>(
+              ...liveStudy.coAuthors.map((ca,i)=>(
                 <span key={i} className={`author-tag${ca.registered?' registered':''}`} style={{fontSize:'var(--text-xs)'}}>
                   <span className="author-tag-avatar"><span>{(ca.name||'?').charAt(0).toUpperCase()}</span></span>
                   <span style={{overflow:'hidden',textOverflow:'ellipsis',maxWidth:160}}>{ca.name}</span>
@@ -5228,7 +5308,7 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[]
                 </span>
               ))
             ]
-          : (study.authors||[]).map((a,i)=>(
+          : (liveStudy.authors||[]).map((a,i)=>(
               <span key={i} className={`author-tag${i===0?' self':''}`} style={{fontSize:'var(--text-xs)'}}>
                 <span className="author-tag-avatar"><span>{(a||'?').charAt(0).toUpperCase()}</span></span>
                 <span style={{overflow:'hidden',textOverflow:'ellipsis',maxWidth:160}}>{a}</span>
@@ -5237,18 +5317,18 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[]
         }
       </div>
       <div style={{display:'flex',gap:18,flexWrap:'wrap',marginBottom:16}}>
-        <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.eye/>{study.viewCount||0} views</span>
-        <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.dl/>{study.downloadCount||0} downloads</span>
-        <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}>📋 {study.citationCount||0} citations</span>
-        <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.cal/>{study.year}</span>
+        <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.eye/>{liveStudy.viewCount||0} views</span>
+        <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.dl/>{liveStudy.downloadCount||0} downloads</span>
+        <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}>📋 {liveStudy.citationCount||0} citations</span>
+        <span style={{fontSize:'0.82rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}><Ico.cal/>{liveStudy.year}</span>
       </div>
       <div className="ds" style={{marginBottom:16}}>
         <h4 style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           Abstract
-          <span style={{fontSize:'0.7rem',fontWeight:400,color:'var(--muted)',fontFamily:'var(--font-body)'}}>📖 {readingTime(study.abstract)}</span>
+          <span style={{fontSize:'0.7rem',fontWeight:400,color:'var(--muted)',fontFamily:'var(--font-body)'}}>📖 {readingTime(liveStudy.abstract)}</span>
         </h4>
         <p style={{lineHeight:1.7,color:'var(--ink-3)',fontSize:'var(--text-sm)',transition:'all .2s'}}>
-          {absIsLong && !absExpanded ? absPreview : study.abstract}
+          {absIsLong && !absExpanded ? absPreview : liveStudy.abstract}
         </p>
         {absIsLong&&(
           <button className="sc-abs-toggle" style={{marginTop:6}} onClick={()=>setAbsExpanded(v=>!v)} aria-expanded={absExpanded}>
@@ -5259,15 +5339,15 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[]
           </button>
         )}
       </div>
-      {(study.keywords||[]).length>0&&(
+      {(liveStudy.keywords||[]).length>0&&(
         <div style={{marginBottom:16}}>
           <div style={{fontSize:'0.72rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.8px',color:'var(--muted)',marginBottom:7}}>Keywords</div>
-          {(study.keywords||[]).map(k=><span key={k} className="kw">{k}</span>)}
+          {(liveStudy.keywords||[]).map(k=><span key={k} className="kw">{k}</span>)}
         </div>
       )}
       <div style={{marginBottom:16}}>
         <div style={{fontSize:'0.72rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.8px',color:'var(--muted)',marginBottom:7}}>APA Citation</div>
-        <APABox study={study} currentUser={currentUser}/>
+        <APABox study={liveStudy} currentUser={currentUser}/>
       </div>
       {gdriveUrl&&(
         <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--teal-light)',border:'1.5px solid var(--teal)',borderRadius:'var(--radius)',marginBottom:16}}>
@@ -5280,17 +5360,17 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[]
           {gdriveDownload&&<a href={gdriveDownload} target="_blank" rel="noopener noreferrer" onClick={handleDL} className="btn btn-ol btn-sm" style={{textDecoration:'none'}}><Ico.dl/> Download</a>}
         </div>
       )}
-      {study.uploadedByName&&(
+      {liveStudy.uploadedByName&&(
         <div style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',background:'var(--surface)',borderRadius:'var(--radius)',marginBottom:16}}>
-          <div className="avatar" style={{width:32,height:32,fontSize:'0.78rem'}}>{initials(study.uploadedByName)}</div>
+          <div className="avatar" style={{width:32,height:32,fontSize:'0.78rem'}}>{initials(liveStudy.uploadedByName)}</div>
           <div>
             <div style={{fontSize:'0.72rem',color:'var(--muted)'}}>Uploaded by</div>
-            <div style={{fontWeight:500,fontSize:'0.875rem'}}>{study.uploadedByName}</div>
+            <div style={{fontWeight:500,fontSize:'0.875rem'}}>{liveStudy.uploadedByName}</div>
           </div>
         </div>
       )}
-      <TeacherFeedbackSection study={study} currentUser={currentUser}/>
-      <ReviewsSection study={study} currentUser={currentUser}/>
+      <TeacherFeedbackSection study={liveStudy} currentUser={currentUser}/>
+      <ReviewsSection study={liveStudy} currentUser={currentUser}/>
       {/* Favorited By — only visible to study owner */}
       {isOwner&&favBy.length>0&&(
         <div style={{marginBottom:14,padding:'10px 14px',background:'var(--purple-light)',border:'1px solid var(--purple)',borderRadius:'var(--radius)'}}>
@@ -5328,11 +5408,11 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[]
               setOfflineLoading(true);
               try {
                 if(savedOffline){
-                  await OfflineDB.remove(study.id);
+                  await OfflineDB.remove(liveStudy.id);
                   setSavedOffline(false);
                   toast.ok('Removed from offline library.');
                 } else {
-                  await OfflineDB.save(study);
+                  await OfflineDB.save(liveStudy);
                   setSavedOffline(true);
                   toast.ok('📥 Saved for offline reading!');
                 }
@@ -5342,7 +5422,10 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[]
             {offlineLoading?<span className="spin" style={{width:13,height:13}}/>:<>{savedOffline?'📥 Saved Offline':'📥 Save Offline'}</>}
           </button>
         </div>
-        {canDel&&<button className="btn btn-red btn-sm" data-tip="Permanently remove this study" onClick={()=>{onDelete(study.id);onClose();}}><Ico.trash/> Delete Study</button>}
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {canEdit&&<button className="btn btn-ol btn-sm" data-tip={currentUser.role==='admin'?"Edit study details":"Edit your study"} onClick={()=>setEditOpen(true)}>✏️ Edit Study</button>}
+          {canDel&&<button className="btn btn-red btn-sm" data-tip="Permanently remove this study" onClick={()=>{onDelete(liveStudy.id);onClose();}}><Ico.trash/> Delete Study</button>}
+        </div>
       </div>
       {/* ── Similar Studies ── */}
       {(()=>{
@@ -5401,6 +5484,7 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies=[]
         );
       })()}
     </Modal>
+    </>
   );
 }
 
@@ -6468,6 +6552,137 @@ const loadDraft = uid => { try { const d=localStorage.getItem(DRAFT_KEY(uid)); r
 const saveDraft = (uid,data) => { try { localStorage.setItem(DRAFT_KEY(uid),JSON.stringify({...data,_savedAt:Date.now()})); } catch{} };
 const clearDraft = uid => { try { localStorage.removeItem(DRAFT_KEY(uid)); } catch{} };
 
+// ══════════════════════════════════════════════════════════════════
+//  EDIT STUDY MODAL  (teacher-only: edit authors, title, abstract, etc.)
+// ══════════════════════════════════════════════════════════════════
+function EditStudyModal({ study, onClose, onSaved, cats: catsProp=[] }) {
+  const [cats, setCats] = useState(catsProp);
+  useEffect(() => { if (!catsProp.length) API.getCategories().then(setCats).catch(()=>{}); }, []);
+  const initialTags = (() => {
+    // Reconstruct authorTags from stored coAuthors + uploadedByName
+    const self = { name: study.uploadedByName || (study.authors||[])[0] || '', userId: study.uploadedBy || null, registered: !!study.uploadedBy, self: true };
+    const coTags = Array.isArray(study.coAuthors) && study.coAuthors.length > 0
+      ? study.coAuthors.map(ca => ({ name: ca.name, userId: ca.userId || null, registered: !!ca.registered }))
+      : (study.authors || []).slice(1).map(n => ({ name: n, userId: null, registered: false }));
+    return [self, ...coTags];
+  })();
+
+  const [form, setForm]           = useState({ title: study.title || '', abstract: study.abstract || '', keywords: (study.keywords || []).join(', '), year: String(study.year || new Date().getFullYear()) });
+  const [authorTags, setAuthorTags] = useState(initialTags);
+  const [selCats, setSelCats]     = useState(study.categories || []);
+  const [gdriveUrl, setGdriveUrl] = useState(study.gdrive?.driveUrl || study.gdrive?.viewUrl || '');
+  const [gdriveInfo, setGdriveInfo] = useState(study.gdrive ? { viewUrl: study.gdrive.driveUrl || study.gdrive.viewUrl, downloadUrl: study.gdrive.downloadUrl, id: study.gdrive.driveId } : null);
+  const [loading, setLoading]     = useState(false);
+  const [titleDupe, setTitleDupe] = useState(null);
+  const titleCheckTimeout         = useRef(null);
+
+  const sf = (k, v) => {
+    setForm(f => ({ ...f, [k]: v }));
+    if (k === 'title') {
+      setTitleDupe(null);
+      clearTimeout(titleCheckTimeout.current);
+      if (v.trim().length > 4) {
+        titleCheckTimeout.current = setTimeout(async () => {
+          try {
+            const norm = v.trim().toLowerCase().replace(/\s+/g,' ');
+            const snap = await db.collection('studies').where('titleNorm','==',norm).limit(1).get();
+            // Only flag as dupe if it's a DIFFERENT study
+            setTitleDupe(!snap.empty && snap.docs[0].id !== study.id ? snap.docs[0].data().title : false);
+          } catch { setTitleDupe(false); }
+        }, 600);
+      }
+    }
+  };
+
+  const handleGdriveInput = val => {
+    setGdriveUrl(val);
+    const parsed = parseGDriveLink(val.trim());
+    setGdriveInfo(parsed);
+  };
+
+  const submit = async () => {
+    if (!form.title.trim())   { toast.err('Title is required.'); return; }
+    if (!authorTags.length)   { toast.err('At least one author is required.'); return; }
+    if (!form.abstract.trim()){ toast.err('Abstract is required.'); return; }
+    if (!selCats.length)      { toast.err('Select at least one category.'); return; }
+    setLoading(true);
+    try {
+      const authors   = authorTags.map(t => t.name);
+      const coAuthors = authorTags.slice(1).map(t => ({ name: t.name, userId: t.userId || null, registered: !!t.registered }));
+      const keywords  = form.keywords.split(',').map(k => k.trim()).filter(Boolean);
+      const gdrive    = gdriveInfo ? { driveUrl: gdriveInfo.viewUrl, downloadUrl: gdriveInfo.downloadUrl, driveId: gdriveInfo.id } : null;
+      await API.updateStudy(study.id, { title: form.title, authors, coAuthors, abstract: form.abstract, keywords, categories: selCats, year: form.year, gdrive });
+      toast.ok('Study updated successfully!');
+      onSaved();
+      onClose();
+    } catch(e) { toast.err(e.message); }
+    setLoading(false);
+  };
+
+  return (
+    <Modal title="✏️ Edit Study" onClose={onClose} wide zIndex={320}>
+      {/* Title */}
+      <div className="fg">
+        <label>Title *</label>
+        <input value={form.title} onChange={e => sf('title', e.target.value)} placeholder="Study title…" />
+        {titleDupe && <div style={{marginTop:5,fontSize:'0.75rem',color:'var(--red)'}}>⚠️ Another study already has this title.</div>}
+      </div>
+
+      {/* Authors */}
+      <div className="fg">
+        <label>Authors</label>
+        <AuthorTagInput tags={authorTags} onChange={setAuthorTags} currentUser={{ id: study.uploadedBy, name: study.uploadedByName }} />
+        <div style={{fontSize:'0.72rem',color:'var(--muted)',marginTop:4}}>First author is the uploader and cannot be removed.</div>
+      </div>
+
+      {/* Abstract */}
+      <div className="fg">
+        <label>Abstract *</label>
+        <textarea rows={6} value={form.abstract} onChange={e => sf('abstract', e.target.value)} placeholder="Study abstract…" style={{resize:'vertical'}} />
+      </div>
+
+      {/* Category */}
+      <div className="fg"><label>Category * <span style={{fontWeight:300,color:'var(--muted)'}}>(select 1–2)</span></label><CatPicker selected={selCats} onChange={setSelCats} max={2} cats={cats}/></div>
+
+      {/* Year + Keywords */}
+      <div className="fr">
+        <div className="fg"><label>Year</label><input type="number" min="1900" max="2099" value={form.year} onChange={e => sf('year', e.target.value)}/></div>
+        <div className="fg">
+          <label>Keywords <span style={{fontWeight:300,color:'var(--muted)'}}>(comma-separated)</span></label>
+          <input placeholder="e.g. robotics, AI, biology" value={form.keywords} onChange={e => sf('keywords', e.target.value)}/>
+        </div>
+      </div>
+
+      {/* Google Drive */}
+      <div className="fg">
+        <label>Google Drive Link <span style={{fontWeight:300,color:'var(--muted)',fontSize:'0.78rem'}}>(optional)</span></label>
+        {gdriveInfo ? (
+          <div className="gdrive-preview">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" style={{flexShrink:0}}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:600,fontSize:'0.82rem',marginBottom:2}}>Google Drive file linked</div>
+              <a href={gdriveInfo.viewUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:'0.73rem'}}>{gdriveInfo.viewUrl}</a>
+            </div>
+            <button className="gdrive-remove" onClick={() => { setGdriveUrl(''); setGdriveInfo(null); }} data-tip="Remove Google Drive link">✕</button>
+          </div>
+        ) : (
+          <div className="gdrive-input-wrap">
+            <input placeholder="Paste Google Drive link here…" value={gdriveUrl} onChange={e => handleGdriveInput(e.target.value)} style={{color:'var(--ink)'}}/>
+            {gdriveUrl && !gdriveInfo && <span style={{color:'var(--red)',fontSize:'0.75rem',flexShrink:0}}>Invalid link</span>}
+          </div>
+        )}
+      </div>
+
+      <div style={{display:'flex',gap:9,justifyContent:'flex-end',flexWrap:'wrap',marginTop:8}}>
+        <button className="btn btn-ol" onClick={onClose}>Cancel</button>
+        <button className="btn btn-gold" onClick={submit} disabled={loading || !!titleDupe}>
+          {loading ? <><span className="spin spin-dark"/>Saving…</> : <>✏️ Save Changes</>}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
   const draftKey = currentUser?.id;
   const existingDraft = loadDraft(draftKey);
@@ -6591,6 +6806,18 @@ function UploadModal({ onClose, currentUser, onUpload, cats=[] }) {
     if(!authorTags.length){toast.err('At least one author is required.');return;}
     if(!form.abstract.trim()){toast.err('Abstract is required.');return;}
     if(!selCats.length){toast.err('Select at least one category.');return;}
+    // Upload limit check: 1 own upload + 1 per co-authored study
+    try{
+      const [ownSnap,coAuthored]=await Promise.all([
+        db.collection('studies').where('uploadedBy','==',currentUser.id).where('status','==','active').get(),
+        API.getCoAuthoredStudies(currentUser.id),
+      ]);
+      const uploadLimit=1+coAuthored.length;
+      if(ownSnap.size>=uploadLimit){
+        toast.err(`Upload limit reached (${ownSnap.size}/${uploadLimit}). Get tagged as co-author to unlock more uploads.`);
+        setLoading(false);return;
+      }
+    }catch{/* allow through if check fails */}
     const topPlag=plagResults[0];
     if(topPlag&&topPlag.score>=0.5){
       toast.err('Abstract has high similarity ('+Math.round(topPlag.score*100)+'%) with an existing study. Please rewrite it.');
@@ -8291,16 +8518,51 @@ function GradeOverviewPage({ currentUser }) {
     }).catch(() => setLoading(false));
   }, []);
 
-  // Build per-student study map
+  // Build per-student study map (own uploads + co-authored studies)
+  // Co-authors matched by userId if registered, then by name in coAuthors[], then by name in authors[] string array
   const studyMap = useMemo(() => {
+    // name → student id fallback for free-text co-author tags (no userId saved)
+    const nameToId = {};
+    students.forEach(u => { nameToId[u.name.trim().toLowerCase()] = u.id; });
+
     const m = {};
     studies.forEach(s => {
-      if (!s.uploadedBy) return;
-      if (!m[s.uploadedBy]) m[s.uploadedBy] = [];
-      m[s.uploadedBy].push(s);
+      const uploaderKey = s.uploadedBy;
+      // Own upload
+      if (uploaderKey) {
+        if (!m[uploaderKey]) m[uploaderKey] = [];
+        if (!m[uploaderKey].find(x => x.id === s.id)) m[uploaderKey].push({ ...s, _role: 'author' });
+      }
+
+      // Build set of userIds already accounted for (uploader + coAuthors with userId)
+      const accounted = new Set([uploaderKey].filter(Boolean));
+
+      // 1. Match via coAuthors[] objects (userId first, then name fallback)
+      if (Array.isArray(s.coAuthors)) {
+        s.coAuthors.forEach(ca => {
+          const uid = ca.userId || nameToId[(ca.name || '').trim().toLowerCase()] || null;
+          if (!uid || accounted.has(uid)) return;
+          accounted.add(uid);
+          if (!m[uid]) m[uid] = [];
+          if (!m[uid].find(x => x.id === s.id)) m[uid].push({ ...s, _role: 'coauthor' });
+        });
+      }
+
+      // 2. Fallback: scan authors[] string array for any registered student not yet matched
+      // This catches studies where coAuthors[] was empty/missing but authors[] has the names
+      if (Array.isArray(s.authors)) {
+        s.authors.forEach((authorName, idx) => {
+          if (idx === 0) return; // first entry is always the uploader
+          const uid = nameToId[(authorName || '').trim().toLowerCase()];
+          if (!uid || accounted.has(uid)) return;
+          accounted.add(uid);
+          if (!m[uid]) m[uid] = [];
+          if (!m[uid].find(x => x.id === s.id)) m[uid].push({ ...s, _role: 'coauthor' });
+        });
+      }
     });
     return m;
-  }, [studies]);
+  }, [studies, students]);
 
   // All unique sections for the selected grade
   const sections = useMemo(() => {
@@ -8337,7 +8599,10 @@ function GradeOverviewPage({ currentUser }) {
   const sectionStats = useMemo(() => {
     const out = {};
     grouped.forEach(([sec, list]) => {
-      const studs = list.map(u => studyMap[u.id] || []).flat();
+      // Collect all studies (own + co-authored) for students in this section, deduplicated by study id
+      const seen = new Set();
+      const studs = [];
+      list.forEach(u => (studyMap[u.id] || []).forEach(s => { if (!seen.has(s.id)) { seen.add(s.id); studs.push(s); } }));
       const graded = studs.filter(s => s.teacherGrade);
       const gradeCounts = {};
       graded.forEach(s => { gradeCounts[s.teacherGrade] = (gradeCounts[s.teacherGrade] || 0) + 1; });
@@ -8349,15 +8614,17 @@ function GradeOverviewPage({ currentUser }) {
   }, [grouped, studyMap]);
 
   const exportCSV = () => {
-    const rows = [['Grade', 'Section', 'Student', 'Email', 'Uploads', 'Graded Studies', 'Avg Score', 'Grades']];
+    const rows = [['Grade', 'Section', 'Student', 'Email', 'Own Uploads', 'Co-authored', 'Graded Studies', 'Avg Score', 'Grades']];
     grouped.forEach(([sec, list]) => {
       list.forEach(u => {
         const studs = studyMap[u.id] || [];
+        const own = studs.filter(s => s._role === 'author');
+        const coa = studs.filter(s => s._role === 'coauthor');
         const graded = studs.filter(s => s.teacherGrade);
         const scores = graded.filter(s => s.teacherScore != null).map(s => s.teacherScore);
         const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : '';
-        const grades = graded.map(s => s.teacherGrade).join(', ');
-        rows.push([u.gradeLevel ? `Grade ${u.gradeLevel}` : '', sec, u.name, u.email, studs.length, graded.length, avg, grades]);
+        const grades = graded.map(s => (s._role === 'coauthor' ? `[co] ${s.teacherGrade}` : s.teacherGrade)).join(', ');
+        rows.push([u.gradeLevel ? `Grade ${u.gradeLevel}` : '', sec, u.name, u.email, own.length, coa.length, graded.length, avg, grades]);
       });
     });
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -8452,7 +8719,9 @@ function GradeOverviewPage({ currentUser }) {
               {/* Student rows */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {list.map(u => {
-                  const uStudies = studyMap[u.id] || [];
+                  const uStudies  = studyMap[u.id] || [];
+                  const ownStudies     = uStudies.filter(s => s._role === 'author');
+                  const coaStudies     = uStudies.filter(s => s._role === 'coauthor');
                   const graded   = uStudies.filter(s => s.teacherGrade);
                   const scores   = graded.filter(s => s.teacherScore != null).map(s => s.teacherScore);
                   const avg      = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
@@ -8464,11 +8733,16 @@ function GradeOverviewPage({ currentUser }) {
                         <div style={{ fontSize: '0.65rem', color: 'var(--muted)' }}>{u.email}</div>
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{uStudies.length} upload{uStudies.length !== 1 ? 's' : ''}</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                          {ownStudies.length} upload{ownStudies.length !== 1 ? 's' : ''}
+                          {coaStudies.length > 0 && <span style={{ marginLeft: 4, color: 'var(--teal)', fontWeight: 600 }}>+{coaStudies.length} co-authored</span>}
+                        </span>
                         {graded.length > 0 && (
                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                             {graded.map(s => (
-                              <span key={s.id} style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: 'var(--teal-light)', color: gradeColor(s.teacherGrade), border: `1px solid ${gradeColor(s.teacherGrade)}` }}>{s.teacherGrade}</span>
+                              <span key={s.id} title={s._role === 'coauthor' ? `Co-authored: ${s.title}` : s.title} style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: s._role === 'coauthor' ? 'var(--teal-light)' : 'var(--blue-light)', color: gradeColor(s.teacherGrade), border: `1px solid ${gradeColor(s.teacherGrade)}`, opacity: s._role === 'coauthor' ? 0.85 : 1 }}>
+                                {s._role === 'coauthor' && <span style={{ marginRight: 3 }}>🤝</span>}{s.teacherGrade}
+                              </span>
                             ))}
                           </div>
                         )}
@@ -8500,19 +8774,21 @@ function StudentDash({ currentUser }) {
   const [selectedStudy,setSelectedStudy]=useState(null);
   const [readCount,setReadCount]=useState(0);
   const [streakData,setStreakData]=useState({streak:0,longestStreak:0});
+  const [coAuthoredStudies,setCoAuthoredStudies]=useState([]);
 
   const load=async()=>{
     setLoading(true);
-    const [res,catsArr,allRes,lr,favs,readCnt,streak]=await Promise.all([
+    const [res,catsArr,allRes,lr,favs,readCnt,streak,coAuthored]=await Promise.all([
       API.getStudies({uploadedBy:currentUser.id,status:'active',perPage:100}),
       API.getCategories(),
       API.getStudies({perPage:1}),
       API.getLastRead(currentUser.id),
       API.getFavorites(currentUser.id),
       API.getReadCount(currentUser.id),
-      API.getStreak(currentUser.id)
+      API.getStreak(currentUser.id),
+      API.getCoAuthoredStudies(currentUser.id),
     ]);
-    setMyStudies(res.data);setCats(catsArr);setAllTotal(allRes.total);
+    setMyStudies(res.data);setCats(catsArr);setAllTotal(allRes.total);setCoAuthoredStudies(coAuthored);
     setLastRead(lr);setFavorites(favs);setReadCount(readCnt);setStreakData(streak);
     setLoading(false);
   };
@@ -8626,7 +8902,16 @@ function StudentDash({ currentUser }) {
 
       {selectedStudy&&<StudyDetailModal study={selectedStudy} onClose={()=>setSelectedStudy(null)} currentUser={currentUser} onDelete={async id=>{await API.deleteStudy(id);setSelectedStudy(null);load();}} allStudies={myStudies} onOpenStudy={async s=>{const snap=await db.collection('studies').doc(s.studyId||s.id).get();if(snap.exists){const d={id:snap.id,...snap.data()};setSelectedStudy(d);trackRecentlyViewed(d);}}}/>}
       <div className="card">
-        <div className="card-hd"><span className="card-title">My Uploaded Studies</span><button className="btn btn-gold btn-sm" onClick={()=>setShowUpload(true)}><Ico.up/> Upload New</button></div>
+        <div className="card-hd"><span className="card-title">My Uploaded Studies</span>
+          {(()=>{const uploadLimit=1+coAuthoredStudies.length;const canUpload=myStudies.length<uploadLimit;
+            return canUpload
+              ?<button className="btn btn-gold btn-sm" onClick={()=>setShowUpload(true)}><Ico.up/> Upload New</button>
+              :<span style={{display:'flex',alignItems:'center',gap:6}}>
+                  <span style={{background:'var(--red-light)',color:'var(--red)',borderRadius:99,padding:'3px 10px',fontWeight:600,fontSize:'0.72rem'}}>Limit reached ({myStudies.length}/{uploadLimit})</span>
+                  <span data-tip={`1 upload + 1 per co-authored study (${coAuthoredStudies.length} co-authored)`} style={{cursor:'help'}}>ℹ️</span>
+                </span>;
+          })()}
+        </div>
         {myStudies.length===0?(
           <EmptyState
             icon="📄"
@@ -10496,6 +10781,7 @@ function EditGradeModal({ user, onClose, onSaved }) {
 function AdminUsers({ currentUser }) {
   const [statusFilter,setStatusFilter]=useState('all');
   const [gradeFilter,setGradeFilter]=useState('all');
+  const [sectionFilter,setSectionFilter]=useState('');
   const [search,setSearch]=useState('');
   const [students,setStudents]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -10555,11 +10841,14 @@ function AdminUsers({ currentUser }) {
     toast.ok('Students exported!');
   };
 
-  // Filter by grade client-side (after API fetch)
+  // Filter by grade + section client-side (after API fetch)
   const filtered = React.useMemo(()=>{
-    if(gradeFilter==='all') return students;
-    return students.filter(u=>u.gradeLevel===gradeFilter);
-  },[students,gradeFilter]);
+    return students.filter(u=>{
+      if(gradeFilter!=='all' && u.gradeLevel!==gradeFilter) return false;
+      if(sectionFilter.trim() && !(u.section||'').toLowerCase().includes(sectionFilter.trim().toLowerCase())) return false;
+      return true;
+    });
+  },[students,gradeFilter,sectionFilter]);
 
   // Grouped view: grade → section → students
   const grouped = React.useMemo(()=>{
@@ -10643,6 +10932,7 @@ function AdminUsers({ currentUser }) {
 
       <div className="fb" style={{marginBottom:14}}>
         <div className="sb" style={{flex:1,minWidth:180}}><Ico.search/><input placeholder="Search by name, email, or school…" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search users"/></div>
+        <div className="sb" style={{flex:1,minWidth:160}}><span style={{fontSize:'0.9rem',flexShrink:0}}>🏷</span><input placeholder="Filter by section e.g. Isaac Newton…" value={sectionFilter} onChange={e=>setSectionFilter(e.target.value)} aria-label="Filter by section"/></div>
         <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} style={{width:'auto',padding:'10px 13px'}} aria-label="Filter by status">
           <option value="all">All Status</option>
           <option value="pending">Pending</option>
