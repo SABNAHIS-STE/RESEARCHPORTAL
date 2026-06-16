@@ -2672,6 +2672,7 @@ document.addEventListener('keydown', function(e) {
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef, useMemo, memo } = React;
 
@@ -4398,6 +4399,7 @@ const ADMIN_NAV_ITEMS = [
   {id:'categories',label:'Categories',icon:'tag'},
   {id:'analytics',label:'Analytics',icon:'eye'},
   {id:'grade-overview',label:'Grade Overview',icon:'doc'},
+  {id:'batch-grading',label:'Batch Grading',icon:'doc'},
   {id:'audit-log',label:'Audit Log',icon:'settings'},
   {id:'stat-analysis',label:'Statistical Analysis',icon:'search'},
   {id:'repository',label:'Repository',icon:'search'},
@@ -5445,7 +5447,7 @@ function generateCertificate(study, feedback, currentUser) {
     img.src = url;
   }
 
-  function buildPDF(logo1Data, logo1W, logo1H, logo2Data, logo2W, logo2H) {
+  async function buildPDF(logo1Data, logo1W, logo1H, logo2Data, logo2W, logo2H) {
     // Background
     doc.setFillColor(253, 248, 236);
     doc.rect(0, 0, W, H, 'F');
@@ -5590,6 +5592,30 @@ function generateCertificate(study, feedback, currentUser) {
     doc.setFontSize(7);
     doc.setTextColor(180, 180, 180);
     doc.text('This certificate is an official recognition issued by SABNAHIS STE Research Portal. Unauthorized reproduction is prohibited.', W / 2, H - 15, { align: 'center' });
+
+    // QR code — generate via canvas then embed
+    try {
+      const qrDiv = document.createElement('div');
+      document.body.appendChild(qrDiv);
+      new QRCode(qrDiv, {
+        text: window.location.href || 'https://sabnahis.portal',
+        width: 80, height: 80,
+        colorDark: '#0d0f14', colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      await new Promise(r => setTimeout(r, 120));
+      const qrCanvas = qrDiv.querySelector('canvas');
+      if (qrCanvas) {
+        const qrData = qrCanvas.toDataURL('image/png');
+        // Bottom-right corner of certificate above footer
+        doc.addImage(qrData, 'PNG', W - 48, H - 54, 24, 24);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.5);
+        doc.setTextColor(124, 133, 168);
+        doc.text('Scan to verify', W - 36, H - 28, { align:'center' });
+      }
+      document.body.removeChild(qrDiv);
+    } catch(e) { /* QR generation failed silently */ }
 
     const safeTitle = (study.title || 'certificate').replace(/[^a-z0-9]/gi, '_').slice(0, 40);
     doc.save('Certificate_' + safeTitle + '.pdf');
@@ -8488,6 +8514,7 @@ function StudentDash({ currentUser }) {
 
       
 
+
       <WeeklyHighlightsCard onOpenStudy={async s=>{
         const snap=await db.collection('studies').doc(s.id).get();
         if(snap.exists){const d={id:snap.id,...snap.data()};setSelectedStudy(d);trackRecentlyViewed(d);}
@@ -8926,6 +8953,125 @@ function StatAnalysisTool({ currentUser }) {
   );
 }
 
+// ── Shared: SVG mini scatter plot ─────────────────────────────
+function ScatterPlot({ pairs, labelX, labelY }) {
+  if(!pairs||pairs.length<2) return null;
+  const W=320,H=200,PAD=32;
+  const xs=pairs.map(p=>p[0]),ys=pairs.map(p=>p[1]);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const toX=v=>PAD+(maxX===minX?W/2:(v-minX)/(maxX-minX))*(W-PAD*2);
+  const toY=v=>H-PAD-(maxY===minY?H/2:(v-minY)/(maxY-minY))*(H-PAD*2);
+  // Regression line
+  const n=pairs.length,mx=statMean(xs),my=statMean(ys);
+  let num=0,den=0;
+  pairs.forEach(([x,y])=>{num+=(x-mx)*(y-my);den+=(x-mx)**2;});
+  const slope=den?num/den:0,intercept=my-slope*mx;
+  const lx1=minX,ly1=slope*lx1+intercept,lx2=maxX,ly2=slope*lx2+intercept;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:H,overflow:'visible'}}>
+      <line x1={PAD} y1={PAD} x2={PAD} y2={H-PAD} stroke="var(--border)" strokeWidth="1"/>
+      <line x1={PAD} y1={H-PAD} x2={W-PAD} y2={H-PAD} stroke="var(--border)" strokeWidth="1"/>
+      <line x1={toX(lx1)} y1={toY(ly1)} x2={toX(lx2)} y2={toY(ly2)} stroke="var(--gold)" strokeWidth="1.5" strokeDasharray="4 2" opacity="0.7"/>
+      {pairs.map(([x,y],i)=>(
+        <circle key={i} cx={toX(x)} cy={toY(y)} r={4} fill="var(--teal)" opacity="0.75" stroke="var(--white)" strokeWidth="1"/>
+      ))}
+      <text x={W/2} y={H-2} textAnchor="middle" fontSize="9" fill="var(--muted)">{labelX}</text>
+      <text x={6} y={H/2} textAnchor="middle" fontSize="9" fill="var(--muted)" transform={`rotate(-90,6,${H/2})`}>{labelY}</text>
+    </svg>
+  );
+}
+
+// ── Shared: SVG bar chart ─────────────────────────────
+function SVGBarChart({ data, color='var(--gold)', labelKey='label', valueKey='value', height=160 }) {
+  if(!data||!data.length) return null;
+  const W=360,H=height,PAD_L=8,PAD_B=28,PAD_T=16,PAD_R=8;
+  const max=Math.max(...data.map(d=>d[valueKey]),1);
+  const bw=(W-PAD_L-PAD_R)/data.length;
+  const gap=Math.max(2,bw*0.18);
+  const bwInner=bw-gap;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:H,overflow:'visible'}}>
+      {data.map((d,i)=>{
+        const bh=Math.max(2,((d[valueKey]||0)/max)*(H-PAD_T-PAD_B));
+        const x=PAD_L+i*bw+gap/2;
+        const y=H-PAD_B-bh;
+        const label=String(d[labelKey]||'').slice(0,10);
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={bwInner} height={bh} rx="3" fill={color} opacity="0.85"/>
+            <text x={x+bwInner/2} y={H-PAD_B+12} textAnchor="middle" fontSize="8" fill="var(--muted)">{label}</text>
+            <text x={x+bwInner/2} y={y-3} textAnchor="middle" fontSize="8" fontWeight="700" fill="var(--ink)">{d[valueKey]||0}</text>
+          </g>
+        );
+      })}
+      <line x1={PAD_L} y1={H-PAD_B} x2={W-PAD_R} y2={H-PAD_B} stroke="var(--border)" strokeWidth="1"/>
+    </svg>
+  );
+}
+
+// ── Shared: SVG Histogram ─────────────────────────────
+function SVGHistogram({ values, color='var(--blue)', bins=8, height=140 }) {
+  if(!values||values.length<2) return null;
+  const mn=Math.min(...values), mx=Math.max(...values);
+  if(mn===mx) return null;
+  const bw=(mx-mn)/bins;
+  const counts=Array(bins).fill(0);
+  values.forEach(v=>{const i=Math.min(bins-1,Math.floor((v-mn)/bw));counts[i]++;});
+  const maxC=Math.max(...counts,1);
+  const W=340,H=height,PL=10,PB=28,PT=14,PR=8;
+  const bwPx=(W-PL-PR)/bins;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:H}}>
+      {counts.map((c,i)=>{
+        const bh=Math.max(0,(c/maxC)*(H-PT-PB));
+        const x=PL+i*bwPx, y=H-PB-bh;
+        const label=(mn+i*bw).toFixed(1);
+        return <g key={i}>
+          <rect x={x+1} y={y} width={bwPx-2} height={bh} rx="2" fill={color} opacity="0.8"/>
+          <text x={x+bwPx/2} y={H-PB+12} textAnchor="middle" fontSize="7" fill="var(--muted)">{label}</text>
+          {c>0&&<text x={x+bwPx/2} y={y-3} textAnchor="middle" fontSize="8" fontWeight="700" fill="var(--ink)">{c}</text>}
+        </g>;
+      })}
+      <line x1={PL} y1={H-PB} x2={W-PR} y2={H-PB} stroke="var(--border)" strokeWidth="1"/>
+    </svg>
+  );
+}
+
+
+function APACopyBtn({ result, title }) {
+  const [copied,setCopied]=useState(false);
+  const genAPA=()=>{
+    const r=result;
+    if(!r) return '';
+    let s=`${title}\n\n`;
+    if(r.type==='Descriptive'){
+      r.groups.forEach(g=>{s+=`${g.label}: M = ${g.mean}, SD = ${g.sd}, n = ${g.n}${g.ci?`, 95% CI [${g.ci.lower}, ${g.ci.upper}]`:''}\n`;});
+    } else if(r.type==='T-Test'){
+      s+=`Welch's t-test: t(${r.df}) = ${r.t}, p = ${r.p}, d = ${r.d||'—'} (${r.dLabel||''} effect)${r.ci95?`, 95% CI for difference [${r.ci95.lower}, ${r.ci95.upper}]`:''} (${r.sig?'significant':'not significant'} at α = .05)\n`;
+      (r.desc||[]).forEach(d=>{s+=`${d.label}: M = ${d.mean}, SD = ${d.sd}, n = ${d.n}${d.ci?`, 95% CI [${d.ci.lower}, ${d.ci.upper}]`:''}\n`;});
+    } else if(r.type==='ANOVA'){
+      s+=`One-way ANOVA: F(${r.dfB}, ${r.dfW}) = ${r.F}, p = ${r.p}, η² = ${r.eta2||'—'} (${r.eta2Label||''} effect) (${r.sig?'significant':'not significant'} at α = .05)\n`;
+      (r.desc||[]).forEach(d=>{s+=`${d.label}: M = ${d.mean}, SD = ${d.sd}, n = ${d.n}\n`;});
+      if(r.tukey&&r.tukey.length){s+=`\nTukey HSD Post-Hoc:\n`;r.tukey.forEach(p=>{s+=`${p.g1} vs ${p.g2}: Δ = ${p.meanDiff}, q = ${p.q}, ${p.sig?'significant':'ns'}\n`;});}
+    } else if(r.type==='Pearson'){
+      s+=`Pearson correlation: r(${r.n-2}) = ${r.r}, p = ${r.p}, R² = ${r.r2||'—'} — ${Math.abs(r.r)>=0.7?'strong':Math.abs(r.r)>=0.4?'moderate':Math.abs(r.r)>=0.2?'weak':'negligible'} ${r.r>=0?'positive':'negative'} correlation (${r.sig?'significant':'not significant'} at α = .05)\n`;
+    } else if(r.type==='Spearman'){
+      s+=`Spearman rank correlation: rs(${r.n-2}) = ${r.r}, p = ${r.p}, R² = ${r.r2||'—'} — ${Math.abs(r.r)>=0.7?'strong':Math.abs(r.r)>=0.4?'moderate':Math.abs(r.r)>=0.2?'weak':'negligible'} ${r.r>=0?'positive':'negative'} correlation (${r.sig?'significant':'not significant'} at α = .05)\n`;
+    } else if(r.type==='Chi-Square'){
+      s+=`Chi-square goodness of fit: χ²(${r.df}) = ${r.chi2}, p = ${r.p} (${r.sig?'significant':'not significant'} at α = .05)\n`;
+    }
+    return s.trim();
+  };
+  const copy=()=>{
+    navigator.clipboard.writeText(genAPA()).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
+  };
+  return (
+    <button onClick={copy} className="btn btn-ol btn-sm" style={{display:'flex',alignItems:'center',gap:5,color:copied?'var(--teal)':'var(--muted)',borderColor:copied?'var(--teal)':'var(--border)'}}>
+      {copied?'✓ Copied!':'📋 Copy APA'}
+    </button>
+  );
+}
+
 // ── Modal: Teacher creates / edits an analysis ─────────────────
 function StatCreateModal({ currentUser, existing, allowSave=true, onClose, onSaved }) {
   const [title, setTitle]     = useState(existing?.title||'');
@@ -8936,7 +9082,7 @@ function StatCreateModal({ currentUser, existing, allowSave=true, onClose, onSav
   const [result, setResult]   = useState(existing?.result||null);
   const [error,  setError]    = useState('');
 
-  const TEST_TYPES = ['Descriptive','T-Test','ANOVA','Pearson','Chi-Square'];
+  const TEST_TYPES = ['Descriptive','T-Test','ANOVA','Pearson','Spearman','Chi-Square'];
 
   const parseVals = str => str.split(/[\s,;]+/).map(Number).filter(n=>!isNaN(n)&&n!==undefined&&str.trim()!=='');
 
@@ -8945,8 +9091,8 @@ function StatCreateModal({ currentUser, existing, allowSave=true, onClose, onSav
   const setGroupLabel = (i,v) => setGroups(g=>g.map((x,j)=>j===i?{...x,label:v}:x));
   const setGroupVals  = (i,v) => setGroups(g=>g.map((x,j)=>j===i?{...x,values:v}:x));
 
-  const needsGroups = {'T-Test':2,'ANOVA':'2+','Pearson':2,'Chi-Square':1};
-  const groupHints  = {'Descriptive':'Enter your data values separated by commas or spaces.','T-Test':'Enter two groups to compare their means.','ANOVA':'Enter 2 or more groups to compare across categories.','Pearson':'Enter two sets of paired values (same length).','Chi-Square':'Enter observed counts for each category.'};
+  const needsGroups = {'T-Test':2,'ANOVA':'2+','Pearson':2,'Spearman':2,'Chi-Square':1};
+  const groupHints  = {'Descriptive':'Enter your data values separated by commas or spaces.','T-Test':'Enter two groups to compare their means.','ANOVA':'Enter 2 or more groups to compare across categories.','Pearson':'Enter two sets of paired values (same length) — tests linear relationship.','Spearman':'Enter two sets of paired values (same length) — tests monotonic/ranked relationship, robust to outliers.','Chi-Square':'Enter observed counts for each category.'};
 
   const runAnalysis = () => {
     setError('');
@@ -8958,26 +9104,48 @@ function StatCreateModal({ currentUser, existing, allowSave=true, onClose, onSav
     let res = {};
     try {
       if(testType==='Descriptive') {
-        const all = parsed[0].values;
         res = { type:'Descriptive', groups: parsed.map(g=>({
           label:g.label, n:g.values.length, mean:+statMean(g.values).toFixed(4),
           sd:+statSD(g.values).toFixed(4), median:+statMedian(g.values).toFixed(4),
           min:statMin(g.values), max:statMax(g.values),
           variance:+statVariance(g.values).toFixed(4),
+          ci: ciMean(g.values),
+          values: g.values,
         }))};
       } else if(testType==='T-Test') {
         if(parsed.length<2||parsed[0].values.length<2||parsed[1].values.length<2){ setError('T-Test requires 2 groups with at least 2 values each.'); return; }
+        const d = cohensD(parsed[0].values, parsed[1].values);
+        const ci = ciMeanDiff(parsed[0].values, parsed[1].values);
         res = { type:'T-Test', labels:[parsed[0].label,parsed[1].label], ...tTest2(parsed[0].values,parsed[1].values),
-          desc: parsed.map(g=>({label:g.label,n:g.values.length,mean:+statMean(g.values).toFixed(4),sd:+statSD(g.values).toFixed(4)}))};
+          d, dLabel:cohensDLabel(d), ci95: ci,
+          desc: parsed.map(g=>({label:g.label,n:g.values.length,mean:+statMean(g.values).toFixed(4),sd:+statSD(g.values).toFixed(4),ci:ciMean(g.values)}))};
       } else if(testType==='ANOVA') {
         if(parsed.length<2){ setError('ANOVA requires at least 2 groups.'); return; }
         const gvals = parsed.map(g=>g.values).filter(v=>v.length>0);
-        res = { type:'ANOVA', labels:parsed.map(g=>g.label), ...anovaOneway(gvals),
-          desc: parsed.map(g=>({label:g.label,n:g.values.length,mean:+statMean(g.values).toFixed(4),sd:+statSD(g.values).toFixed(4)}))};
+        const labels = parsed.map(g=>g.label);
+        const anovaRes = anovaOneway(gvals);
+        const allVals = gvals.flat();
+        const SST = allVals.reduce((s,x)=>s+(x-statMean(allVals))**2,0);
+        const eta2 = etaSquared(anovaRes.SSB||0, SST);
+        const tukey = anovaRes.sig ? tukeyHSD(gvals, labels) : null;
+        res = { type:'ANOVA', labels, ...anovaRes, eta2, eta2Label:etaLabel(eta2), tukey,
+          desc: parsed.map(g=>({label:g.label,n:g.values.length,mean:+statMean(g.values).toFixed(4),sd:+statSD(g.values).toFixed(4),ci:ciMean(g.values)}))};
       } else if(testType==='Pearson') {
         if(parsed.length<2){ setError('Pearson requires 2 variables.'); return; }
         if(parsed[0].values.length!==parsed[1].values.length){ setError('Both variables must have the same number of values.'); return; }
-        res = { type:'Pearson', labelX:parsed[0].label, labelY:parsed[1].label, ...pearson(parsed[0].values,parsed[1].values),
+        const pr = pearson(parsed[0].values,parsed[1].values);
+        res = { type:'Pearson', labelX:parsed[0].label, labelY:parsed[1].label, ...pr,
+          r2:+(pr.r**2).toFixed(4),
+          descX:{n:parsed[0].values.length,mean:+statMean(parsed[0].values).toFixed(4),sd:+statSD(parsed[0].values).toFixed(4)},
+          descY:{n:parsed[1].values.length,mean:+statMean(parsed[1].values).toFixed(4),sd:+statSD(parsed[1].values).toFixed(4)},
+          pairs: parsed[0].values.map((v,i)=>([v,parsed[1].values[i]])),
+        };
+      } else if(testType==='Spearman') {
+        if(parsed.length<2){ setError('Spearman requires 2 variables.'); return; }
+        if(parsed[0].values.length!==parsed[1].values.length){ setError('Both variables must have the same number of values.'); return; }
+        const sr = spearman(parsed[0].values,parsed[1].values);
+        res = { type:'Spearman', labelX:parsed[0].label, labelY:parsed[1].label, ...sr,
+          r2:+(sr.r**2).toFixed(4),
           descX:{n:parsed[0].values.length,mean:+statMean(parsed[0].values).toFixed(4),sd:+statSD(parsed[0].values).toFixed(4)},
           descY:{n:parsed[1].values.length,mean:+statMean(parsed[1].values).toFixed(4),sd:+statSD(parsed[1].values).toFixed(4)},
           pairs: parsed[0].values.map((v,i)=>([v,parsed[1].values[i]])),
@@ -8985,8 +9153,7 @@ function StatCreateModal({ currentUser, existing, allowSave=true, onClose, onSav
       } else if(testType==='Chi-Square') {
         const obs = parsed[0].values;
         if(obs.length<2){ setError('Chi-Square needs at least 2 categories.'); return; }
-        const cats = groups[0].values.split(/[\s,;]+/).filter(v=>v.trim()&&!isNaN(Number(v)));
-        res = { type:'Chi-Square', labels: parsed.slice(1).map(g=>g.label).length ? parsed.slice(1).map(g=>g.label) : obs.map((_,i)=>`Cat ${i+1}`),
+        res = { type:'Chi-Square', labels: obs.map((_,i)=>`Cat ${i+1}`),
           observed:obs, expected:+(obs.reduce((a,b)=>a+b,0)/obs.length).toFixed(2),
           ...chiSquare(obs) };
       }
@@ -9018,7 +9185,7 @@ function StatCreateModal({ currentUser, existing, allowSave=true, onClose, onSav
     </span>
   );
 
-  const numGroups = testType==='Descriptive'?1:testType==='Chi-Square'?1:testType==='Pearson'?2:groups.length;
+  const numGroups = testType==='Descriptive'?1:testType==='Chi-Square'?1:testType==='Pearson'||testType==='Spearman'?2:groups.length;
   const canAddGroup = testType==='ANOVA' || testType==='Descriptive';
 
   return (
@@ -9053,7 +9220,7 @@ function StatCreateModal({ currentUser, existing, allowSave=true, onClose, onSav
           <label style={{fontSize:'0.78rem',fontWeight:600,color:'var(--ink)',display:'block',marginBottom:8}}>Statistical Test</label>
           <div data-tour="stat-test-types" style={{display:'flex',gap:6,flexWrap:'wrap'}}>
             {TEST_TYPES.map(t=>(
-              <button key={t} onClick={()=>{setTestType(t);setGroups(t==='Pearson'?[{label:'Variable X',values:''},{label:'Variable Y',values:''}]:t==='T-Test'?[{label:'Group A',values:''},{label:'Group B',values:''}]:[{label:'Group 1',values:''}]);setResult(null);}}
+              <button key={t} onClick={()=>{setTestType(t);setGroups(t==='Pearson'||t==='Spearman'?[{label:'Variable X',values:''},{label:'Variable Y',values:''}]:t==='T-Test'?[{label:'Group A',values:''},{label:'Group B',values:''}]:[{label:'Group 1',values:''}]);setResult(null);}}
                 style={{padding:'6px 14px',borderRadius:8,border:`1.5px solid ${testType===t?'var(--gold)':'var(--border)'}`,background:testType===t?'var(--gold-bg)':'var(--surface)',color:testType===t?'var(--gold)':'var(--muted)',fontWeight:testType===t?700:400,fontSize:'0.8rem',cursor:'pointer'}}>
                 {t}
               </button>
@@ -9069,7 +9236,7 @@ function StatCreateModal({ currentUser, existing, allowSave=true, onClose, onSav
             {canAddGroup && <button onClick={addGroup} className="btn btn-ol btn-sm">+ Add Group</button>}
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
-            {(testType==='T-Test'?groups.slice(0,2):testType==='Pearson'?groups.slice(0,2):testType==='Chi-Square'?groups.slice(0,1):groups).map((g,i)=>(
+            {(testType==='T-Test'?groups.slice(0,2):testType==='Pearson'||testType==='Spearman'?groups.slice(0,2):testType==='Chi-Square'?groups.slice(0,1):groups).map((g,i)=>(
               <div key={i} style={{padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)'}}>
                 <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
                   <input value={g.label} onChange={e=>setGroupLabel(i,e.target.value)}
@@ -9095,9 +9262,12 @@ function StatCreateModal({ currentUser, existing, allowSave=true, onClose, onSav
 
         {result && (
           <div style={{padding:'16px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)',marginBottom:16}}>
-            <div style={{fontWeight:700,fontSize:'0.88rem',marginBottom:12,color:'var(--ink)'}}>📊 Results Preview</div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+              <div style={{fontWeight:700,fontSize:'0.88rem',color:'var(--ink)'}}>📊 Results Preview</div>
+              <APACopyBtn result={result} title={title}/>
+            </div>
 
-            {result.type==='Descriptive' && result.groups.map(g=>(
+            {result.type==='Descriptive' && result.groups.map((g,gi)=>(
               <div key={g.label} style={{marginBottom:10}}>
                 <div style={{fontWeight:600,fontSize:'0.78rem',color:'var(--muted)',marginBottom:6,textTransform:'uppercase'}}>{g.label}</div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:8}}>
@@ -9108,57 +9278,49 @@ function StatCreateModal({ currentUser, existing, allowSave=true, onClose, onSav
                     </div>
                   ))}
                 </div>
+                {g.ci&&<div style={{marginTop:6,fontSize:'0.7rem',color:'var(--muted)'}}>95% CI: [{g.ci.lower}, {g.ci.upper}]</div>}
               </div>
             ))}
+            {result.type==='Descriptive'&&result.groups.length>1&&(
+              <div style={{marginTop:10,padding:'10px',background:'var(--white)',borderRadius:8,border:'1px solid var(--border)'}}>
+                <div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:4,fontWeight:600}}>Group Means Comparison</div>
+                <SVGBarChart data={result.groups.map(g=>({label:g.label,value:parseFloat(g.mean)||0}))} color="var(--blue)" height={110}/>
+              </div>
+            )}
 
-            {result.type==='T-Test' && <>
+            {(result.type==='T-Test'||result.type==='ANOVA') && <>
               <div style={{display:'flex',gap:10,marginBottom:10,flexWrap:'wrap'}}>
-                {[['t',result.t],['p-value',result.p],['df',result.df]].map(([l,v])=>(
-                  <div key={l} style={{padding:'10px 14px',background:'var(--white)',borderRadius:8,border:'1px solid var(--border)',flex:1,minWidth:90}}>
+                {(result.type==='T-Test'?[['t',result.t],['p-value',result.p],['df',result.df],["d",result.d!==undefined?result.d:'—'],['Effect',result.dLabel||'—']]:[['F',result.F],['p-value',result.p],['df Between',result.dfB],['df Within',result.dfW],['η²',result.eta2!==undefined?result.eta2:'—'],['Effect',result.eta2Label||'—']]).map(([l,v])=>(
+                  <div key={l} style={{padding:'10px 14px',background:'var(--white)',borderRadius:8,border:'1px solid var(--border)',flex:1,minWidth:80}}>
                     <div style={{fontSize:'0.62rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600}}>{l}</div>
-                    <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.1rem',color:'var(--teal)'}}>{v}</div>
+                    <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.0rem',color:result.type==='T-Test'?'var(--teal)':'var(--purple)'}}>{v}</div>
                   </div>
                 ))}
               </div>
-              <div style={{marginBottom:8}}>{SIG(result.sig)}</div>
-              <div style={{display:'flex',gap:8}}>
-                {result.desc.map(d=>(
-                  <div key={d.label} style={{flex:1,padding:'8px 10px',background:'var(--white)',borderRadius:7,border:'1px solid var(--border)'}}>
-                    <div style={{fontSize:'0.72rem',fontWeight:600,color:'var(--muted)',marginBottom:3}}>{d.label}</div>
-                    <div style={{fontSize:'0.78rem'}}><b>M</b> = {d.mean} &nbsp; <b>SD</b> = {d.sd} &nbsp; <b>n</b> = {d.n}</div>
-                  </div>
-                ))}
-              </div>
-            </>}
-
-            {result.type==='ANOVA' && <>
-              <div style={{display:'flex',gap:10,marginBottom:10,flexWrap:'wrap'}}>
-                {[['F',result.F],['p-value',result.p],['df Between',result.dfB],['df Within',result.dfW]].map(([l,v])=>(
-                  <div key={l} style={{padding:'10px 14px',background:'var(--white)',borderRadius:8,border:'1px solid var(--border)',flex:1,minWidth:90}}>
-                    <div style={{fontSize:'0.62rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600}}>{l}</div>
-                    <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.1rem',color:'var(--purple)'}}>{v}</div>
-                  </div>
-                ))}
-              </div>
+              {result.ci95&&<div style={{fontSize:'0.72rem',color:'var(--muted)',marginBottom:8,padding:'5px 10px',background:'var(--white)',borderRadius:6,border:'1px solid var(--border)'}}>95% CI for mean diff: [{result.ci95.lower}, {result.ci95.upper}]</div>}
               <div style={{marginBottom:10}}>{SIG(result.sig)}</div>
-              <div style={{overflowX:'auto'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.78rem'}}>
-                  <thead><tr style={{borderBottom:'2px solid var(--border)'}}>
-                    {['Group','n','Mean','SD'].map(h=><th key={h} style={{padding:'5px 8px',textAlign:'left',color:'var(--muted)',fontWeight:600,fontSize:'0.68rem',textTransform:'uppercase'}}>{h}</th>)}
-                  </tr></thead>
-                  <tbody>{result.desc.map(d=><tr key={d.label} style={{borderBottom:'1px solid var(--border)'}}>
-                    <td style={{padding:'6px 8px',fontWeight:500}}>{d.label}</td>
-                    <td style={{padding:'6px 8px',fontFamily:'var(--font-mono)'}}>{d.n}</td>
-                    <td style={{padding:'6px 8px',fontFamily:'var(--font-mono)'}}>{d.mean}</td>
-                    <td style={{padding:'6px 8px',fontFamily:'var(--font-mono)'}}>{d.sd}</td>
-                  </tr>)}</tbody>
-                </table>
-              </div>
+              {/* Group mean visual bars */}
+              {result.desc && (
+                <div style={{marginTop:10}}>
+                  <div style={{fontSize:'0.72rem',fontWeight:600,color:'var(--muted)',marginBottom:6,textTransform:'uppercase'}}>Group Means</div>
+                  <SVGBarChart data={(result.desc||[]).map(d=>({label:d.label,value:parseFloat(d.mean)||0}))} color={result.type==='T-Test'?'var(--teal)':'var(--purple)'} height={120}/>
+                </div>
+              )}
+              {result.desc && (
+                <div style={{display:'flex',gap:8,marginTop:8}}>
+                  {result.desc.map(d=>(
+                    <div key={d.label} style={{flex:1,padding:'8px 10px',background:'var(--white)',borderRadius:7,border:'1px solid var(--border)'}}>
+                      <div style={{fontSize:'0.72rem',fontWeight:600,color:'var(--muted)',marginBottom:3}}>{d.label}</div>
+                      <div style={{fontSize:'0.78rem'}}><b>M</b> = {d.mean} &nbsp; <b>SD</b> = {d.sd} &nbsp; <b>n</b> = {d.n}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>}
 
-            {result.type==='Pearson' && <>
+            {(result.type==='Pearson'||result.type==='Spearman') && <>
               <div style={{display:'flex',gap:10,marginBottom:10,flexWrap:'wrap'}}>
-                {[['r',result.r],['p-value',result.p],['n',result.n]].map(([l,v])=>(
+                {[[result.type==='Spearman'?'rs':'r',result.r],['p-value',result.p],['n',result.n],['R²',result.r2!==undefined?result.r2:'—']].map(([l,v])=>(
                   <div key={l} style={{padding:'10px 14px',background:'var(--white)',borderRadius:8,border:'1px solid var(--border)',flex:1,minWidth:80}}>
                     <div style={{fontSize:'0.62rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600}}>{l}</div>
                     <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.1rem',color:'var(--gold)'}}>{v}</div>
@@ -9169,7 +9331,13 @@ function StatCreateModal({ currentUser, existing, allowSave=true, onClose, onSav
               <div style={{height:8,background:'var(--border)',borderRadius:99,overflow:'hidden',marginTop:8}}>
                 <div style={{height:'100%',width:`${Math.abs(result.r)*100}%`,background:'var(--gold)',borderRadius:99}}/>
               </div>
-              <div style={{fontSize:'0.72rem',color:'var(--muted)',marginTop:4}}>|r| = {Math.abs(result.r).toFixed(3)} — {Math.abs(result.r)>=0.7?'Strong':Math.abs(result.r)>=0.4?'Moderate':Math.abs(result.r)>=0.2?'Weak':'Negligible'} {result.r>=0?'positive':'negative'} correlation</div>
+              <div style={{fontSize:'0.72rem',color:'var(--muted)',marginTop:4}}>{result.labelX} ↔ {result.labelY} · |r| = {Math.abs(result.r).toFixed(3)} — {Math.abs(result.r)>=0.7?'Strong':Math.abs(result.r)>=0.4?'Moderate':Math.abs(result.r)>=0.2?'Weak':'Negligible'} {result.r>=0?'positive':'negative'}{result.r2!==undefined?` · R² = ${result.r2} (${(result.r2*100).toFixed(1)}% variance explained)`:''}</div>
+              {result.pairs && result.pairs.length >= 2 && (
+                <div style={{marginTop:12,padding:'10px',background:'var(--white)',borderRadius:8,border:'1px solid var(--border)'}}>
+                  <div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:4,fontWeight:600}}>Scatter Plot</div>
+                  <ScatterPlot pairs={result.pairs} labelX={result.labelX} labelY={result.labelY}/>
+                </div>
+              )}
             </>}
 
             {result.type==='Chi-Square' && <>
@@ -9181,7 +9349,16 @@ function StatCreateModal({ currentUser, existing, allowSave=true, onClose, onSav
                   </div>
                 ))}
               </div>
-              <div>{SIG(result.sig)}</div>
+              <div style={{marginBottom:10}}>{SIG(result.chi2!==undefined?result.sig:false)}</div>
+              {result.observed && (
+                <div style={{marginTop:8,padding:'10px',background:'var(--white)',borderRadius:8,border:'1px solid var(--border)'}}>
+                  <div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:4,fontWeight:600}}>Observed vs Expected</div>
+                  <SVGBarChart data={result.observed.map((v,i)=>({label:`Cat ${i+1}`,value:v}))} color="var(--red)" height={120}/>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginTop:6,fontSize:'0.68rem',color:'var(--muted)'}}>
+                    <div style={{width:20,height:2,background:'var(--gold)',borderRadius:2}}/>Expected per category: {result.expected}
+                  </div>
+                </div>
+              )}
             </>}
           </div>
         )}
@@ -9205,11 +9382,11 @@ function StatViewModal({ analysis: a, onClose }) {
     </span>
   );
   const r = a.result || {};
-  const TEST_COLORS = { 'Descriptive':'var(--blue)','T-Test':'var(--teal)','ANOVA':'var(--purple)','Pearson':'var(--gold)','Chi-Square':'var(--red)' };
+  const TEST_COLORS = { 'Descriptive':'var(--blue)','T-Test':'var(--teal)','ANOVA':'var(--purple)','Pearson':'var(--gold)','Spearman':'var(--gold)','Chi-Square':'var(--red)' };
 
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:2000,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'24px 16px',overflowY:'auto'}}>
-      <div style={{background:'var(--white)',borderRadius:'var(--radius-xl)',width:'100%',maxWidth:660,boxShadow:'var(--shadow-xl)',padding:'28px'}}>
+      <div style={{background:'var(--white)',borderRadius:'var(--radius-xl)',width:'100%',maxWidth:680,boxShadow:'var(--shadow-xl)',padding:'28px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
           <div style={{flex:1,paddingRight:16}}>
             <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:4}}>
@@ -9219,7 +9396,10 @@ function StatViewModal({ analysis: a, onClose }) {
             {a.description && <p style={{fontSize:'0.82rem',color:'var(--muted)',margin:'0 0 4px'}}>{a.description}</p>}
             <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>Published by {a.createdByName||'Teacher'} · {fmtDate(a.updatedAt)}</div>
           </div>
-          <button onClick={onClose} style={{background:'none',border:'none',fontSize:'1.4rem',cursor:'pointer',color:'var(--muted)',lineHeight:1,flexShrink:0}}>×</button>
+          <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
+            <APACopyBtn result={r} title={a.title}/>
+            <button onClick={onClose} style={{background:'none',border:'none',fontSize:'1.4rem',cursor:'pointer',color:'var(--muted)',lineHeight:1}}>×</button>
+          </div>
         </div>
 
         <hr style={{border:'none',borderTop:'1px solid var(--border)',margin:'16px 0'}}/>
@@ -9227,10 +9407,16 @@ function StatViewModal({ analysis: a, onClose }) {
         {r.type==='Descriptive' && (
           <div>
             <div style={{fontWeight:600,fontSize:'0.88rem',marginBottom:12}}>📐 Descriptive Statistics</div>
+            {r.groups.length>1&&(
+              <div style={{marginBottom:14,padding:'10px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
+                <div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:6,fontWeight:600}}>Group Means Comparison</div>
+                <SVGBarChart data={r.groups.map(g=>({label:g.label,value:parseFloat(g.mean)||0}))} color="var(--blue)" height={130}/>
+              </div>
+            )}
             {r.groups.map(g=>(
-              <div key={g.label} style={{marginBottom:14}}>
+              <div key={g.label} style={{marginBottom:16,paddingBottom:16,borderBottom:'1px solid var(--border)'}}>
                 <div style={{fontWeight:600,fontSize:'0.78rem',color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.04em'}}>{g.label}</div>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:8}}>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:8,marginBottom:10}}>
                   {[['N',g.n],['Mean',g.mean],['Std Dev',g.sd],['Median',g.median],['Variance',g.variance],['Min',g.min],['Max',g.max]].map(([l,v])=>(
                     <div key={l} style={{padding:'10px 12px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
                       <div style={{fontSize:'0.62rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600,marginBottom:2}}>{l}</div>
@@ -9238,6 +9424,31 @@ function StatViewModal({ analysis: a, onClose }) {
                     </div>
                   ))}
                 </div>
+                {g.ci&&<div style={{fontSize:'0.72rem',color:'var(--muted)',marginBottom:10,padding:'6px 10px',background:'var(--blue-light)',borderRadius:6,border:'1px solid var(--blue)'}}>
+                  <b style={{color:'var(--blue)'}}>95% CI for mean:</b> [{g.ci.lower}, {g.ci.upper}]
+                </div>}
+                {g.values&&g.values.length>=4&&(
+                  <div style={{padding:'8px 12px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)',marginBottom:6}}>
+                    <div style={{fontSize:'0.68rem',color:'var(--muted)',marginBottom:6,fontWeight:600}}>Frequency Distribution (Histogram)</div>
+                    <SVGHistogram values={g.values} color="var(--blue)" bins={Math.min(8,Math.ceil(Math.sqrt(g.values.length)))} height={120}/>
+                  </div>
+                )}
+                {g.n>0&&<div style={{marginTop:4,padding:'8px 12px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
+                  <div style={{fontSize:'0.68rem',color:'var(--muted)',marginBottom:5,fontWeight:600}}>Distribution Range</div>
+                  <div style={{position:'relative',height:24,background:'var(--border)',borderRadius:4,overflow:'hidden'}}>
+                    {(()=>{const range=g.max-g.min||1;const qLeft=((g.median-g.sd/2-g.min)/range)*100;const qW=(g.sd/range)*100;return<>
+                      <div style={{position:'absolute',left:`${Math.max(0,qLeft)}%`,width:`${Math.min(100,qW)}%`,height:'100%',background:'var(--blue)',opacity:0.35}}/>
+                      <div style={{position:'absolute',left:`${((g.mean-g.min)/range)*100}%`,width:2,height:'100%',background:'var(--blue)'}}/>
+                      <div style={{position:'absolute',left:`${((g.median-g.min)/range)*100}%`,width:2,height:'100%',background:'var(--gold)'}}/>
+                    </>})()}
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.62rem',color:'var(--muted)',marginTop:3}}>
+                    <span>Min: {g.min}</span>
+                    <span style={{color:'var(--blue)'}}>Mean: {g.mean}</span>
+                    <span style={{color:'var(--gold)'}}>Median: {g.median}</span>
+                    <span>Max: {g.max}</span>
+                  </div>
+                </div>}
               </div>
             ))}
           </div>
@@ -9247,28 +9458,39 @@ function StatViewModal({ analysis: a, onClose }) {
           <div>
             <div style={{fontWeight:600,fontSize:'0.88rem',marginBottom:12}}>📊 Independent Samples T-Test (Welch's)</div>
             <div style={{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap'}}>
-              {[['t-statistic',r.t,'var(--teal)'],['p-value',r.p,'var(--teal)'],['df (Welch)',r.df,'var(--muted)']].map(([l,v,c])=>(
-                <div key={l} style={{flex:1,minWidth:100,padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)'}}>
+              {[['t-statistic',r.t,'var(--teal)'],['p-value',r.p,'var(--teal)'],['df (Welch)',r.df,'var(--muted)'],
+                ["Cohen's d",r.d!==undefined?r.d:'—','var(--purple)'],['Effect Size',r.dLabel||'—','var(--purple)']].map(([l,v,c])=>(
+                <div key={l} style={{flex:1,minWidth:90,padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)'}}>
                   <div style={{fontSize:'0.65rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600,marginBottom:4}}>{l}</div>
-                  <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.2rem',color:c}}>{v}</div>
+                  <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.1rem',color:c}}>{v}</div>
                 </div>
               ))}
             </div>
-            <div style={{marginBottom:14}}>{SIG(r.sig)}</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-              {r.desc.map(d=>(
-                <div key={d.label} style={{padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1.5px solid var(--teal)',borderColor:'var(--border)'}}>
+            <div style={{marginBottom:10,display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+              {SIG(r.sig)}
+              {r.ci95&&<span style={{fontSize:'0.78rem',color:'var(--muted)',padding:'3px 10px',borderRadius:99,background:'var(--surface)',border:'1px solid var(--border)'}}>95% CI for difference: [{r.ci95.lower}, {r.ci95.upper}]</span>}
+            </div>
+            {r.desc&&r.desc.length>=2&&(
+              <div style={{marginBottom:14,padding:'10px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
+                <div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:6,fontWeight:600}}>Group Mean Comparison</div>
+                <SVGBarChart data={r.desc.map(d=>({label:d.label,value:parseFloat(d.mean)||0}))} color="var(--teal)" height={130}/>
+              </div>
+            )}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+              {(r.desc||[]).map(d=>(
+                <div key={d.label} style={{padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)'}}>
                   <div style={{fontWeight:700,fontSize:'0.82rem',marginBottom:6,color:'var(--teal)'}}>{d.label}</div>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
                     {[['n',d.n],['Mean',d.mean],['SD',d.sd]].map(([l,v])=>(
                       <div key={l}><div style={{fontSize:'0.62rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600}}>{l}</div><div style={{fontFamily:'var(--font-mono)',fontWeight:700}}>{v}</div></div>
                     ))}
                   </div>
+                  {d.ci&&<div style={{marginTop:8,fontSize:'0.7rem',color:'var(--muted)'}}>95% CI: [{d.ci.lower}, {d.ci.upper}]</div>}
                 </div>
               ))}
             </div>
-            <div style={{marginTop:14,padding:'10px 14px',background:'var(--surface)',borderRadius:8,fontSize:'0.78rem',color:'var(--muted)'}}>
-              <b style={{color:'var(--ink)'}}>Interpretation:</b> {r.sig ? `There is a statistically significant difference between ${r.desc[0]?.label} (M=${r.desc[0]?.mean}) and ${r.desc[1]?.label} (M=${r.desc[1]?.mean}), t(${r.df}) = ${r.t}, p = ${r.p}.` : `There is no statistically significant difference between the two groups, t(${r.df}) = ${r.t}, p = ${r.p}.`}
+            <div style={{padding:'10px 14px',background:'var(--surface)',borderRadius:8,fontSize:'0.78rem',color:'var(--muted)'}}>
+              <b style={{color:'var(--ink)'}}>Interpretation:</b> {r.sig ? `There is a statistically significant difference between ${r.desc?.[0]?.label} (M=${r.desc?.[0]?.mean}) and ${r.desc?.[1]?.label} (M=${r.desc?.[1]?.mean}), t(${r.df}) = ${r.t}, p = ${r.p}, d = ${r.d} (${r.dLabel||''} effect).` : `There is no statistically significant difference between the two groups, t(${r.df}) = ${r.t}, p = ${r.p}, d = ${r.d} (${r.dLabel||''} effect).`}
             </div>
           </div>
         )}
@@ -9277,38 +9499,67 @@ function StatViewModal({ analysis: a, onClose }) {
           <div>
             <div style={{fontWeight:600,fontSize:'0.88rem',marginBottom:12}}>⚗️ One-Way ANOVA</div>
             <div style={{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap'}}>
-              {[['F-statistic',r.F,'var(--purple)'],['p-value',r.p,'var(--purple)'],['df Between',r.dfB,'var(--muted)'],['df Within',r.dfW,'var(--muted)']].map(([l,v,c])=>(
+              {[['F-statistic',r.F,'var(--purple)'],['p-value',r.p,'var(--purple)'],['df Between',r.dfB,'var(--muted)'],['df Within',r.dfW,'var(--muted)'],
+                ['η² (eta²)',r.eta2!==undefined?r.eta2:'—','var(--gold)'],['Effect Size',r.eta2Label||'—','var(--gold)']].map(([l,v,c])=>(
                 <div key={l} style={{flex:1,minWidth:90,padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)'}}>
                   <div style={{fontSize:'0.65rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600,marginBottom:4}}>{l}</div>
-                  <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.2rem',color:c}}>{v}</div>
+                  <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.1rem',color:c}}>{v}</div>
                 </div>
               ))}
             </div>
             <div style={{marginBottom:14}}>{SIG(r.sig)}</div>
-            <div style={{overflowX:'auto'}}>
+            {r.desc&&r.desc.length>0&&(
+              <div style={{marginBottom:14,padding:'10px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
+                <div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:6,fontWeight:600}}>Group Means</div>
+                <SVGBarChart data={(r.desc||[]).map(d=>({label:d.label,value:parseFloat(d.mean)||0}))} color="var(--purple)" height={140}/>
+              </div>
+            )}
+            <div style={{overflowX:'auto',marginBottom:14}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.82rem'}}>
                 <thead><tr style={{borderBottom:'2px solid var(--border)'}}>
-                  {['Group','n','Mean','SD'].map(h=><th key={h} style={{padding:'7px 10px',textAlign:'left',color:'var(--muted)',fontWeight:600,fontSize:'0.7rem',textTransform:'uppercase'}}>{h}</th>)}
+                  {['Group','n','Mean','SD','95% CI'].map(h=><th key={h} style={{padding:'7px 10px',textAlign:'left',color:'var(--muted)',fontWeight:600,fontSize:'0.7rem',textTransform:'uppercase'}}>{h}</th>)}
                 </tr></thead>
-                <tbody>{r.desc.map(d=><tr key={d.label} style={{borderBottom:'1px solid var(--border)'}}>
+                <tbody>{(r.desc||[]).map(d=><tr key={d.label} style={{borderBottom:'1px solid var(--border)'}}>
                   <td style={{padding:'8px 10px',fontWeight:500,color:'var(--ink)'}}>{d.label}</td>
                   <td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',color:'var(--ink)'}}>{d.n}</td>
                   <td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',color:'var(--purple)',fontWeight:700}}>{d.mean}</td>
                   <td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',color:'var(--muted)'}}>{d.sd}</td>
+                  <td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',color:'var(--muted)',fontSize:'0.72rem'}}>{d.ci?`[${d.ci.lower}, ${d.ci.upper}]`:'—'}</td>
                 </tr>)}</tbody>
               </table>
             </div>
-            <div style={{marginTop:14,padding:'10px 14px',background:'var(--surface)',borderRadius:8,fontSize:'0.78rem',color:'var(--muted)'}}>
-              <b style={{color:'var(--ink)'}}>Interpretation:</b> {r.sig ? `There is a statistically significant difference in means across groups, F(${r.dfB}, ${r.dfW}) = ${r.F}, p = ${r.p}.` : `There is no statistically significant difference across groups, F(${r.dfB}, ${r.dfW}) = ${r.F}, p = ${r.p}.`}
+            {r.tukey && r.tukey.length > 0 && (
+              <div style={{marginBottom:14,padding:'12px 14px',background:'var(--purple-light)',borderRadius:8,border:'1px solid var(--purple)'}}>
+                <div style={{fontWeight:700,fontSize:'0.82rem',color:'var(--purple)',marginBottom:10}}>🔍 Tukey HSD Post-Hoc Comparisons</div>
+                <div style={{fontSize:'0.72rem',color:'var(--muted)',marginBottom:8}}>Pairwise comparisons following significant ANOVA (α = .05)</div>
+                <div style={{overflowX:'auto'}}>
+                  <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.78rem'}}>
+                    <thead><tr style={{borderBottom:'1.5px solid var(--border)'}}>
+                      {['Group 1','Group 2','Mean Diff','q','Significant?'].map(h=><th key={h} style={{padding:'6px 8px',textAlign:'left',color:'var(--muted)',fontWeight:600,fontSize:'0.68rem',textTransform:'uppercase'}}>{h}</th>)}
+                    </tr></thead>
+                    <tbody>{r.tukey.map((p,i)=><tr key={i} style={{borderBottom:'1px solid var(--border)',background:p.sig?'rgba(26,127,74,0.06)':''}}>
+                      <td style={{padding:'7px 8px',fontWeight:500}}>{p.g1}</td>
+                      <td style={{padding:'7px 8px',fontWeight:500}}>{p.g2}</td>
+                      <td style={{padding:'7px 8px',fontFamily:'var(--font-mono)',color:'var(--purple)',fontWeight:700}}>{p.meanDiff}</td>
+                      <td style={{padding:'7px 8px',fontFamily:'var(--font-mono)',color:'var(--muted)'}}>{p.q}</td>
+                      <td style={{padding:'7px 8px'}}>{p.sig?<span style={{color:'var(--green)',fontWeight:700}}>✓ Yes</span>:<span style={{color:'var(--muted)'}}>No</span>}</td>
+                    </tr>)}</tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            <div style={{padding:'10px 14px',background:'var(--surface)',borderRadius:8,fontSize:'0.78rem',color:'var(--muted)'}}>
+              <b style={{color:'var(--ink)'}}>Interpretation:</b> {r.sig ? `There is a statistically significant difference in means across groups, F(${r.dfB}, ${r.dfW}) = ${r.F}, p = ${r.p}, η² = ${r.eta2} (${r.eta2Label||''} effect).` : `There is no statistically significant difference across groups, F(${r.dfB}, ${r.dfW}) = ${r.F}, p = ${r.p}, η² = ${r.eta2} (${r.eta2Label||''} effect).`}
             </div>
           </div>
         )}
 
-        {r.type==='Pearson' && (
+        {(r.type==='Pearson'||r.type==='Spearman') && (
           <div>
-            <div style={{fontWeight:600,fontSize:'0.88rem',marginBottom:12}}>🔗 Pearson Correlation</div>
+            <div style={{fontWeight:600,fontSize:'0.88rem',marginBottom:12}}>{r.type==='Spearman'?'📊 Spearman Rank Correlation':'🔗 Pearson Correlation'}</div>
             <div style={{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap'}}>
-              {[['r (correlation)',r.r,'var(--gold)'],['p-value',r.p,'var(--gold)'],['n (pairs)',r.n,'var(--muted)']].map(([l,v,c])=>(
+              {[[r.type==='Spearman'?'rs (correlation)':'r (correlation)',r.r,'var(--gold)'],['p-value',r.p,'var(--gold)'],['n (pairs)',r.n,'var(--muted)'],
+                ['R² (variance explained)',r.r2!==undefined?r.r2:'—','var(--teal)']].map(([l,v,c])=>(
                 <div key={l} style={{flex:1,minWidth:100,padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)'}}>
                   <div style={{fontSize:'0.65rem',color:'var(--muted)',textTransform:'uppercase',fontWeight:600,marginBottom:4}}>{l}</div>
                   <div style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'1.2rem',color:c}}>{v}</div>
@@ -9317,11 +9568,25 @@ function StatViewModal({ analysis: a, onClose }) {
             </div>
             <div style={{marginBottom:10}}>{SIG(r.sig)}</div>
             <div style={{height:10,background:'var(--border)',borderRadius:99,overflow:'hidden',margin:'10px 0 4px'}}>
-              <div style={{height:'100%',width:`${Math.abs(r.r)*100}%`,background:'var(--gold)',borderRadius:99}}/>
+              <div style={{height:'100%',width:`${Math.abs(r.r)*100}%`,background:r.r>=0?'var(--gold)':'var(--red)',borderRadius:99}}/>
             </div>
-            <div style={{fontSize:'0.72rem',color:'var(--muted)',marginBottom:14}}>{r.labelX} ↔ {r.labelY} · |r| = {Math.abs(r.r).toFixed(3)} · {Math.abs(r.r)>=0.7?'Strong':Math.abs(r.r)>=0.4?'Moderate':Math.abs(r.r)>=0.2?'Weak':'Negligible'} {r.r>=0?'positive':'negative'} correlation</div>
+            <div style={{fontSize:'0.72rem',color:'var(--muted)',marginBottom:14}}>
+              {r.labelX} ↔ {r.labelY} · |r| = {Math.abs(r.r||0).toFixed(3)} · {Math.abs(r.r||0)>=0.7?'Strong':Math.abs(r.r||0)>=0.4?'Moderate':Math.abs(r.r||0)>=0.2?'Weak':'Negligible'} {(r.r||0)>=0?'positive':'negative'} correlation
+              {r.r2!==undefined&&<span style={{marginLeft:8}}>· R² = {r.r2} ({(r.r2*100).toFixed(1)}% of variance explained)</span>}
+            </div>
+            {/* Scatter plot */}
+            {r.pairs&&r.pairs.length>=2&&(
+              <div style={{marginBottom:14,padding:'10px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
+                <div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:6,fontWeight:600}}>Scatter Plot {r.type==='Pearson'?'with regression line':''}</div>
+                <ScatterPlot pairs={r.pairs} labelX={r.labelX} labelY={r.labelY}/>
+                <div style={{fontSize:'0.62rem',color:'var(--muted)',marginTop:4,display:'flex',gap:12}}>
+                  <span>● Data points</span>
+                  {r.type==='Pearson'&&<span style={{color:'var(--gold)'}}>-- Regression line</span>}
+                </div>
+              </div>
+            )}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
-              {[['X: '+r.labelX,r.descX],['Y: '+r.labelY,r.descY]].map(([label,d])=>(
+              {[['X: '+(r.labelX||''),r.descX],['Y: '+(r.labelY||''),r.descY]].map(([label,d])=>(
                 <div key={label} style={{padding:'10px 12px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
                   <div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--gold)',marginBottom:6}}>{label}</div>
                   {[['n',d?.n],['Mean',d?.mean],['SD',d?.sd]].map(([l,v])=>(
@@ -9331,7 +9596,8 @@ function StatViewModal({ analysis: a, onClose }) {
               ))}
             </div>
             <div style={{padding:'10px 14px',background:'var(--surface)',borderRadius:8,fontSize:'0.78rem',color:'var(--muted)'}}>
-              <b style={{color:'var(--ink)'}}>Interpretation:</b> {r.sig ? `There is a statistically significant ${Math.abs(r.r)>=0.7?'strong':Math.abs(r.r)>=0.4?'moderate':'weak'} ${r.r>=0?'positive':'negative'} correlation between ${r.labelX} and ${r.labelY} (r = ${r.r}, p = ${r.p}).` : `There is no statistically significant linear correlation between ${r.labelX} and ${r.labelY} (r = ${r.r}, p = ${r.p}).`}
+              <b style={{color:'var(--ink)'}}>Interpretation:</b> {r.sig ? `There is a statistically significant ${Math.abs(r.r||0)>=0.7?'strong':Math.abs(r.r||0)>=0.4?'moderate':'weak'} ${(r.r||0)>=0?'positive':'negative'} ${r.type==='Spearman'?'rank ':''}correlation between ${r.labelX} and ${r.labelY} (${r.type==='Spearman'?'rs':'r'} = ${r.r}, p = ${r.p}${r.r2!==undefined?`, R² = ${r.r2}`:''}).` : `There is no statistically significant ${r.type==='Spearman'?'rank ':'linear '}correlation between ${r.labelX} and ${r.labelY} (${r.type==='Spearman'?'rs':'r'} = ${r.r}, p = ${r.p}${r.r2!==undefined?`, R² = ${r.r2}`:''}).`}
+              {r.type==='Spearman'&&<div style={{marginTop:6,fontStyle:'italic',fontSize:'0.72rem'}}>Note: Spearman is used for ordinal data or when normality cannot be assumed.</div>}
             </div>
           </div>
         )}
@@ -9348,15 +9614,26 @@ function StatViewModal({ analysis: a, onClose }) {
               ))}
             </div>
             <div style={{marginBottom:14}}>{SIG(r.sig)}</div>
-            {r.observed && (
-              <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
-                {r.observed.map((v,i)=>(
-                  <div key={i} style={{padding:'8px 12px',background:'var(--surface)',borderRadius:8,border:'1.5px solid var(--border)',textAlign:'center',minWidth:64}}>
-                    <div style={{fontSize:'0.65rem',color:'var(--muted)',fontWeight:600,marginBottom:3}}>Cat {i+1}</div>
-                    <div style={{fontFamily:'var(--font-mono)',fontWeight:700,color:'var(--red)',fontSize:'1rem'}}>{v}</div>
-                    <div style={{fontSize:'0.6rem',color:'var(--muted)'}}>observed</div>
-                  </div>
-                ))}
+            {r.observed&&(
+              <div style={{marginBottom:14,padding:'10px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
+                <div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:6,fontWeight:600}}>Observed vs Expected Distribution</div>
+                <SVGBarChart data={r.observed.map((v,i)=>({label:`Cat ${i+1}`,value:v}))} color="var(--red)" height={140}/>
+                {/* Expected line overlay hint */}
+                <div style={{display:'flex',alignItems:'center',gap:6,marginTop:6,fontSize:'0.68rem',color:'var(--muted)'}}>
+                  <div style={{width:20,height:2,background:'var(--gold)',borderRadius:2}}/>Expected per category: {r.expected}
+                </div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:10}}>
+                  {r.observed.map((v,i)=>{
+                    const diff=v-r.expected,pct=r.expected>0?Math.round((diff/r.expected)*100):0;
+                    return (
+                      <div key={i} style={{padding:'6px 10px',background:'var(--white)',borderRadius:7,border:'1.5px solid var(--border)',textAlign:'center',minWidth:58}}>
+                        <div style={{fontSize:'0.62rem',color:'var(--muted)',fontWeight:600,marginBottom:2}}>Cat {i+1}</div>
+                        <div style={{fontFamily:'var(--font-mono)',fontWeight:700,color:'var(--red)',fontSize:'0.9rem'}}>{v}</div>
+                        <div style={{fontSize:'0.6rem',color:diff>=0?'var(--green)':'var(--red)',fontWeight:600}}>{diff>=0?'+':''}{pct}%</div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
             <div style={{padding:'10px 14px',background:'var(--surface)',borderRadius:8,fontSize:'0.78rem',color:'var(--muted)'}}>
@@ -9425,6 +9702,17 @@ const pearson = (x,y) => {
   const p=n>2?2*(1-tDistCDF(t,n-2)):1;
   return {r:+r.toFixed(4),p:+p.toFixed(4),sig:p<0.05,n};
 };
+// Spearman rank correlation
+const spearman = (x, y) => {
+  const n = Math.min(x.length, y.length); if(n < 3) return {r:0,p:1,sig:false,n};
+  const rank = arr => { const sorted=[...arr].map((v,i)=>({v,i})).sort((a,b)=>a.v-b.v); const r=new Array(arr.length); sorted.forEach((s,ri)=>{r[s.i]=ri+1;}); return r; };
+  const rx=rank(x.slice(0,n)), ry=rank(y.slice(0,n));
+  const d2=rx.reduce((s,_,i)=>s+(rx[i]-ry[i])**2,0);
+  const rs=1-(6*d2)/(n*(n*n-1));
+  const t=Math.abs(rs)*Math.sqrt((n-2)/(1-rs**2));
+  const p=n>2?2*(1-tDistCDF(t,n-2)):1;
+  return {r:+rs.toFixed(4),p:+p.toFixed(4),sig:p<0.05,n};
+};
 // Chi-square goodness of fit (observed vs equal expected)
 const chiSquare = observed => {
   const n=observed.length; if(n<2) return {chi2:0,df:0,p:1,sig:false};
@@ -9434,6 +9722,65 @@ const chiSquare = observed => {
   const df=n-1, p=1-chi2CDF(chi2,df);
   return {chi2:+chi2.toFixed(4),df,p:+p.toFixed(4),sig:p<0.05};
 };
+// ── Effect Size Helpers ──────────────────────────────────────────
+// Cohen's d (pooled SD)
+const cohensD = (a, b) => {
+  const n1=a.length,n2=b.length;
+  if(n1<2||n2<2) return 0;
+  const pooledSD=Math.sqrt(((n1-1)*statVariance(a)+(n2-1)*statVariance(b))/(n1+n2-2));
+  if(pooledSD===0) return 0;
+  return +((statMean(a)-statMean(b))/pooledSD).toFixed(4);
+};
+const cohensDLabel = d => { const ad=Math.abs(d); return ad>=0.8?'Large':ad>=0.5?'Medium':ad>=0.2?'Small':'Negligible'; };
+
+// Eta-squared for ANOVA
+const etaSquared = (SSB, SST) => SST===0?0:+(SSB/SST).toFixed(4);
+const etaLabel = e => e>=0.14?'Large':e>=0.06?'Medium':e>=0.01?'Small':'Negligible';
+
+// 95% CI for mean difference (t-test)
+const ciMeanDiff = (a, b) => {
+  const m1=statMean(a),m2=statMean(b),v1=statVariance(a),v2=statVariance(b),n1=a.length,n2=b.length;
+  const se=Math.sqrt(v1/n1+v2/n2);
+  const df=(v1/n1+v2/n2)**2/((v1/n1)**2/(n1-1)+(v2/n2)**2/(n2-1));
+  // t critical at df (approximation for 0.975 quantile)
+  const tCrit = tCritical(df, 0.025);
+  const diff=m1-m2, margin=tCrit*se;
+  return {lower:+(diff-margin).toFixed(4), upper:+(diff+margin).toFixed(4)};
+};
+// CI for single mean
+const ciMean = (arr) => {
+  const n=arr.length; if(n<2) return {lower:0,upper:0};
+  const m=statMean(arr), se=statSD(arr)/Math.sqrt(n);
+  const tCrit=tCritical(n-1,0.025);
+  return {lower:+(m-tCrit*se).toFixed(4), upper:+(m+tCrit*se).toFixed(4)};
+};
+// Approximate t-critical using bisection on tDistCDF
+function tCritical(df, alpha) {
+  let lo=0,hi=20;
+  for(let i=0;i<60;i++){const mid=(lo+hi)/2;(1-tDistCDF(mid,df))>alpha?lo=mid:hi=mid;}
+  return (lo+hi)/2;
+}
+
+// Tukey HSD post-hoc
+const tukeyHSD = (groups, labels) => {
+  const k=groups.length, allVals=groups.flat(), N=allVals.length;
+  const grandMean=statMean(allVals);
+  const SSW=groups.reduce((s,g)=>s+g.reduce((ss,x)=>ss+(x-statMean(g))**2,0),0);
+  const dfW=N-k;
+  const MSW=dfW>0?SSW/dfW:1;
+  // Harmonic mean of n
+  const hn=k/(groups.reduce((s,g)=>s+1/g.length,0));
+  const SE=Math.sqrt(MSW/hn);
+  const pairs=[];
+  for(let i=0;i<k;i++) for(let j=i+1;j<k;j++){
+    const q=Math.abs(statMean(groups[i])-statMean(groups[j]))/SE;
+    // Approx p from studentized range (conservative: compare to chi2/k)
+    const pApprox = Math.max(0, Math.min(1, 1-Math.pow(1-Math.exp(-q*q/2),k)));
+    pairs.push({g1:labels[i],g2:labels[j],meanDiff:+(statMean(groups[i])-statMean(groups[j])).toFixed(4),q:+q.toFixed(3),sig:pApprox<0.05});
+  }
+  return pairs;
+};
+
 // Distribution approximations
 function tDistCDF(t,df){
   // Beta regularized approximation
@@ -9562,10 +9909,25 @@ function AdminAnalytics({ currentUser }) {
           <h2 style={{fontFamily:'var(--font-display)',fontSize:'var(--text-2xl)',marginBottom:3}}>📊 Class Analytics</h2>
           <p className="muted">Full overview of student activity and research engagement.</p>
         </div>
-        <button className="btn btn-ol btn-sm" onClick={load}>↻ Refresh</button>
-      </div>
-
-      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:20}}>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button className="btn btn-ol btn-sm" onClick={load}>↻ Refresh</button>
+          <button className="btn btn-ol btn-sm" onClick={()=>{
+            const rows=[['Metric','Value'],
+              ['Total Students',stats.totalStudents],['Approved',stats.approvedStudents],['Pending',stats.pendingStudents],
+              ['Total Studies',stats.totalStudies],['Total Views',stats.totalViews],['Downloads',stats.totalDownloads],
+              ['Citations',stats.totalCitations||0],['Engagement Rate',`${engagementRate}%`],
+              [''],['Category','Studies'],
+              ...topCats.map(([c,n])=>[c,n]),
+              [''],['Year','Studies'],
+              ...byYear.map(([y,n])=>[y,n]),
+              [''],['Uploader','Uploads'],
+              ...topUploaders.map(u=>[u.name,u.count]),
+            ];
+            const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+            const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+            a.download='sabnahis_analytics.csv';a.click();
+          }} style={{display:'flex',alignItems:'center',gap:5}}>⬇ Export CSV</button>
+        </div>
         {TAB('overview','Overview','🏠')}
         {TAB('students','Students','👥')}
         {TAB('studies','Studies','📚')}
@@ -9591,7 +9953,12 @@ function AdminAnalytics({ currentUser }) {
                 <span className="card-title">🎓 Students by Grade</span>
                 <span style={{fontSize:'0.72rem',color:'var(--muted)'}}>{stats.totalStudents} total</span>
               </div>
-              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {stats.totalStudents>0&&(
+                <SVGBarChart
+                  data={['8','9','10','11','12'].map(g=>({label:`Gr ${g}`,value:stats.gradeBreakdown?.[g]||0,color:GRADE_COLORS[g]}))}
+                  color="var(--gold)" height={120}/>
+              )}
+              <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:10}}>
                 {['8','9','10','11','12'].map(g => {
                   const n=stats.gradeBreakdown?.[g]||0;
                   const pct=stats.totalStudents>0?Math.round((n/stats.totalStudents)*100):0;
@@ -9612,32 +9979,28 @@ function AdminAnalytics({ currentUser }) {
                 <span className="card-title">📂 Studies by Category</span>
                 <span style={{fontSize:'0.72rem',color:'var(--muted)'}}>{allStudies.length} studies</span>
               </div>
-              <div style={{display:'flex',flexDirection:'column',gap:9}}>
-                {topCats.length===0
-                  ? <p className="muted" style={{fontSize:'0.82rem'}}>No data yet.</p>
-                  : topCats.map(([cat,count]) => (
-                    <div key={cat} style={{display:'flex',alignItems:'center',gap:10}}>
-                      <span style={{fontSize:'0.72rem',fontWeight:500,color:'var(--ink)',minWidth:90,maxWidth:110,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flexShrink:0}}>{cat}</span>
-                      <MiniBar value={count} max={maxCat} color="var(--gold)"/>
-                      <span style={{fontSize:'0.72rem',fontWeight:600,color:'var(--ink)',width:22,textAlign:'right',flexShrink:0}}>{count}</span>
-                    </div>
-                  ))}
-              </div>
+              {topCats.length===0
+                ? <p className="muted" style={{fontSize:'0.82rem'}}>No data yet.</p>
+                : <>
+                  <SVGBarChart data={topCats.map(([c,n])=>({label:c,value:n}))} color="var(--gold)" height={150}/>
+                  <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:10}}>
+                    {topCats.map(([cat,count]) => (
+                      <div key={cat} style={{display:'flex',alignItems:'center',gap:10}}>
+                        <span style={{fontSize:'0.72rem',fontWeight:500,color:'var(--ink)',minWidth:90,maxWidth:110,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flexShrink:0}}>{cat}</span>
+                        <MiniBar value={count} max={maxCat} color="var(--gold)"/>
+                        <span style={{fontSize:'0.72rem',fontWeight:600,color:'var(--ink)',width:22,textAlign:'right',flexShrink:0}}>{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>}
             </div>
           </div>
 
           <div className="card" style={{marginBottom:14}}>
-            <div className="card-hd" style={{marginBottom:14}}><span className="card-title">📅 Studies by Year</span></div>
-            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-              {byYear.length===0
-                ? <p className="muted" style={{fontSize:'0.82rem'}}>No data yet.</p>
-                : byYear.map(([year,count]) => (
-                  <div key={year} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:'10px 16px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)',minWidth:70}}>
-                    <div style={{fontFamily:'var(--font-display)',fontSize:'1.4rem',fontWeight:700,color:'var(--gold)'}}>{count}</div>
-                    <div style={{fontSize:'0.68rem',color:'var(--muted)',fontWeight:600}}>{year}</div>
-                  </div>
-                ))}
-            </div>
+            <div className="card-hd" style={{marginBottom:10}}><span className="card-title">📅 Studies by Year</span></div>
+            {byYear.length===0
+              ? <p className="muted" style={{fontSize:'0.82rem'}}>No data yet.</p>
+              : <SVGBarChart data={[...byYear].reverse().map(([y,c])=>({label:String(y),value:c}))} color="var(--teal)" height={140}/>}
           </div>
 
           <div className="card">
@@ -9711,19 +10074,36 @@ function AdminAnalytics({ currentUser }) {
       )}
 
       {tab==='studies' && (
-        <div>
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:14}}>
+            <div className="card">
+              <div className="card-hd" style={{marginBottom:14}}><span className="card-title">👁 Most Viewed</span></div>
+              <div style={{display:'flex',flexDirection:'column',gap:9}}>
+                {topViewed.filter(s=>(s.viewCount||0)>0).length===0
+                  ? <p className="muted" style={{fontSize:'0.82rem'}}>No views yet.</p>
+                  : topViewed.filter(s=>(s.viewCount||0)>0).map((s,i) => (
+                    <div key={s.id} style={{display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{fontSize:'0.68rem',fontWeight:700,color:'var(--muted)',width:16,flexShrink:0}}>{i+1}</span>
+                      <div style={{flex:1,minWidth:0}}><div style={{fontSize:'0.78rem',fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></div>
+                      <MiniBar value={s.viewCount||0} max={maxView} color="var(--teal)"/>
+                      <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--teal)',width:28,textAlign:'right',flexShrink:0}}>{s.viewCount||0}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
             <div className="card">
               <div className="card-hd" style={{marginBottom:14}}><span className="card-title">⬇ Most Downloaded</span></div>
               <div style={{display:'flex',flexDirection:'column',gap:9}}>
-                {topDownload.map((s,i) => (
-                  <div key={s.id} style={{display:'flex',alignItems:'center',gap:8}}>
-                    <span style={{fontSize:'0.68rem',fontWeight:700,color:'var(--muted)',width:16,flexShrink:0}}>{i+1}</span>
-                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:'0.78rem',fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></div>
-                    <MiniBar value={s.downloadCount||0} max={maxDl} color="var(--blue)"/>
-                    <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--blue)',width:28,textAlign:'right',flexShrink:0}}>{s.downloadCount||0}</span>
-                  </div>
-                ))}
+                {topDownload.filter(s=>(s.downloadCount||0)>0).length===0
+                  ? <p className="muted" style={{fontSize:'0.82rem'}}>No downloads yet.</p>
+                  : topDownload.filter(s=>(s.downloadCount||0)>0).map((s,i) => (
+                    <div key={s.id} style={{display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{fontSize:'0.68rem',fontWeight:700,color:'var(--muted)',width:16,flexShrink:0}}>{i+1}</span>
+                      <div style={{flex:1,minWidth:0}}><div style={{fontSize:'0.78rem',fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div></div>
+                      <MiniBar value={s.downloadCount||0} max={maxDl} color="var(--blue)"/>
+                      <span style={{fontSize:'0.72rem',fontWeight:700,color:'var(--blue)',width:28,textAlign:'right',flexShrink:0}}>{s.downloadCount||0}</span>
+                    </div>
+                  ))}
               </div>
             </div>
             <div className="card">
@@ -9742,6 +10122,13 @@ function AdminAnalytics({ currentUser }) {
               </div>
             </div>
           </div>
+          {/* Studies by year bar chart */}
+          {byYear.length>0&&(
+            <div className="card">
+              <div className="card-hd" style={{marginBottom:12}}><span className="card-title">📅 Studies by Year</span></div>
+              <SVGBarChart data={[...byYear].reverse().map(([y,c])=>({label:String(y),value:c}))} color="var(--blue)" height={140}/>
+            </div>
+          )}
         </div>
       )}
 
@@ -9926,37 +10313,73 @@ function AdminAnalytics({ currentUser }) {
             </div>
 
             {/* Pearson Correlations */}
-            <div className="card" style={{borderLeft:`3px solid var(--blue)`}}>
-              <div className="card-hd" style={{marginBottom:14}}><span className="card-title">🔗 Pearson Correlation Matrix</span></div>
-              <p style={{fontSize:'0.78rem',color:'var(--muted)',marginBottom:14}}>Linear relationships between engagement metrics per study.</p>
-              <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                {[
-                  {label:'Views ↔ Downloads', res:corrVD, color:'var(--blue)'},
-                  {label:'Views ↔ Citations',  res:corrVC, color:'var(--purple)'},
-                  {label:'Downloads ↔ Citations', res:corrDC, color:'var(--teal)'},
-                ].map(({label,res,color})=>{
-                  const absR=Math.abs(res.r), pct=absR*100;
-                  return (
-                    <div key={label} style={{padding:'12px 14px',background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)'}}>
-                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-                        <span style={{fontWeight:600,fontSize:'0.82rem',color:'var(--ink)'}}>{label}</span>
-                        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                          <span style={{fontFamily:'var(--font-mono)',fontWeight:700,fontSize:'0.9rem',color}}> r = {res.r}</span>
-                          <span style={{fontFamily:'var(--font-mono)',fontSize:'0.72rem',color:'var(--muted)'}}>p = {res.p}</span>
-                          {SIG(res.sig)}
+            {(() => {
+              const corrSpVD = spearman(viewsPerStudy, downloadsPerStudy);
+              const corrSpVC = spearman(viewsPerStudy, citesPerStudy);
+              const corrSpDC = spearman(downloadsPerStudy, citesPerStudy);
+              const corrRows = [
+                {label:'Views ↔ Downloads', pearsonR:corrVD.r, pearsonP:corrVD.p, pearsonSig:corrVD.sig, spearmanR:corrSpVD.r, spearmanP:corrSpVD.p, spearmanSig:corrSpVD.sig, color:'var(--blue)'},
+                {label:'Views ↔ Citations',  pearsonR:corrVC.r, pearsonP:corrVC.p, pearsonSig:corrVC.sig, spearmanR:corrSpVC.r, spearmanP:corrSpVC.p, spearmanSig:corrSpVC.sig, color:'var(--purple)'},
+                {label:'Downloads ↔ Citations', pearsonR:corrDC.r, pearsonP:corrDC.p, pearsonSig:corrDC.sig, spearmanR:corrSpDC.r, spearmanP:corrSpDC.p, spearmanSig:corrSpDC.sig, color:'var(--teal)'},
+              ];
+              return (
+                <div className="card" style={{borderLeft:`3px solid var(--blue)`}}>
+                  <div className="card-hd" style={{marginBottom:10}}><span className="card-title">🔗 Correlation Matrix — Engagement Metrics</span></div>
+                  <p style={{fontSize:'0.78rem',color:'var(--muted)',marginBottom:12}}>Pearson (linear) and Spearman (rank) correlations between study views, downloads, and citations.</p>
+                  <div style={{overflowX:'auto'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.78rem'}}>
+                      <thead>
+                        <tr style={{borderBottom:'2px solid var(--border)'}}>
+                          {['Pair','Pearson r','p','Strength','Spearman rs','p','Strength'].map(h=>(
+                            <th key={h} style={{padding:'6px 10px',textAlign:'left',fontWeight:600,color:'var(--muted)',fontSize:'0.68rem',textTransform:'uppercase',whiteSpace:'nowrap'}}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {corrRows.map(row=>{
+                          const prStr=Math.abs(row.pearsonR)>=0.7?'Strong':Math.abs(row.pearsonR)>=0.4?'Moderate':Math.abs(row.pearsonR)>=0.2?'Weak':'Negligible';
+                          const srStr=Math.abs(row.spearmanR)>=0.7?'Strong':Math.abs(row.spearmanR)>=0.4?'Moderate':Math.abs(row.spearmanR)>=0.2?'Weak':'Negligible';
+                          return (
+                            <tr key={row.label} style={{borderBottom:'1px solid var(--border)'}}>
+                              <td style={{padding:'9px 10px',fontWeight:500,color:'var(--ink)',whiteSpace:'nowrap'}}>{row.label}</td>
+                              <td style={{padding:'9px 10px',fontFamily:'var(--font-mono)',fontWeight:700,color:row.color}}>{row.pearsonR}</td>
+                              <td style={{padding:'9px 10px',fontFamily:'var(--font-mono)',fontSize:'0.72rem',color:row.pearsonSig?'var(--green)':'var(--muted)'}}>{row.pearsonP}{row.pearsonSig?'*':''}</td>
+                              <td style={{padding:'9px 10px',fontSize:'0.72rem',color:'var(--muted)'}}>{prStr}</td>
+                              <td style={{padding:'9px 10px',fontFamily:'var(--font-mono)',fontWeight:700,color:row.color}}>{row.spearmanR}</td>
+                              <td style={{padding:'9px 10px',fontFamily:'var(--font-mono)',fontSize:'0.72rem',color:row.spearmanSig?'var(--green)':'var(--muted)'}}>{row.spearmanP}{row.spearmanSig?'*':''}</td>
+                              <td style={{padding:'9px 10px',fontSize:'0.72rem',color:'var(--muted)'}}>{srStr}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{marginTop:10,fontSize:'0.68rem',color:'var(--muted)'}}>* p &lt; 0.05 (significant)</div>
+                  {/* Visual correlation bars */}
+                  <div style={{marginTop:14,display:'flex',flexDirection:'column',gap:8}}>
+                    {corrRows.map(row=>(
+                      <div key={row.label}>
+                        <div style={{fontSize:'0.72rem',fontWeight:500,color:'var(--ink)',marginBottom:3}}>{row.label}</div>
+                        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                          <span style={{fontSize:'0.62rem',color:'var(--muted)',width:52,flexShrink:0}}>Pearson</span>
+                          <div style={{flex:1,height:7,background:'var(--border)',borderRadius:99,overflow:'hidden'}}>
+                            <div style={{height:'100%',width:`${Math.abs(row.pearsonR)*100}%`,background:row.color,borderRadius:99,opacity:0.8}}/>
+                          </div>
+                          <span style={{fontSize:'0.68rem',fontFamily:'var(--font-mono)',fontWeight:700,color:row.color,width:36}}>{row.pearsonR}</span>
+                        </div>
+                        <div style={{display:'flex',gap:6,alignItems:'center',marginTop:2}}>
+                          <span style={{fontSize:'0.62rem',color:'var(--muted)',width:52,flexShrink:0}}>Spearman</span>
+                          <div style={{flex:1,height:7,background:'var(--border)',borderRadius:99,overflow:'hidden'}}>
+                            <div style={{height:'100%',width:`${Math.abs(row.spearmanR)*100}%`,background:row.color,borderRadius:99,opacity:0.45}}/>
+                          </div>
+                          <span style={{fontSize:'0.68rem',fontFamily:'var(--font-mono)',fontWeight:700,color:row.color,width:36}}>{row.spearmanR}</span>
                         </div>
                       </div>
-                      <div style={{height:8,background:'var(--border)',borderRadius:99,overflow:'hidden'}}>
-                        <div style={{height:'100%',width:`${pct}%`,background:color,borderRadius:99,transition:'width 0.5s ease'}}/>
-                      </div>
-                      <div style={{fontSize:'0.65rem',color:'var(--muted)',marginTop:4}}>
-                        |r| = {absR.toFixed(3)} · n = {res.n} · {absR>=0.7?'Strong':absR>=0.4?'Moderate':absR>=0.2?'Weak':'Negligible'} {res.r>=0?'positive':'negative'} correlation
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div style={{padding:'10px 14px',background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)',fontSize:'0.72rem',color:'var(--muted)'}}>
               📌 <strong style={{color:'var(--ink)'}}>Interpretation guide:</strong> p &lt; 0.05 = statistically significant. |r| ≥ 0.7 = strong, 0.4–0.7 = moderate, 0.2–0.4 = weak correlation. ANOVA F-statistic compares between-group to within-group variance.
@@ -10678,6 +11101,227 @@ function AdminCats() {
 // ══════════════════════════════════════════════════════════════════
 //  RECOGNIZED STUDIES PAGE
 // ══════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════
+//  BATCH GRADING PAGE (Teacher only)
+// ══════════════════════════════════════════════════════════════════
+function BatchGradingPage({ currentUser }) {
+  const [studies, setStudies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState({});
+  const [saved, setSaved] = useState({});
+  const [drafts, setDrafts] = useState({});   // { studyId: { grade, criteria, comments } }
+  const [expandedId, setExpandedId] = useState(null);
+  const [filter, setFilter] = useState('ungraded'); // 'ungraded' | 'graded' | 'all'
+  const [search, setSearch] = useState('');
+  const [bulkDone, setBulkDone] = useState(0);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await API.getStudies({ status: 'active', perPage: 200 });
+      setStudies(res.data || []);
+    } catch(e) { toast.err('Failed to load studies.'); }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const filtered = useMemo(() => {
+    let list = studies;
+    if (filter === 'ungraded') list = list.filter(s => !s.teacherGrade);
+    if (filter === 'graded')   list = list.filter(s =>  s.teacherGrade);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(s =>
+        (s.title||'').toLowerCase().includes(q) ||
+        (s.uploadedByName||'').toLowerCase().includes(q) ||
+        (s.uploaderSection||'').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [studies, filter, search]);
+
+  const setDraft = (id, field, value) => {
+    setDrafts(d => ({ ...d, [id]: { ...(d[id]||{}), [field]: value } }));
+  };
+  const setCrit = (id, k, v) => {
+    setDrafts(d => ({
+      ...d,
+      [id]: { ...(d[id]||{}), criteria: { ...((d[id]||{}).criteria||{}), [k]: v } }
+    }));
+  };
+
+  const submitOne = async (study) => {
+    const draft = drafts[study.id] || {};
+    const grade = draft.grade;
+    const criteria = draft.criteria || {};
+    const comments = draft.comments || '';
+    if (!grade) { toast.err('Please select a grade for "' + study.title.slice(0,40) + '"'); return; }
+    const totalScore = Object.values(criteria).reduce((a,b)=>a+(b||0), 0);
+    setSaving(s => ({ ...s, [study.id]: true }));
+    try {
+      await API.submitTeacherFeedback(study.id, {
+        teacherId: currentUser.id,
+        teacherName: currentUser.name,
+        grade, criteria, comments,
+        recommendations: draft.recommendations || '',
+        requestsRevision: false,
+      });
+      setSaved(s => ({ ...s, [study.id]: true }));
+      setBulkDone(n => n + 1);
+      setStudies(prev => prev.map(s => s.id === study.id ? { ...s, teacherGrade: grade, teacherScore: totalScore } : s));
+      setExpandedId(null);
+      toast.ok('✅ Graded: ' + study.title.slice(0, 40) + (study.title.length > 40 ? '…' : ''));
+    } catch(e) { toast.err(e.message); }
+    setSaving(s => ({ ...s, [study.id]: false }));
+  };
+
+  const gradeColor = g => ({ 'A+':'var(--teal)','A':'var(--teal)','A-':'var(--teal)','B+':'var(--blue)','B':'var(--blue)','B-':'var(--blue)' }[g] || 'var(--gold)');
+
+  if (loading) return <div><StatsSkeleton count={3}/><StudiesGridSkeleton count={4}/></div>;
+
+  const ungradedCount = studies.filter(s => !s.teacherGrade).length;
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:10, marginBottom:20 }}>
+        <div>
+          <h2 style={{ fontFamily:'var(--font-display)', fontSize:'var(--text-2xl)', marginBottom:3 }}>⚡ Batch Grading</h2>
+          <p className="muted">Grade multiple studies without opening each one individually.</p>
+        </div>
+        {bulkDone > 0 && (
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'var(--green-light)', border:'1.5px solid var(--green)', borderRadius:'var(--radius)', fontSize:'0.82rem', color:'var(--green)', fontWeight:600 }}>
+            ✅ {bulkDone} graded this session
+          </div>
+        )}
+      </div>
+
+      {/* Stats row */}
+      <div className="stats" style={{ marginBottom:16 }}>
+        <div className="stat gold"><div className="stat-icon">📄</div><div className="stat-body"><div className="stat-lbl">Total Studies</div><div className="stat-val">{studies.length}</div></div></div>
+        <div className="stat red"><div className="stat-icon">⏳</div><div className="stat-body"><div className="stat-lbl">Needs Grading</div><div className="stat-val">{ungradedCount}</div></div></div>
+        <div className="stat teal"><div className="stat-icon">✅</div><div className="stat-body"><div className="stat-lbl">Graded</div><div className="stat-val">{studies.length - ungradedCount}</div></div></div>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:14, alignItems:'center' }}>
+        {[['ungraded','⏳ Needs Grading'],['graded','✅ Graded'],['all','📋 All']].map(([v,l]) => (
+          <button key={v} onClick={()=>setFilter(v)}
+            style={{ padding:'6px 14px', borderRadius:99, fontSize:'0.78rem', fontWeight:600, cursor:'pointer', border:`1.5px solid ${filter===v?'var(--gold)':'var(--border)'}`, background:filter===v?'var(--gold-bg)':'var(--surface)', color:filter===v?'var(--gold)':'var(--muted)', transition:'all .15s' }}>
+            {l}
+          </button>
+        ))}
+        <input
+          value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="Search by title, student, or section…"
+          style={{ flex:1, minWidth:180, padding:'7px 12px', borderRadius:'var(--radius)', border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontSize:'0.85rem' }}
+        />
+      </div>
+
+      {/* Study list */}
+      {filtered.length === 0 ? (
+        <EmptyState icon="🎉" title={filter==='ungraded'?"All caught up!":`No studies found`} message={filter==='ungraded'?"Every study has been graded.":"Try a different filter or search."} compact/>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {filtered.map(study => {
+            const draft = drafts[study.id] || {};
+            const isOpen = expandedId === study.id;
+            const totalCrit = Object.values(draft.criteria||{}).reduce((a,b)=>a+(b||0),0);
+            const alreadyGraded = !!study.teacherGrade && !saved[study.id];
+            return (
+              <div key={study.id} className="card" style={{ padding:0, overflow:'hidden', border: saved[study.id] ? '1.5px solid var(--green)' : alreadyGraded ? '1.5px solid var(--border)' : '1.5px solid var(--gold)', transition:'border-color .2s' }}>
+                {/* Row header — always visible */}
+                <div
+                  style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', cursor:'pointer', background: isOpen ? 'var(--gold-bg)' : 'transparent', transition:'background .15s' }}
+                  onClick={() => setExpandedId(isOpen ? null : study.id)}>
+                  {/* Status dot */}
+                  <div style={{ width:10, height:10, borderRadius:'50%', flexShrink:0, background: saved[study.id] ? 'var(--green)' : study.teacherGrade ? 'var(--teal)' : 'var(--gold)' }}/>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontWeight:600, fontSize:'0.9rem', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{study.title}</div>
+                    <div style={{ fontSize:'0.72rem', color:'var(--muted)', marginTop:2, display:'flex', gap:10, flexWrap:'wrap' }}>
+                      <span>👤 {study.uploadedByName || 'Unknown'}</span>
+                      {study.uploaderSection && <span>🏫 {study.uploaderSection}</span>}
+                      {study.uploaderGrade && <span>📚 Grade {study.uploaderGrade}</span>}
+                      <span>📅 {study.year}</span>
+                    </div>
+                  </div>
+                  {/* Current grade badge */}
+                  {(study.teacherGrade || draft.grade) && (
+                    <span style={{ padding:'3px 10px', borderRadius:99, fontSize:'0.75rem', fontWeight:700, background:'var(--teal-light)', color: gradeColor(study.teacherGrade || draft.grade), border:`1.5px solid ${gradeColor(study.teacherGrade || draft.grade)}`, flexShrink:0 }}>
+                      {draft.grade || study.teacherGrade}
+                    </span>
+                  )}
+                  {saved[study.id] && <span style={{ fontSize:'0.75rem', color:'var(--green)', fontWeight:700, flexShrink:0 }}>✅ Saved</span>}
+                  <span style={{ color:'var(--muted)', fontSize:'0.85rem', flexShrink:0 }}>{isOpen ? '▲' : '▼'}</span>
+                </div>
+
+                {/* Expanded grading form */}
+                {isOpen && (
+                  <div style={{ padding:'16px', borderTop:'1px solid var(--border)', background:'var(--surface)' }}>
+                    {alreadyGraded && (
+                      <div style={{ padding:'8px 12px', background:'var(--teal-light)', border:'1px solid var(--teal)', borderRadius:'var(--radius)', marginBottom:12, fontSize:'0.8rem', color:'var(--teal)' }}>
+                        ℹ️ Already graded: <strong>{study.teacherGrade}</strong> ({study.teacherScore}/100). Submitting will overwrite.
+                      </div>
+                    )}
+                    {/* Grade selector */}
+                    <div style={{ marginBottom:12 }}>
+                      <div style={{ fontSize:'0.72rem', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.6px', color:'var(--muted)', marginBottom:7 }}>Grade</div>
+                      <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                        {Object.keys(GRADE_LABELS).map(g => (
+                          <button key={g} onClick={() => setDraft(study.id,'grade',g)}
+                            style={{ padding:'5px 12px', borderRadius:6, fontSize:'0.8rem', fontWeight:700, cursor:'pointer', border:`1.5px solid ${draft.grade===g ? gradeColor(g) : 'var(--border)'}`, background: draft.grade===g ? gradeColor(g) : 'var(--surface)', color: draft.grade===g ? '#fff' : 'var(--muted)', transition:'all .12s' }}>
+                            {g}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Criteria scores */}
+                    <div style={{ marginBottom:12 }}>
+                      <div style={{ fontSize:'0.72rem', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.6px', color:'var(--muted)', marginBottom:7 }}>
+                        Scoring Criteria <span style={{ color: totalCrit>=90?'var(--green)':totalCrit>=75?'var(--teal)':totalCrit>=60?'var(--gold)':'var(--red)', fontWeight:700 }}>({totalCrit}/100)</span>
+                      </div>
+                      <div className="tf-criteria">
+                        {Object.entries(CRITERIA_LABELS).map(([k,{label,max}]) => (
+                          <ScoreInput key={k} label={label} max={max} value={(draft.criteria||{})[k]||0} onChange={v=>setCrit(study.id,k,v)}/>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Comments */}
+                    <div style={{ marginBottom:14 }}>
+                      <div style={{ fontSize:'0.72rem', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.6px', color:'var(--muted)', marginBottom:5 }}>Comments (optional)</div>
+                      <textarea
+                        value={draft.comments||''}
+                        onChange={e=>setDraft(study.id,'comments',e.target.value)}
+                        placeholder="Feedback for the student…"
+                        rows={2}
+                        style={{ width:'100%', padding:'9px 12px', borderRadius:'var(--radius)', border:'1.5px solid var(--border)', background:'var(--white)', color:'var(--ink)', fontSize:'0.875rem', resize:'vertical', fontFamily:'var(--font-body)', boxSizing:'border-box' }}
+                      />
+                    </div>
+
+                    <div style={{ display:'flex', gap:8 }}>
+                      <button
+                        className="btn btn-gold btn-sm"
+                        onClick={() => submitOne(study)}
+                        disabled={saving[study.id] || !draft.grade}
+                        style={{ display:'flex', alignItems:'center', gap:6 }}>
+                        {saving[study.id] ? <><span className="spin spin-dark" style={{width:13,height:13}}/> Saving…</> : '✅ Submit Grade'}
+                      </button>
+                      <button className="btn btn-ol btn-sm" onClick={()=>setExpandedId(null)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RecognizedStudiesPage({ currentUser, isAdmin }) {
   const [entries, setEntries] = useState([]);
   const [cats, setCats] = useState([]);
@@ -12927,6 +13571,7 @@ function App() {
       case 'categories':    return isAdmin?<AdminCats/>:null;
       case 'analytics':     return isAdmin?<AdminAnalytics currentUser={currentUser}/>:null;
       case 'grade-overview':return isAdmin?<GradeOverviewPage currentUser={currentUser}/>:null;
+      case 'batch-grading': return isAdmin?<BatchGradingPage currentUser={currentUser}/>:null;
       case 'my-stats':      return !isAdmin?<MyStatsPage currentUser={currentUser}/>:null;
       case 'stat-analysis': return <StatAnalysisTool currentUser={currentUser}/>;
       case 'audit-log':     return isAdmin?<AdminAuditLog/>:null;
