@@ -8,7 +8,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <title>SABNAHIS STE Research Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&family=Hanken+Grotesk:wght@600;700&family=Geist:wght@400;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <style>
 /* ══════════════════════════════════════════
    DESIGN TOKENS
@@ -1960,142 +1961,88 @@ tr:hover td { background: var(--surface); }
 }
 
 /* ══════════════════════════════════════════
-   LOADING SCREEN (SABNAHIS branded)
+   LOADING SCREEN (Research Terminal)
 ══════════════════════════════════════════ */
 #sabnahis-loader {
   position: fixed; inset: 0; z-index: 9999;
-  background: #0d0f14;
+  background-color: #0c0e12;
+  overflow: hidden;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   transition: opacity 0.6s ease, visibility 0.6s ease;
+  /* Fonts needed by the research screen */
+  font-family: 'Geist', system-ui, sans-serif;
 }
 #sabnahis-loader.fade-out { opacity: 0; visibility: hidden; pointer-events: none; }
 
-.loader-grid-overlay {
-  position: absolute; inset: 0; pointer-events: none;
-  background-image:
-    linear-gradient(to right, rgba(45,55,72,0.1) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(45,55,72,0.1) 1px, transparent 1px);
-  background-size: 48px 48px;
+/* Research Load Screen injected styles */
+#sabnahis-loader #neural-void-background {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
 }
-.loader-corner {
-  position: absolute; z-index: 1;
-  opacity: 0.3;
+#sabnahis-loader .void-overlay {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at center, transparent 0%, rgba(12,14,18,0.6) 100%);
+  z-index: 1; pointer-events: none;
 }
-.loader-corner--tl { top: 24px; left: 24px; }
-.loader-corner--tr { top: 24px; right: 24px; text-align: right; }
-.loader-corner--bl { bottom: 24px; left: 24px; }
-.loader-corner--br { bottom: 24px; right: 24px; text-align: right; }
-.loader-corner-h { width: 48px; height: 1px; background: #4d4635; display: block; }
-.loader-corner-v { width: 1px; height: 48px; background: #4d4635; display: block; }
-
-.loader-body { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 32px; }
-
-.loader-icon-wrap {
+#sabnahis-loader .glass-terminal {
+  background: rgba(17,19,24,0.75);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(67,73,87,0.5);
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(212,175,55,0.15);
   position: relative;
 }
-.loader-icon-glow {
-  position: absolute; inset: -16px;
-  background: rgba(201,162,39,0.08);
-  border-radius: 50%;
-  filter: blur(24px);
-  animation: loaderGlowPulse 3s ease-in-out infinite;
-}
-@keyframes loaderGlowPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
-.loader-icon-box {
-  position: relative;
-  width: auto; height: 96px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 18px;
-  border: 1px solid rgba(201,162,39,0.18);
-  background: rgba(26,27,33,0.85);
-  backdrop-filter: blur(8px);
-  animation: loaderFloat 6s ease-in-out infinite;
-}
-@keyframes loaderFloat {
-  0%,100%{ transform: translateY(0); }
-  50%{ transform: translateY(-10px); }
-}
-.loader-heart {
-  font-size: 48px;
-  color: #ecc246;
-  text-shadow: 0 0 24px rgba(201,162,39,0.5);
-  line-height: 1;
-  user-select: none;
-}
-
-.loader-brand { text-align: center; }
-.loader-brand-name {
-  font-family: 'Playfair Display', Georgia, serif;
-  font-size: clamp(28px, 6vw, 48px);
-  font-weight: 700;
-  color: #ecc246;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  text-shadow: 0 0 24px rgba(201,162,39,0.4);
-}
-.loader-brand-sub {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: rgba(209,197,175,0.5);
-  margin-top: 6px;
-}
-
-.loader-progress-wrap { width: clamp(240px, 60vw, 320px); }
-.loader-track {
-  height: 2px; width: 100%;
-  background: rgba(255,255,255,0.06);
-  border-radius: 99px;
-  overflow: hidden;
-  position: relative;
-}
-.loader-bar {
-  position: absolute; top: 0; left: 0; height: 100%;
-  background: #7dd7c2;
-  box-shadow: 0 0 12px rgba(125,215,194,0.4);
-  border-radius: 99px;
-  animation: loaderPulse 3s cubic-bezier(0.65,0,0.35,1) infinite;
-}
-@keyframes loaderPulse {
-  0%   { width: 0%;   opacity: 0.5; }
-  50%  { width: 70%;  opacity: 1;   }
-  100% { width: 100%; opacity: 0;   }
-}
-.loader-meta {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-top: 12px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px; letter-spacing: 0.06em;
-}
-.loader-meta-left { color: rgba(125,215,194,0.7); display: flex; align-items: center; gap: 7px; }
-.loader-meta-dot {
+#sabnahis-loader .status-dot-gold {
   width: 6px; height: 6px; border-radius: 50%;
-  background: #7dd7c2;
-  animation: dotBlink 1.2s ease-in-out infinite;
+  background: #d4af37; box-shadow: 0 0 10px #d4af37;
+  animation: rls-soft-pulse 3s infinite ease-in-out;
 }
-@keyframes dotBlink { 0%,100%{opacity:0.4} 50%{opacity:1} }
-.loader-meta-pct { color: rgba(209,197,175,0.35); }
+@keyframes rls-soft-pulse {
+  0%,100%{ opacity:0.4; transform:scale(0.9); }
+  50%{ opacity:1; transform:scale(1.1); }
+}
+#sabnahis-loader .scan-line {
+  width:100%; height:1px;
+  background: linear-gradient(to right, transparent, rgba(212,175,55,0.4), transparent);
+  position:absolute; top:-2px;
+  animation: rls-scan 8s linear infinite;
+  z-index:20; pointer-events:none;
+}
+@keyframes rls-scan { 0%{top:0%} 100%{top:100%} }
+#sabnahis-loader .terminal-cursor {
+  display:inline-block; width:8px; height:16px;
+  background-color:#d4af37;
+  animation: rls-blink 1s step-end infinite;
+  vertical-align:middle; margin-left:4px;
+}
+@keyframes rls-blink { 50%{opacity:0} }
+#sabnahis-loader .flicker-text {
+  animation: rls-flicker 5s linear infinite;
+}
+@keyframes rls-flicker {
+  0%,19.999%,22%,62.999%,64%,64.999%,70%,100%{opacity:1}
+  20%{opacity:0.8} 63%{opacity:0.7; filter:blur(0.5px)}
+}
+#sabnahis-loader .progress-scan { position:relative; overflow:hidden; }
+#sabnahis-loader .progress-scan::after {
+  content:''; position:absolute; top:0; left:-100%; width:100%; height:100%;
+  background: linear-gradient(90deg, transparent, rgba(212,175,55,0.6), transparent);
+  animation: rls-progress-sweep 3s cubic-bezier(0.4,0,0.2,1) infinite;
+}
+@keyframes rls-progress-sweep { 0%{left:-100%} 100%{left:100%} }
+#sabnahis-loader .stagger-reveal {
+  opacity:0; transform:translateY(10px);
+  animation: rls-revealIn 0.8s cubic-bezier(0.16,1,0.3,1) forwards;
+}
+@keyframes rls-revealIn { to{opacity:1; transform:translateY(0)} }
+#sabnahis-loader .typing-line { overflow:hidden; white-space:nowrap; width:0; }
+#sabnahis-loader .typing-active { animation: rls-typing 1s steps(40,end) forwards; }
+@keyframes rls-typing { from{width:0} to{width:100%} }
 
-.loader-footer {
-  position: absolute; bottom: 40px; left: 0; right: 0;
-  text-align: center; z-index: 2;
-}
-.loader-tagline {
-  font-family: 'Playfair Display', Georgia, serif;
-  font-size: clamp(14px, 2.5vw, 18px);
-  color: rgba(209,197,175,0.3);
-  font-style: italic;
-  font-weight: 400;
-}
-.loader-badges {
-  display: flex; justify-content: center; gap: 36px;
-  margin-top: 20px; opacity: 0.18;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px; letter-spacing: 0.08em;
-}
-.loader-badge { display: flex; align-items: center; gap: 6px; }
+/* Tailwind-equivalent helpers scoped to loader */
+#sabnahis-loader [class*="font-metadata-sm"] { font-family:'JetBrains Mono',monospace; }
+#sabnahis-loader [class*="font-terminal-code"] { font-family:'JetBrains Mono',monospace; }
+#sabnahis-loader [class*="font-display-lg"] { font-family:'Hanken Grotesk',sans-serif; }
+#sabnahis-loader [class*="font-headline-md"] { font-family:'Hanken Grotesk',sans-serif; }
 
 /* ══════════════════════════════════════════
    AUTH PAGE — blended redesign
@@ -2103,26 +2050,58 @@ tr:hover td { background: var(--surface); }
 .auth-wrap {
   min-height: 100vh;
   display: flex;
-  background: #0d0f14;
+  background: #0c0e12;
   position: relative;
   overflow: hidden;
   padding-top: var(--safe-top);
 }
-.auth-bg {
-  position: absolute; inset: 0; pointer-events: none;
-  background:
-    radial-gradient(ellipse at 20% 50%, rgba(201,162,39,0.1) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 20%, rgba(26,127,110,0.07) 0%, transparent 50%),
-    radial-gradient(ellipse at 60% 80%, rgba(109,63,168,0.05) 0%, transparent 40%);
-  background-color: #0d0f14;
-}
-.auth-bg::before {
-  content: '';
+#auth-dna-canvas {
   position: absolute; inset: 0;
-  background-image:
-    linear-gradient(to right, rgba(45,55,72,0.08) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(45,55,72,0.08) 1px, transparent 1px);
-  background-size: 48px 48px;
+  width: 100%; height: 100%;
+  z-index: 0; cursor: grab;
+}
+#auth-dna-canvas:active { cursor: grabbing; }
+.auth-scanline {
+  width: 100%; height: 2px;
+  background: rgba(212,175,55,0.06);
+  position: absolute; top: 0; left: 0;
+  pointer-events: none; z-index: 1;
+  animation: auth-scan 8s linear infinite;
+}
+@keyframes auth-scan { 0% { top: 0; } 100% { top: 100%; } }
+.auth-flash {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle, rgba(212,175,55,0.10) 0%, transparent 70%);
+  pointer-events: none; z-index: 1;
+  opacity: 0; transition: opacity 0.3s ease-out;
+}
+.auth-flash.active { opacity: 1; }
+.auth-topbar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px clamp(16px,4vw,48px);
+  background: rgba(12,14,18,0.55);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(212,175,55,0.12);
+}
+.auth-topbar-brand { display: flex; align-items: center; gap: 10px; }
+.auth-topbar-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: #d4af37;
+}
+.auth-topbar-status {
+  display: flex; align-items: center; gap: 7px;
+  padding: 4px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(212,175,55,0.18);
+  border-radius: 5px;
+}
+.auth-topbar-status .dot { width: 6px; height: 6px; border-radius: 50%; background: #d4af37; animation: auth-pulse 2s ease-in-out infinite; }
+@keyframes auth-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+.auth-topbar-status span.lbl {
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: rgba(209,197,175,0.7);
 }
 .auth-inner {
   flex: 1;
@@ -2131,32 +2110,28 @@ tr:hover td { background: var(--surface); }
   align-items: center;
   justify-content: center;
   padding: clamp(20px,5vw,40px);
-  position: relative; z-index: 1;
+  position: relative; z-index: 4;
   gap: 28px;
+  pointer-events: none;
 }
-.auth-brand { text-align: center; }
+.auth-brand { text-align: center; pointer-events: none; }
 .auth-brand-icon {
   width: auto; height: 72px;
   display: flex; align-items: center; justify-content: center;
+  gap: 8px; padding: 0 14px;
   border-radius: 16px;
-  border: 1px solid rgba(201,162,39,0.2);
-  background: rgba(26,27,33,0.9);
+  border: 1px solid rgba(212,175,55,0.25);
+  background: rgba(17,19,24,0.6);
   margin: 0 auto 18px;
-  box-shadow: 0 0 32px rgba(201,162,39,0.12);
-}
-.auth-brand-heart {
-  font-size: 34px;
-  color: #ecc246;
-  text-shadow: 0 0 16px rgba(201,162,39,0.5);
-  line-height: 1;
+  box-shadow: 0 0 32px rgba(212,175,55,0.14);
 }
 .auth-brand h1 {
   font-family: var(--font-display);
   font-size: clamp(1.5rem, 5vw, 1.9rem);
   font-weight: 700;
-  color: #ecc246;
+  color: #f2ca50;
   letter-spacing: -0.02em; line-height: 1.15;
-  text-shadow: 0 0 20px rgba(201,162,39,0.35);
+  text-shadow: 0 0 24px rgba(212,175,55,0.4);
 }
 .auth-brand h1 span {
   color: rgba(209,197,175,0.65);
@@ -2169,21 +2144,25 @@ tr:hover td { background: var(--surface); }
   text-shadow: none;
   font-weight: 400;
 }
-.auth-brand p { color: rgba(209,197,175,0.4); margin-top: 8px; font-size: var(--text-sm); }
+.auth-brand p { color: rgba(209,197,175,0.45); margin-top: 8px; font-size: var(--text-sm); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em; }
 
 .auth-card {
-  background: #1a1d2e;
-  border: 1px solid rgba(77,70,53,0.45);
+  background: rgba(17,19,24,0.55);
+  backdrop-filter: blur(28px);
+  border: 1px solid rgba(212,175,55,0.18);
   border-radius: var(--radius-xl);
   padding: clamp(20px,5vw,32px);
   width: 100%; max-width: 440px;
-  box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.65);
+  pointer-events: auto;
+  position: relative;
 }
 .auth-tabs {
   display: flex; gap: 4px;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.04);
   border-radius: 10px; padding: 4px;
   margin-bottom: 22px;
+  border: 1px solid rgba(212,175,55,0.08);
 }
 .auth-tab {
   flex: 1;
@@ -2194,49 +2173,96 @@ tr:hover td { background: var(--surface); }
   cursor: pointer;
   font-size: var(--text-sm);
   font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: rgba(209,197,175,0.45);
   transition: all var(--transition);
   border: none; background: none;
 }
 .auth-tab.active {
-  background: rgba(201,162,39,0.15);
-  color: #ecc246;
-  box-shadow: 0 1px 6px rgba(201,162,39,0.15);
+  background: rgba(212,175,55,0.16);
+  color: #f2ca50;
+  box-shadow: 0 1px 6px rgba(212,175,55,0.18);
 }
 
-/* Override form inputs for dark auth card */
-.auth-card label { color: rgba(209,197,175,0.55); font-family: 'JetBrains Mono',monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+/* Override form inputs for the research-node auth card */
+.auth-card label { color: rgba(209,197,175,0.6); font-family: 'JetBrains Mono',monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
 .auth-card input,
 .auth-card select,
 .auth-card textarea {
-  background: #111318;
-  border: 1px solid rgba(77,70,53,0.5);
-  color: #e2e2e9;
+  background: rgba(12,14,18,0.6);
+  border: 1px solid rgba(212,175,55,0.2);
+  color: #e2e2e8;
   border-radius: var(--radius);
+  font-family: 'JetBrains Mono', monospace;
 }
-.auth-card input::placeholder { color: rgba(153,144,123,0.5); }
+.auth-card input::placeholder { color: rgba(153,144,123,0.45); }
 .auth-card input:focus,
 .auth-card select:focus,
 .auth-card textarea:focus {
-  border-color: #ecc246;
-  box-shadow: 0 0 0 3px rgba(236,194,70,0.12);
+  border-color: #d4af37;
+  box-shadow: 0 0 16px rgba(212,175,55,0.22);
   outline: none;
 }
 
 /* Forgot password link */
 .auth-card .auth-forgot {
-  color: rgba(209,197,175,0.4);
+  color: rgba(209,197,175,0.45);
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.04em;
 }
-.auth-card .auth-forgot:hover { color: #ecc246; }
+.auth-card .auth-forgot:hover { color: #f2ca50; }
+
+/* Gold action button used inside the research-node card */
+.auth-card .btn-gold {
+  position: relative; overflow: hidden;
+  box-shadow: 0 0 30px rgba(212,175,55,0.22);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.auth-card .btn-gold::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.12);
+  transform: translateX(-100%) skewX(12deg);
+  transition: transform 0.5s;
+  pointer-events: none;
+}
+.auth-card .btn-gold:hover::after { transform: translateX(0) skewX(12deg); }
 
 /* Auth corner marks */
-.auth-corner { position:absolute; z-index:2; opacity:0.25; }
-.auth-corner--tl { top:24px; left:24px; }
-.auth-corner--tr { top:24px; right:24px; text-align:right; }
+.auth-corner { position:absolute; z-index:5; opacity:0.3; pointer-events: none; }
+.auth-corner--tl { top:76px; left:24px; }
+.auth-corner--tr { top:76px; right:24px; text-align:right; }
 .auth-corner--bl { bottom:24px; left:24px; }
 .auth-corner--br { bottom:24px; right:24px; text-align:right; }
-.auth-corner-h { width:40px; height:1px; background:#4d4635; display:block; }
-.auth-corner-v { width:1px; height:40px; background:#4d4635; display:block; }
+.auth-corner-h { width:40px; height:1px; background:#d4af37; display:block; }
+.auth-corner-v { width:1px; height:40px; background:#d4af37; display:block; }
+
+.auth-bootlog {
+  position: absolute; left: clamp(16px,4vw,48px); top: 50%; transform: translateY(-50%);
+  z-index: 4; pointer-events: none;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; line-height: 1.7;
+  color: rgba(212,175,55,0.55);
+  display: none;
+}
+@media (min-width: 1280px) { .auth-bootlog { display: block; } }
+.auth-bootlog p { margin: 0; }
+.auth-bootlog .cursor-line { color: #d4af37; animation: auth-pulse 1.4s ease-in-out infinite; }
+
+.auth-footer {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  padding: 12px clamp(16px,4vw,48px);
+  background: rgba(12,14,18,0.4);
+  backdrop-filter: blur(6px);
+  border-top: 1px solid rgba(212,175,55,0.1);
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: rgba(209,197,175,0.4);
+  text-align: center;
+}
 
 /* ══════════════════════════════════════════
    TOOLTIPS
@@ -2459,38 +2485,273 @@ tr:hover td { background: var(--surface); }
 </style>
 </head>
 <body>
-<!-- ══ LOADING SCREEN ══ -->
-<div id="sabnahis-loader">
-  <div class="loader-grid-overlay"></div>
-  <div class="loader-corner loader-corner--tl"><span class="loader-corner-h" style="margin-bottom:12px;display:block;"></span><span class="loader-corner-v"></span></div>
-  <div class="loader-corner loader-corner--tr"><span class="loader-corner-h" style="margin-bottom:12px;display:block;margin-left:auto;"></span><span class="loader-corner-v" style="margin-left:auto;"></span></div>
-  <div class="loader-corner loader-corner--bl"><span class="loader-corner-v"></span><span class="loader-corner-h" style="margin-top:12px;display:block;"></span></div>
-  <div class="loader-corner loader-corner--br"><span class="loader-corner-v" style="margin-left:auto;"></span><span class="loader-corner-h" style="margin-top:12px;display:block;margin-left:auto;"></span></div>
-  <div class="loader-body">
-    <div class="loader-icon-wrap">
-      <div class="loader-icon-glow"></div>
-      <div class="loader-icon-box" style="flex-direction:row;gap:10px;width:auto;padding:0 16px;"><img src="LOGO.png" alt="Logo 1" style="width:48px;height:48px;object-fit:contain;border-radius:6px;"/><img src="LOGO2.png" alt="Logo 2" style="width:48px;height:48px;object-fit:contain;border-radius:6px;"/></div>
+<!-- ══ LOADING SCREEN (Research Terminal) ══ -->
+<div id="sabnahis-loader" style="color:#e2e2e8;">
+  <!-- Background Layer with Refined Fluid Shader -->
+  <div id="neural-void-background" style="position:absolute;inset:0;z-index:0;pointer-events:none;">
+    <canvas id="rls-fluid-canvas" style="display:block;width:100%;height:100%;"></canvas>
+    <script>
+    (function() {
+      var canvas = document.getElementById('rls-fluid-canvas');
+      function syncSize() {
+        var w = window.innerWidth, h = window.innerHeight;
+        if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+      }
+      window.addEventListener('resize', syncSize); syncSize();
+      var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      if (!gl) return;
+      var vs = 'attribute vec2 a_position;varying vec2 v_texCoord;void main(){v_texCoord=a_position*0.5+0.5;gl_Position=vec4(a_position,0.0,1.0);}';
+      var fs = 'precision highp float;varying vec2 v_texCoord;uniform float u_time;uniform vec2 u_resolution;uniform vec2 u_mouse;vec3 permute(vec3 x){return mod(((x*34.0)+1.0)*x,289.0);}float snoise(vec2 v){const vec4 C=vec4(0.211324865405187,0.366025403784439,-0.577350269189626,0.024390243902439);vec2 i=floor(v+dot(v,C.yy));vec2 x0=v-i+dot(i,C.xx);vec2 i1;i1=(x0.x>x0.y)?vec2(1.0,0.0):vec2(0.0,1.0);vec4 x12=x0.xyxy+C.xxzz;x12.xy-=i1;i=mod(i,289.0);vec3 p=permute(permute(i.y+vec3(0.0,i1.y,1.0))+i.x+vec3(0.0,i1.x,1.0));vec3 m=max(0.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.0);m=m*m;m=m*m;vec3 x=2.0*fract(p*C.www)-1.0;vec3 h=abs(x)-0.5;vec3 ox=floor(x+0.5);vec3 a0=x-ox;m*=1.79284291400159-0.85373472095314*(a0*a0+h*h);vec3 g;g.x=a0.x*x0.x+h.x*x0.y;g.yz=a0.yz*x12.xz+h.yz*x12.yw;return 130.0*dot(m,g);}void main(){vec2 uv=v_texCoord;vec2 mouse=u_mouse/u_resolution;vec3 bgDeep=vec3(0.015,0.02,0.03);vec3 goldAccent=vec3(0.83,0.69,0.22);vec3 shadowBlue=vec3(0.05,0.06,0.09);float mDist=length(uv-(length(u_mouse)>0.0?mouse:vec2(0.5)));float interactForce=smoothstep(0.6,0.0,mDist);float strength=0.0;float scale=1.8;for(float i=1.0;i<6.0;i++){vec2 p=uv*scale*i;p+=u_time*(0.04+i*0.015);p.x+=snoise(p*0.5+u_time*0.1)*0.4;vec2 dir=normalize(uv-(length(u_mouse)>0.0?mouse:vec2(0.5)));p+=dir*interactForce*0.8;float n=snoise(p);strength+=n*(1.0/i);}float cuts=abs(strength);cuts=smoothstep(0.2,0.5,cuts)-smoothstep(0.5,0.55,cuts);float baseMask=smoothstep(0.4,0.7,strength*0.5+0.5);vec3 color=mix(bgDeep,shadowBlue,baseMask*0.5);color=mix(color,goldAccent*0.3,cuts*baseMask);float bloom=smoothstep(0.6,0.0,mDist)*0.15;color+=goldAccent*bloom*0.4;float vignette=smoothstep(1.8,0.3,length(uv-0.5));color*=vignette;gl_FragColor=vec4(color,1.0);}';
+      function cs(type,src){var s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);return s;}
+      var prog=gl.createProgram();
+      gl.attachShader(prog,cs(gl.VERTEX_SHADER,vs));
+      gl.attachShader(prog,cs(gl.FRAGMENT_SHADER,fs));
+      gl.linkProgram(prog);gl.useProgram(prog);
+      var buf=gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+      var pos=gl.getAttribLocation(prog,'a_position');
+      gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
+      var uTime=gl.getUniformLocation(prog,'u_time');
+      var uRes=gl.getUniformLocation(prog,'u_resolution');
+      var uMouse=gl.getUniformLocation(prog,'u_mouse');
+      var mouse={x:canvas.width/2,y:canvas.height/2};
+      var handleInput=function(e){var cx=e.touches?e.touches[0].clientX:e.clientX;var cy=e.touches?e.touches[0].clientY:e.clientY;mouse.x=cx;mouse.y=window.innerHeight-cy;};
+      window.addEventListener('mousemove',handleInput);
+      window.addEventListener('touchstart',handleInput,{passive:true});
+      window.addEventListener('touchmove',handleInput,{passive:true});
+      function render(t){gl.viewport(0,0,canvas.width,canvas.height);gl.uniform1f(uTime,t*0.0008);gl.uniform2f(uRes,canvas.width,canvas.height);gl.uniform2f(uMouse,mouse.x,mouse.y);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);requestAnimationFrame(render);}
+      render(0);
+    })();
+    </script>
+  </div>
+  <div class="void-overlay" style="position:absolute;inset:0;background:radial-gradient(circle at center,transparent 0%,rgba(12,14,18,0.6) 100%);z-index:1;pointer-events:none;">
+    <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;">
+      <div style="position:absolute;top:-10%;left:-10%;width:40%;aspect-ratio:1;border:1px solid rgba(212,175,55,0.05);border-radius:9999px;opacity:0.2;animation:rls-spin-60 60s linear infinite;"></div>
+      <div style="position:absolute;bottom:-20%;right:-10%;width:60%;aspect-ratio:1;border:1px solid rgba(212,175,55,0.05);border-radius:9999px;opacity:0.1;animation:rls-spin-120 120s linear reverse infinite;"></div>
     </div>
-    <div class="loader-brand">
-      <div class="loader-brand-name">SABNAHIS STE</div>
-      <div class="loader-brand-sub">Advanced Research Environment</div>
+  </div>
+  <style>
+    @keyframes rls-spin-60 { to { transform: rotate(360deg); } }
+    @keyframes rls-spin-120 { to { transform: rotate(360deg); } }
+  </style>
+  <!-- Status Dots -->
+  <div style="position:fixed;top:24px;left:24px;z-index:50;display:flex;align-items:center;gap:12px;">
+    <div class="status-dot-gold flicker-text"></div>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#d4af37;letter-spacing:0.2em;text-transform:uppercase;opacity:0.6;">Node Syncing</span>
+  </div>
+  <div style="position:fixed;top:24px;right:24px;z-index:50;display:flex;align-items:center;gap:12px;">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#d4af37;letter-spacing:0.2em;text-transform:uppercase;opacity:0.6;">Secure Link</span>
+    <div class="status-dot-gold flicker-text"></div>
+  </div>
+  <!-- Header -->
+  <header style="position:fixed;top:0;width:100%;z-index:40;display:flex;justify-content:space-between;align-items:center;padding:24px 64px;background:rgba(17,19,24,0.1);backdrop-filter:blur(4px);">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <span class="material-symbols-outlined" style="color:#d4af37;font-variation-settings:'FILL' 1;">biotech</span>
+      <h1 style="font-family:'Hanken Grotesk',sans-serif;font-size:24px;font-weight:600;color:#d4af37;letter-spacing:-0.05em;text-transform:uppercase;margin:0;">SABNAHIS STE</h1>
     </div>
-    <div class="loader-progress-wrap">
-      <div class="loader-track"><div class="loader-bar"></div></div>
-      <div class="loader-meta">
-        <span class="loader-meta-left"><span class="loader-meta-dot"></span>Securing Node Connection</span>
-        <span class="loader-meta-pct" id="loader-pct">0%</span>
+  </header>
+  <!-- Main Terminal -->
+  <main style="position:relative;z-index:10;width:100%;max-width:896px;padding:0 16px;">
+    <div class="glass-terminal" style="border-radius:8px;overflow:hidden;display:flex;flex-direction:column;border-color:rgba(212,175,55,0.3);box-shadow:0 0 40px rgba(212,175,55,0.05);">
+      <div class="scan-line"></div>
+      <!-- Terminal Header -->
+      <div style="padding:16px 24px;border-bottom:1px solid rgba(67,73,87,0.3);display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.3);">
+        <div style="display:flex;gap:8px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:rgba(212,175,55,0.4);"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:rgba(67,73,87,0.4);"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:rgba(67,73,87,0.2);"></div>
+        </div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(208,197,175,0.6);letter-spacing:0.15em;text-transform:uppercase;">SECURE_TERMINAL_V4.5.1</span>
+      </div>
+      <!-- Content Area -->
+      <div style="padding:40px;display:flex;flex-direction:row;align-items:center;gap:48px;">
+        <!-- DNA Container -->
+        <div style="width:50%;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;flex-shrink:0;">
+          <div style="position:absolute;inset:0;background:rgba(212,175,55,0.05);border-radius:9999px;filter:blur(80px);"></div>
+          <div style="position:relative;width:100%;height:100%;border:1px solid rgba(212,175,55,0.1);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);">
+            <div id="rls-dna-canvas" style="width:100%;height:100%;cursor:grab;"></div>
+            <div style="position:absolute;bottom:16px;left:16px;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);padding:6px 12px;border-radius:9999px;border:1px solid rgba(212,175,55,0.2);pointer-events:none;">
+              <span class="material-symbols-outlined" style="color:#d4af37;font-size:16px;">gesture</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#e2e2e8;text-transform:uppercase;letter-spacing:0.1em;">3D HELIX ACTIVE</span>
+            </div>
+          </div>
+        </div>
+        <!-- Data Panel -->
+        <div style="width:50%;display:flex;flex-direction:column;gap:28px;">
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#d4af37;letter-spacing:0.25em;text-transform:uppercase;">SYSTEM INITIALIZATION</div>
+            <h2 class="flicker-text" style="font-family:'Hanken Grotesk',sans-serif;font-size:42px;font-weight:700;color:#e2e2e8;line-height:1.1;margin:0;">DECRYPTING ARCHIVE<span style="color:#d4af37;">.</span></h2>
+          </div>
+          <!-- Progress Bar -->
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:14px;color:rgba(208,197,175,0.8);">
+              <span>TASK_LOAD_COMPLIANCE</span>
+              <span id="loader-pct" style="color:#d4af37;font-weight:700;">0%</span>
+            </div>
+            <div id="loader-block-track" style="display:flex;gap:4px;height:12px;width:100%;" class="progress-scan">
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
+            </div>
+          </div>
+          <!-- Terminal Log -->
+          <div id="rls-terminal-log" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(208,197,175,0.6);background:rgba(0,0,0,0.6);padding:16px;border-radius:8px;border:1px solid rgba(67,73,87,0.2);min-height:140px;max-height:144px;overflow:hidden;"></div>
+        </div>
+      </div>
+      <!-- Terminal Footer -->
+      <div style="padding:20px 24px;border-top:1px solid rgba(67,73,87,0.3);display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.4);">
+        <div style="display:flex;gap:32px;">
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(212,175,55,0.6);text-transform:uppercase;">Identity</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#e2e2e8;">STE-9920</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(212,175,55,0.6);text-transform:uppercase;">Cipher</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#e2e2e8;">AES-256</span>
+          </div>
+        </div>
+        <div style="padding:8px 16px;background:rgba(212,175,55,0.05);border:1px solid rgba(212,175,55,0.2);border-radius:4px;">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#d4af37;text-transform:uppercase;font-weight:700;letter-spacing:0.05em;">SECURE CONNECTION ESTABLISHED</span>
+        </div>
       </div>
     </div>
+  </main>
+  <!-- Corner info overlays -->
+  <div style="position:fixed;bottom:96px;left:24px;z-index:50;font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(208,197,175,0.3);text-transform:uppercase;letter-spacing:0.3em;line-height:1.8;pointer-events:none;">
+    <div>LOC: 42.3601° N, 71.0589° W</div>
+    <div>BITRATE: 4096.82 KB/S</div>
+    <div>UPTIME: 102:14:55:02</div>
   </div>
-  <div class="loader-footer">
-    <div class="loader-tagline">Securing the Future of STEM Research</div>
-    <div class="loader-badges">
-      <div class="loader-badge">&#128274; AES-256</div>
-      <div class="loader-badge">&#128452; STE-9920</div>
-      <div class="loader-badge">&#9000; V.4.2.0</div>
-    </div>
+  <div style="position:fixed;bottom:96px;right:24px;z-index:50;font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(208,197,175,0.3);text-transform:uppercase;letter-spacing:0.3em;text-align:right;line-height:1.8;pointer-events:none;">
+    <div>SIG_STRENGTH: 99.4%</div>
+    <div>TEMP: 284.15 K</div>
+    <div>BUFFER: OPTIMIZED</div>
   </div>
+  <!-- Three.js DNA Helix -->
+  <script src="https://ajax.googleapis.com/ajax/libs/threejs/r125/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.125.2/examples/js/controls/OrbitControls.js"></script>
+  <script>
+  (function waitForThree() {
+    if (typeof THREE === 'undefined') { setTimeout(waitForThree, 50); return; }
+    var container = document.getElementById('rls-dna-canvas');
+    if (!container) return;
+
+    // Container can report 0x0 on first paint (flex layout not settled yet).
+    // Fall back to sane defaults so the renderer + camera aren't degenerate,
+    // and re-sync once real dimensions are available.
+    function getSize() {
+      var w = container.clientWidth || 320;
+      var h = container.clientHeight || 320;
+      return { w: w, h: h };
+    }
+
+    var size = getSize();
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(50, size.w / size.h, 0.1, 1000);
+    var renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(size.w, size.h);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    container.appendChild(renderer.domElement);
+    var controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; controls.dampingFactor = 0.05;
+    controls.autoRotate = true; controls.autoRotateSpeed = 2.2;
+    controls.enableZoom = false;
+    var gold = 0xd4af37, charcoal = 0x434957;
+    var dnaGroup = new THREE.Group(); scene.add(dnaGroup);
+    var sphereGeom = new THREE.SphereGeometry(0.12, 16, 16);
+    var lineMat = new THREE.LineBasicMaterial({ color: gold, transparent: true, opacity: 0.2 });
+    var points = 40, radius = 2.4, heightStep = 0.28, angleStep = 0.32;
+    for (var i = 0; i < points; i++) {
+      var y = (i - points / 2) * heightStep, angle = i * angleStep;
+      var xA = Math.cos(angle) * radius, zA = Math.sin(angle) * radius;
+      var sA = new THREE.Mesh(sphereGeom, new THREE.MeshPhongMaterial({ color: gold, emissive: gold, emissiveIntensity: 0.6, shininess: 120 }));
+      sA.position.set(xA, y, zA); dnaGroup.add(sA);
+      var xB = Math.cos(angle + Math.PI) * radius, zB = Math.sin(angle + Math.PI) * radius;
+      var sB = new THREE.Mesh(sphereGeom, new THREE.MeshPhongMaterial({ color: charcoal, emissive: charcoal, emissiveIntensity: 0.1, shininess: 80 }));
+      sB.position.set(xB, y, zB); dnaGroup.add(sB);
+      if (i % 2 === 0) {
+        var lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(xA,y,zA), new THREE.Vector3(xB,y,zB)]);
+        dnaGroup.add(new THREE.Line(lg, lineMat));
+      }
+    }
+    scene.add(new THREE.PointLight(0xffffff, 1.5, 100)).position.set(5, 10, 5);
+    scene.add(new THREE.AmbientLight(0x404040, 0.6));
+    camera.position.z = 12;
+
+    var clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      var dt = clock.getDelta();
+      // Manual continuous spin as a guaranteed fallback, independent of
+      // OrbitControls' autoRotate (which relies on controls.update() ticking
+      // at a stable rate to look smooth).
+      dnaGroup.rotation.y += dt * 0.5;
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    function resync() {
+      var s = getSize();
+      if (!s.w || !s.h) return;
+      camera.aspect = s.w / s.h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(s.w, s.h);
+    }
+    window.addEventListener('resize', resync);
+    // Re-check size shortly after mount in case layout settles late
+    setTimeout(resync, 100);
+    setTimeout(resync, 500);
+
+    animate();
+  })();
+  </script>
+  <!-- Terminal typing log -->
+  <script>
+  (function() {
+    var logContent = [
+      '>> SECURE_HANDSHAKE_INITIATED',
+      '>> SYNCING WITH RESEARCH_NODE_STE-9920',
+      '>> ENCRYPTION_LAYER: AES-256_ACTIVE',
+      '>> ACCESS_GRANTED: PROCEEDING TO DECRYPTION',
+      '>> PKI_CERTIFICATE_VERIFIED',
+      '>> LOADING_SCHEMA_V4',
+      '>> ASSEMBLING_FRAGMENT_STREAMS',
+      '>> NEURAL_STREAM_STABILIZED',
+      '>> DATABASE_SYNC: 88%'
+    ];
+    var logWindow = document.getElementById('rls-terminal-log');
+    var idx = 0;
+    function addLine() {
+      if (!logWindow) return;
+      if (idx >= logContent.length) idx = 4;
+      var txt = logContent[idx];
+      var p = document.createElement('p');
+      p.style.cssText = 'overflow:hidden;white-space:nowrap;width:0;margin:0;animation:rls-typing 1s steps(40,end) forwards;';
+      if (txt.includes('GRANTED')) p.style.color = '#d4af37';
+      p.innerText = txt;
+      if (logWindow.children.length >= 6) logWindow.removeChild(logWindow.firstChild);
+      logWindow.appendChild(p);
+      var cursor = document.createElement('span');
+      cursor.className = 'terminal-cursor';
+      p.appendChild(cursor);
+      setTimeout(function() {
+        var prev = p.previousElementSibling;
+        if (prev) { var oc = prev.querySelector('.terminal-cursor'); if (oc) oc.remove(); }
+      }, 100);
+      idx++;
+      setTimeout(addLine, 1500 + Math.random() * 1500);
+    }
+    setTimeout(addLine, 2000);
+  })();
+  </script>
 </div>
 <div id="root"></div>
 <script>
@@ -2667,6 +2928,8 @@ document.addEventListener('keydown', function(e) {
 
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -4920,6 +5183,252 @@ function ForgotModal({ onClose }) {
     setErr("");
   } }, "\u2190 Back"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: stepNewPw, disabled: loading || !pw || !pw2 }, loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), "Saving\u2026") : "Save New Password"))), step === "done" && /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "18px 0" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "3rem", marginBottom: 12 } }, "\u{1F513}"), /* @__PURE__ */ React.createElement("h3", { style: { fontFamily: "var(--font-display)", fontSize: "1.15rem", marginBottom: 8, color: "var(--green)" } }, "Password Updated!"), /* @__PURE__ */ React.createElement("p", { className: "muted", style: { marginBottom: 8, fontSize: "var(--text-sm)" } }, "Your new password has been saved. Sign in with your new password right away."), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", marginBottom: 22, background: "var(--surface)", borderRadius: 8, padding: "8px 12px", border: "1px solid var(--border)" } }, "\u{1F4A1} The new password takes effect on your next sign-in."), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold btn-full", onClick: onClose }, "Back to Sign In")));
 }
+function useDnaHelix(canvasRef, flashRef) {
+  useEffect(() => {
+    if (!canvasRef.current || typeof THREE === "undefined") return;
+    const canvas = canvasRef.current;
+    const academicGold = 0xd4af37;
+    const shimmeringSilver = 0xc0c0c0;
+    let nucleotides = [];
+    let interactionStrength = 0;
+    let flashTimeout;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0c0e12);
+    const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const dna = new THREE.Group();
+    dna.rotation.x = Math.PI / 2;
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    const tubeRadius = 0.12, helixRadius = 4.5, helixHeight = 30, turns = 5, pointsCount = 150;
+    const backbonePoints1 = [], backbonePoints2 = [];
+    for (let i = 0; i <= pointsCount; i++) {
+      const ratio = i / pointsCount;
+      const angle = ratio * Math.PI * 2 * turns;
+      const y = (ratio - 0.5) * helixHeight;
+      const x1 = Math.cos(angle) * helixRadius, z1 = Math.sin(angle) * helixRadius;
+      backbonePoints1.push(new THREE.Vector3(x1, y, z1));
+      const x2 = Math.cos(angle + Math.PI) * helixRadius, z2 = Math.sin(angle + Math.PI) * helixRadius;
+      backbonePoints2.push(new THREE.Vector3(x2, y, z2));
+      if (i % 4 === 0) {
+        const rungGeometry = new THREE.CylinderGeometry(0.04, 0.04, helixRadius * 2);
+        const rungMaterial = new THREE.MeshPhongMaterial({ color: academicGold, emissive: academicGold, emissiveIntensity: 0.8, transparent: true, opacity: 0.9 });
+        const rung = new THREE.Mesh(rungGeometry, rungMaterial);
+        rung.position.set(0, y, 0);
+        rung.rotation.z = Math.PI / 2;
+        rung.rotation.y = angle;
+        dna.add(rung);
+        const sphereGeo = new THREE.SphereGeometry(0.25, 16, 16);
+        const jointMat = new THREE.MeshPhongMaterial({ color: academicGold, emissive: academicGold, emissiveIntensity: 1.2, shininess: 100 });
+        const s1 = new THREE.Mesh(sphereGeo, jointMat.clone());
+        s1.position.set(x1, y, z1);
+        dna.add(s1); nucleotides.push(s1);
+        const s2 = new THREE.Mesh(sphereGeo, jointMat.clone());
+        s2.position.set(x2, y, z2);
+        dna.add(s2); nucleotides.push(s2);
+      }
+    }
+    const backboneCurve1 = new THREE.CatmullRomCurve3(backbonePoints1);
+    const backboneCurve2 = new THREE.CatmullRomCurve3(backbonePoints2);
+    const backboneGeo1 = new THREE.TubeGeometry(backboneCurve1, 200, tubeRadius, 8, false);
+    const backboneGeo2 = new THREE.TubeGeometry(backboneCurve2, 200, tubeRadius, 8, false);
+    const backboneMat = new THREE.MeshStandardMaterial({ color: shimmeringSilver, metalness: 1, roughness: 0.05, transparent: true, opacity: 0.8 });
+    dna.add(new THREE.Mesh(backboneGeo1, backboneMat));
+    dna.add(new THREE.Mesh(backboneGeo2, backboneMat));
+    scene.add(dna);
+
+    const starCount = 3000;
+    const starGeo = new THREE.BufferGeometry();
+    const starPos = new Float32Array(starCount * 3);
+    const starColors = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      const r = 50 + Math.random() * 50;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 2 - 1);
+      starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      starPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      starPos[i * 3 + 2] = r * Math.cos(phi);
+      const intensity = 0.5 + Math.random() * 0.5;
+      starColors[i * 3] = 212 / 255 * intensity;
+      starColors[i * 3 + 1] = 175 / 255 * intensity;
+      starColors[i * 3 + 2] = 140 / 255 * intensity;
+    }
+    starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
+    starGeo.setAttribute("color", new THREE.BufferAttribute(starColors, 3));
+    const starMat = new THREE.PointsMaterial({ size: 0.15, vertexColors: true, transparent: true, opacity: 0.8 });
+    const starfield = new THREE.Points(starGeo, starMat);
+    scene.add(starfield);
+
+    const atmosphericCount = 1200;
+    const atmGeo = new THREE.BufferGeometry();
+    const atmPos = new Float32Array(atmosphericCount * 3);
+    for (let i = 0; i < atmosphericCount; i++) {
+      atmPos[i * 3] = (Math.random() - 0.5) * 40;
+      atmPos[i * 3 + 1] = (Math.random() - 0.5) * 60;
+      atmPos[i * 3 + 2] = (Math.random() - 0.5) * 40;
+    }
+    atmGeo.setAttribute("position", new THREE.BufferAttribute(atmPos, 3));
+    const atmMat = new THREE.PointsMaterial({ size: 0.08, color: academicGold, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending });
+    const atmosphericParticles = new THREE.Points(atmGeo, atmMat);
+    scene.add(atmosphericParticles);
+
+    const burstCount = 1000;
+    const burstGeo = new THREE.BufferGeometry();
+    const burstPos = new Float32Array(burstCount * 3);
+    const burstVel = new Float32Array(burstCount * 3);
+    const burstLife = new Float32Array(burstCount);
+    burstGeo.setAttribute("position", new THREE.BufferAttribute(burstPos, 3));
+    const burstMat = new THREE.PointsMaterial({ size: 0.12, color: academicGold, transparent: true, opacity: 1, blending: THREE.AdditiveBlending });
+    const burstParticles = { mesh: new THREE.Points(burstGeo, burstMat), velocities: burstVel, lifetimes: burstLife, nextIndex: 0 };
+    scene.add(burstParticles.mesh);
+
+    scene.add(new THREE.AmbientLight(16777215, 0.3));
+    const p1 = new THREE.PointLight(academicGold, 4, 60);
+    p1.position.set(15, 15, 15);
+    scene.add(p1);
+    const p2 = new THREE.PointLight(16777215, 1, 40);
+    p2.position.set(-15, -10, 10);
+    scene.add(p2);
+
+    camera.position.z = 25;
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.rotateSpeed = 1;
+    controls.enableZoom = true;
+    controls.minDistance = 8;
+    controls.maxDistance = 60;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.6;
+    controls.minPolarAngle = 0;
+    controls.maxPolarAngle = Math.PI;
+    controls.enablePan = true;
+    controls.screenSpacePanning = true;
+    controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+    controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+
+    function triggerFlash() {
+      if (flashRef.current) {
+        flashRef.current.classList.add("active");
+        clearTimeout(flashTimeout);
+        flashTimeout = setTimeout(() => { if (flashRef.current) flashRef.current.classList.remove("active"); }, 400);
+      }
+    }
+
+    function spawnBurst(x, y) {
+      const vector = new THREE.Vector3(x / canvas.clientWidth * 2 - 1, -(y / canvas.clientHeight) * 2 + 1, 0.5).unproject(camera);
+      const dir = vector.sub(camera.position).normalize();
+      const distance = -camera.position.z / dir.z;
+      const pos = camera.position.clone().add(dir.multiplyScalar(distance));
+      for (let i = 0; i < 10; i++) {
+        const idx = burstParticles.nextIndex;
+        const positions = burstParticles.mesh.geometry.attributes.position.array;
+        positions[idx * 3] = pos.x;
+        positions[idx * 3 + 1] = pos.y;
+        positions[idx * 3 + 2] = pos.z;
+        burstParticles.velocities[idx * 3] = (Math.random() - 0.5) * 0.5;
+        burstParticles.velocities[idx * 3 + 1] = (Math.random() - 0.5) * 0.5;
+        burstParticles.velocities[idx * 3 + 2] = (Math.random() - 0.5) * 0.5;
+        burstParticles.lifetimes[idx] = 1;
+        burstParticles.nextIndex = (burstParticles.nextIndex + 1) % 1000;
+      }
+      burstParticles.mesh.geometry.attributes.position.needsUpdate = true;
+    }
+
+    function onPointerMove(event) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = event.clientX - rect.left, cy = event.clientY - rect.top;
+      mouse.x = cx / canvas.clientWidth * 2 - 1;
+      mouse.y = -(cy / canvas.clientHeight) * 2 + 1;
+      if (event.buttons > 0) {
+        spawnBurst(cx, cy);
+        interactionStrength = Math.min(interactionStrength + 0.15, 1);
+      }
+    }
+    function onTouchMove(event) {
+      if (event.touches.length > 0) {
+        const touch = event.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        const cx = touch.clientX - rect.left, cy = touch.clientY - rect.top;
+        mouse.x = cx / canvas.clientWidth * 2 - 1;
+        mouse.y = -(cy / canvas.clientHeight) * 2 + 1;
+        spawnBurst(cx, cy);
+        interactionStrength = Math.min(interactionStrength + 0.15, 1);
+      }
+    }
+    window.addEventListener("mousemove", onPointerMove);
+    window.addEventListener("touchmove", onTouchMove);
+    controls.addEventListener("start", triggerFlash);
+
+    let rafId;
+    function animate() {
+      rafId = requestAnimationFrame(animate);
+      const time = Date.now() * 0.001;
+      interactionStrength *= 0.94;
+      raycaster.setFromCamera(mouse, camera);
+      nucleotides.forEach((n) => {
+        const worldPos = new THREE.Vector3();
+        n.getWorldPosition(worldPos);
+        const distToRay = raycaster.ray.distanceToPoint(worldPos);
+        let targetEmissive = 1 + Math.sin(time * 3) * 0.4;
+        if (distToRay < 4) {
+          targetEmissive += (1 - distToRay / 4) * 4 + interactionStrength * 6;
+        }
+        n.material.emissiveIntensity = THREE.MathUtils.lerp(n.material.emissiveIntensity, targetEmissive, 0.1);
+        const scale = 1 + n.material.emissiveIntensity * 0.04;
+        n.scale.set(scale, scale, scale);
+      });
+      const atmPosArr = atmosphericParticles.geometry.attributes.position.array;
+      for (let i = 0; i < atmPosArr.length / 3; i++) {
+        atmPosArr[i * 3 + 1] -= 0.02 + interactionStrength * 0.1;
+        if (atmPosArr[i * 3 + 1] < -30) atmPosArr[i * 3 + 1] = 30;
+        atmPosArr[i * 3] += Math.sin(time + i) * 0.005;
+      }
+      atmosphericParticles.geometry.attributes.position.needsUpdate = true;
+      const bPos = burstParticles.mesh.geometry.attributes.position.array;
+      for (let i = 0; i < 1000; i++) {
+        if (burstParticles.lifetimes[i] > 0) {
+          bPos[i * 3] += burstParticles.velocities[i * 3];
+          bPos[i * 3 + 1] += burstParticles.velocities[i * 3 + 1];
+          bPos[i * 3 + 2] += burstParticles.velocities[i * 3 + 2];
+          burstParticles.lifetimes[i] -= 0.025;
+          if (burstParticles.lifetimes[i] <= 0) bPos[i * 3] = bPos[i * 3 + 1] = bPos[i * 3 + 2] = 2000;
+        }
+      }
+      burstParticles.mesh.geometry.attributes.position.needsUpdate = true;
+      starfield.rotation.y += 2e-4;
+      starfield.rotation.x += 1e-4;
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    function onResize() {
+      if (!canvas) return;
+      camera.aspect = canvas.clientWidth / canvas.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    }
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(flashTimeout);
+      window.removeEventListener("mousemove", onPointerMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("resize", onResize);
+      controls.dispose();
+      renderer.dispose();
+    };
+  }, []);
+}
+
 function AuthPage({ onLogin }) {
   const [theme, toggleTheme] = useTheme();
   const [tab, setTab] = useState("login");
@@ -4930,20 +5439,16 @@ function AuthPage({ onLogin }) {
   const [ok, setOk] = useState("");
   const [showForgot, setShowForgot] = useState(false);
   const sf = (k, v) => setForm((f) => __spreadProps(__spreadValues({}, f), { [k]: v }));
+  const dnaCanvasRef = useRef(null);
+  const flashRef = useRef(null);
+  useDnaHelix(dnaCanvasRef, flashRef);
   const login = async () => {
     setErr("");
     setLoading(true);
     try {
       const user = await API.login(form.email, form.password);
-      if (typeof window.sabnahisLoaderShow === "function") {
-        window.sabnahisLoaderShow(() => {
-          toast.ok(`Welcome back, ${user.name.split(" ")[0]}!`);
-          onLogin(user);
-        });
-      } else {
-        toast.ok(`Welcome back, ${user.name.split(" ")[0]}!`);
-        onLogin(user);
-      }
+      toast.ok(`Welcome back, ${user.name.split(" ")[0]}!`);
+      onLogin(user);
     } catch (e) {
       setErr(e.message);
       setLoading(false);
@@ -4974,7 +5479,128 @@ function AuthPage({ onLogin }) {
     }
     setLoading(false);
   };
-  return /* @__PURE__ */ React.createElement("div", { className: "auth-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "auth-bg" }), /* @__PURE__ */ React.createElement("div", { className: "auth-corner auth-corner--tl" }, /* @__PURE__ */ React.createElement("span", { className: "auth-corner-h", style: { marginBottom: 12, display: "block" } }), /* @__PURE__ */ React.createElement("span", { className: "auth-corner-v", style: { display: "block" } })), /* @__PURE__ */ React.createElement("div", { className: "auth-corner auth-corner--tr" }, /* @__PURE__ */ React.createElement("span", { className: "auth-corner-h", style: { marginBottom: 12, display: "block", marginLeft: "auto" } }), /* @__PURE__ */ React.createElement("span", { className: "auth-corner-v", style: { display: "block", marginLeft: "auto" } })), /* @__PURE__ */ React.createElement("div", { className: "auth-corner auth-corner--bl" }, /* @__PURE__ */ React.createElement("span", { className: "auth-corner-v", style: { display: "block" } }), /* @__PURE__ */ React.createElement("span", { className: "auth-corner-h", style: { marginTop: 12, display: "block" } })), /* @__PURE__ */ React.createElement("div", { className: "auth-corner auth-corner--br" }, /* @__PURE__ */ React.createElement("span", { className: "auth-corner-v", style: { display: "block", marginLeft: "auto" } }), /* @__PURE__ */ React.createElement("span", { className: "auth-corner-h", style: { marginTop: 12, display: "block", marginLeft: "auto" } })), /* @__PURE__ */ React.createElement("div", { className: "auth-inner" }, /* @__PURE__ */ React.createElement("div", { className: "auth-brand" }, /* @__PURE__ */ React.createElement("div", { className: "auth-brand-icon", style: { flexDirection: "row", gap: "8px", width: "auto", padding: "0 14px" } }, /* @__PURE__ */ React.createElement("img", { src: "LOGO.png", alt: "Logo 1", style: { width: "34px", height: "34px", objectFit: "contain", borderRadius: "6px" } }), /* @__PURE__ */ React.createElement("img", { src: "LOGO2.png", alt: "Logo 2", style: { width: "34px", height: "34px", objectFit: "contain", borderRadius: "6px" } })), /* @__PURE__ */ React.createElement("h1", null, "SABNAHIS", /* @__PURE__ */ React.createElement("span", null, "STE Research Portal")), /* @__PURE__ */ React.createElement("p", null, "Research Repository for SABNAHIS STE Students")), /* @__PURE__ */ React.createElement("div", { className: "auth-card" }, err && /* @__PURE__ */ React.createElement("div", { className: "al al-err", role: "alert" }, err), ok && /* @__PURE__ */ React.createElement("div", { className: "al al-ok", role: "status" }, ok), /* @__PURE__ */ React.createElement("div", { className: "auth-tabs", role: "tablist" }, /* @__PURE__ */ React.createElement("button", { role: "tab", "aria-selected": tab === "login", className: `auth-tab${tab === "login" ? " active" : ""}`, onClick: () => setTab("login") }, "Sign In"), /* @__PURE__ */ React.createElement("button", { role: "tab", "aria-selected": tab === "register", className: `auth-tab${tab === "register" ? " active" : ""}`, onClick: () => setTab("register") }, "Register")), tab === "login" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "login-email" }, "Email"), /* @__PURE__ */ React.createElement("input", { id: "login-email", type: "email", placeholder: "your@email.com", value: form.email, onChange: (e) => sf("email", e.target.value), autoComplete: "email" })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "login-pw" }, "Password"), /* @__PURE__ */ React.createElement("input", { id: "login-pw", type: "password", placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022", value: form.password, onChange: (e) => sf("password", e.target.value), onKeyDown: (e) => e.key === "Enter" && login(), autoComplete: "current-password" })), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold btn-full", style: { marginBottom: 12, height: 46 }, onClick: login, disabled: loading }, loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-gold" }), "Signing in\u2026") : "Sign In"), /* @__PURE__ */ React.createElement("button", { className: "auth-forgot", style: { width: "100%", textAlign: "center", background: "none", border: "none", fontSize: "0.82rem", cursor: "pointer", padding: "6px", transition: "color 0.2s" }, onClick: () => setShowForgot(true) }, "Forgot your password?")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-name" }, "Full Name *"), /* @__PURE__ */ React.createElement("input", { id: "reg-name", placeholder: "Juan dela Cruz", value: form.name, onChange: (e) => sf("name", e.target.value), autoComplete: "name" })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-inst" }, "School / Institution"), /* @__PURE__ */ React.createElement("input", { id: "reg-inst", placeholder: "SABNAHIS", value: form.institution, onChange: (e) => sf("institution", e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "fr" }, /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-grade" }, "Grade Level *"), /* @__PURE__ */ React.createElement("select", { id: "reg-grade", value: form.gradeLevel, onChange: (e) => sf("gradeLevel", e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 Select Grade \u2014"), ["8", "9", "10", "11", "12"].map((g) => /* @__PURE__ */ React.createElement("option", { key: g, value: g }, "Grade ", g)))), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-section" }, "Section *"), /* @__PURE__ */ React.createElement("input", { id: "reg-section", placeholder: "e.g. STE-Isaac Newton", value: form.section, onChange: (e) => sf("section", e.target.value) }))), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-email" }, "Email *"), /* @__PURE__ */ React.createElement("input", { id: "reg-email", type: "email", placeholder: "your@email.com", value: form.email, onChange: (e) => sf("email", e.target.value), autoComplete: "email" })), /* @__PURE__ */ React.createElement("div", { className: "fr" }, /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-pw" }, "Password *"), /* @__PURE__ */ React.createElement("input", { id: "reg-pw", type: "password", placeholder: "Min. 8 characters", value: form.password, onChange: (e) => sf("password", e.target.value), autoComplete: "new-password" })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-pw2" }, "Confirm Password *"), /* @__PURE__ */ React.createElement("input", { id: "reg-pw2", type: "password", placeholder: "Repeat password", value: form.confirm, onChange: (e) => sf("confirm", e.target.value), autoComplete: "new-password" }))), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-sq" }, "Security Question"), /* @__PURE__ */ React.createElement("select", { id: "reg-sq", value: form.secQ, onChange: (e) => sf("secQ", e.target.value) }, SEC_QS.map((q) => /* @__PURE__ */ React.createElement("option", { key: q }, q)))), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-sa" }, "Security Answer *"), /* @__PURE__ */ React.createElement("input", { id: "reg-sa", placeholder: "Your answer", value: form.secA, onChange: (e) => sf("secA", e.target.value) })), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold btn-full", style: { height: 46 }, onClick: register, disabled: loading }, loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-gold" }), "Registering\u2026") : "Register Account")))), showForgot && /* @__PURE__ */ React.createElement(ForgotModal, { onClose: () => setShowForgot(false) }));
+  return /* @__PURE__ */ React.createElement("div", { className: "auth-wrap" },
+    /* @__PURE__ */ React.createElement("canvas", { id: "auth-dna-canvas", ref: dnaCanvasRef }),
+    /* @__PURE__ */ React.createElement("div", { className: "auth-scanline" }),
+    /* @__PURE__ */ React.createElement("div", { className: "auth-flash", ref: flashRef }),
+    /* @__PURE__ */ React.createElement("div", { className: "auth-topbar" },
+      /* @__PURE__ */ React.createElement("div", { className: "auth-topbar-brand" },
+        /* @__PURE__ */ React.createElement("span", { style: { fontSize: "16px" } }, "\u{1F6E1}\uFE0F"),
+        /* @__PURE__ */ React.createElement("span", { className: "auth-topbar-title" }, "RESEARCH_NODE \u00B7 SABNAHIS")
+      ),
+      /* @__PURE__ */ React.createElement("div", { className: "auth-topbar-status" },
+        /* @__PURE__ */ React.createElement("span", { className: "dot" }),
+        /* @__PURE__ */ React.createElement("span", { className: "lbl" }, "E2EE_Active")
+      )
+    ),
+    /* @__PURE__ */ React.createElement("div", { className: "auth-bootlog" },
+      /* @__PURE__ */ React.createElement("p", null, "> BOOT_SEQUENCE: OK"),
+      /* @__PURE__ */ React.createElement("p", null, "> KERNEL_LOAD: SABNAHIS_RESEARCH"),
+      /* @__PURE__ */ React.createElement("p", null, "> RENDER_ENGINE: THREE_WEBGL"),
+      /* @__PURE__ */ React.createElement("p", null, "> DEPTH_FIELD: ANALYZING"),
+      /* @__PURE__ */ React.createElement("p", null, "> DATA_VOID: INITIALIZED"),
+      /* @__PURE__ */ React.createElement("p", { className: "cursor-line" }, "> WAITING_FOR_CREDENTIALS_")
+    ),
+    /* @__PURE__ */ React.createElement("div", { className: "auth-corner auth-corner--tl" },
+      /* @__PURE__ */ React.createElement("span", { className: "auth-corner-h", style: { marginBottom: 12, display: "block" } }),
+      /* @__PURE__ */ React.createElement("span", { className: "auth-corner-v", style: { display: "block" } })
+    ),
+    /* @__PURE__ */ React.createElement("div", { className: "auth-corner auth-corner--tr" },
+      /* @__PURE__ */ React.createElement("span", { className: "auth-corner-h", style: { marginBottom: 12, display: "block", marginLeft: "auto" } }),
+      /* @__PURE__ */ React.createElement("span", { className: "auth-corner-v", style: { display: "block", marginLeft: "auto" } })
+    ),
+    /* @__PURE__ */ React.createElement("div", { className: "auth-corner auth-corner--bl" },
+      /* @__PURE__ */ React.createElement("span", { className: "auth-corner-v", style: { display: "block" } }),
+      /* @__PURE__ */ React.createElement("span", { className: "auth-corner-h", style: { marginTop: 12, display: "block" } })
+    ),
+    /* @__PURE__ */ React.createElement("div", { className: "auth-corner auth-corner--br" },
+      /* @__PURE__ */ React.createElement("span", { className: "auth-corner-v", style: { display: "block", marginLeft: "auto" } }),
+      /* @__PURE__ */ React.createElement("span", { className: "auth-corner-h", style: { marginTop: 12, display: "block", marginLeft: "auto" } })
+    ),
+    /* @__PURE__ */ React.createElement("div", { className: "auth-inner" },
+      /* @__PURE__ */ React.createElement("div", { className: "auth-brand" },
+        /* @__PURE__ */ React.createElement("div", { className: "auth-brand-icon", style: { flexDirection: "row", gap: "8px", width: "auto", padding: "0 14px" } },
+          /* @__PURE__ */ React.createElement("img", { src: "LOGO.png", alt: "Logo 1", style: { width: "34px", height: "34px", objectFit: "contain", borderRadius: "6px" } }),
+          /* @__PURE__ */ React.createElement("img", { src: "LOGO2.png", alt: "Logo 2", style: { width: "34px", height: "34px", objectFit: "contain", borderRadius: "6px" } })
+        ),
+        /* @__PURE__ */ React.createElement("h1", null, "SABNAHIS", /* @__PURE__ */ React.createElement("span", null, "STE Research Portal")),
+        /* @__PURE__ */ React.createElement("p", null, "Research Repository for SABNAHIS STE Students")
+      ),
+      /* @__PURE__ */ React.createElement("div", { className: "auth-card" },
+        err && /* @__PURE__ */ React.createElement("div", { className: "al al-err", role: "alert" }, err),
+        ok && /* @__PURE__ */ React.createElement("div", { className: "al al-ok", role: "status" }, ok),
+        /* @__PURE__ */ React.createElement("div", { className: "auth-tabs", role: "tablist" },
+          /* @__PURE__ */ React.createElement("button", { role: "tab", "aria-selected": tab === "login", className: `auth-tab${tab === "login" ? " active" : ""}`, onClick: () => setTab("login") }, "Sign In"),
+          /* @__PURE__ */ React.createElement("button", { role: "tab", "aria-selected": tab === "register", className: `auth-tab${tab === "register" ? " active" : ""}`, onClick: () => setTab("register") }, "Register")
+        ),
+        tab === "login" ? /* @__PURE__ */ React.createElement(React.Fragment, null,
+          /* @__PURE__ */ React.createElement("div", { className: "fg" },
+            /* @__PURE__ */ React.createElement("label", { htmlFor: "login-email" }, "Researcher Email"),
+            /* @__PURE__ */ React.createElement("input", { id: "login-email", type: "email", placeholder: "your@email.com", value: form.email, onChange: (e) => sf("email", e.target.value), autoComplete: "email" })
+          ),
+          /* @__PURE__ */ React.createElement("div", { className: "fg" },
+            /* @__PURE__ */ React.createElement("label", { htmlFor: "login-pw" }, "Security Key"),
+            /* @__PURE__ */ React.createElement("input", { id: "login-pw", type: "password", placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022", value: form.password, onChange: (e) => sf("password", e.target.value), onKeyDown: (e) => e.key === "Enter" && login(), autoComplete: "current-password" })
+          ),
+          /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold btn-full", style: { marginBottom: 12, height: 46 }, onClick: login, disabled: loading },
+            loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-gold" }), "Decrypting Node\u2026") : "Initialize Secure Access"
+          ),
+          /* @__PURE__ */ React.createElement("button", { className: "auth-forgot", style: { width: "100%", textAlign: "center", background: "none", border: "none", fontSize: "0.82rem", cursor: "pointer", padding: "6px", transition: "color 0.2s" }, onClick: () => setShowForgot(true) }, "Forgot your password?")
+        ) : /* @__PURE__ */ React.createElement(React.Fragment, null,
+          /* @__PURE__ */ React.createElement("div", { className: "fg" },
+            /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-name" }, "Full Name *"),
+            /* @__PURE__ */ React.createElement("input", { id: "reg-name", placeholder: "Juan dela Cruz", value: form.name, onChange: (e) => sf("name", e.target.value), autoComplete: "name" })
+          ),
+          /* @__PURE__ */ React.createElement("div", { className: "fg" },
+            /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-inst" }, "School / Institution"),
+            /* @__PURE__ */ React.createElement("input", { id: "reg-inst", placeholder: "SABNAHIS", value: form.institution, onChange: (e) => sf("institution", e.target.value) })
+          ),
+          /* @__PURE__ */ React.createElement("div", { className: "fr" },
+            /* @__PURE__ */ React.createElement("div", { className: "fg" },
+              /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-grade" }, "Grade Level *"),
+              /* @__PURE__ */ React.createElement("select", { id: "reg-grade", value: form.gradeLevel, onChange: (e) => sf("gradeLevel", e.target.value) },
+                /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 Select Grade \u2014"),
+                ["8", "9", "10", "11", "12"].map((g) => /* @__PURE__ */ React.createElement("option", { key: g, value: g }, "Grade ", g))
+              )
+            ),
+            /* @__PURE__ */ React.createElement("div", { className: "fg" },
+              /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-section" }, "Section *"),
+              /* @__PURE__ */ React.createElement("input", { id: "reg-section", placeholder: "e.g. STE-Isaac Newton", value: form.section, onChange: (e) => sf("section", e.target.value) })
+            )
+          ),
+          /* @__PURE__ */ React.createElement("div", { className: "fg" },
+            /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-email" }, "Email *"),
+            /* @__PURE__ */ React.createElement("input", { id: "reg-email", type: "email", placeholder: "your@email.com", value: form.email, onChange: (e) => sf("email", e.target.value), autoComplete: "email" })
+          ),
+          /* @__PURE__ */ React.createElement("div", { className: "fr" },
+            /* @__PURE__ */ React.createElement("div", { className: "fg" },
+              /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-pw" }, "Password *"),
+              /* @__PURE__ */ React.createElement("input", { id: "reg-pw", type: "password", placeholder: "Min. 8 characters", value: form.password, onChange: (e) => sf("password", e.target.value), autoComplete: "new-password" })
+            ),
+            /* @__PURE__ */ React.createElement("div", { className: "fg" },
+              /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-pw2" }, "Confirm Password *"),
+              /* @__PURE__ */ React.createElement("input", { id: "reg-pw2", type: "password", placeholder: "Repeat password", value: form.confirm, onChange: (e) => sf("confirm", e.target.value), autoComplete: "new-password" })
+            )
+          ),
+          /* @__PURE__ */ React.createElement("div", { className: "fg" },
+            /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-sq" }, "Security Question"),
+            /* @__PURE__ */ React.createElement("select", { id: "reg-sq", value: form.secQ, onChange: (e) => sf("secQ", e.target.value) },
+              SEC_QS.map((q) => /* @__PURE__ */ React.createElement("option", { key: q }, q))
+            )
+          ),
+          /* @__PURE__ */ React.createElement("div", { className: "fg" },
+            /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-sa" }, "Security Answer *"),
+            /* @__PURE__ */ React.createElement("input", { id: "reg-sa", placeholder: "Your answer", value: form.secA, onChange: (e) => sf("secA", e.target.value) })
+          ),
+          /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold btn-full", style: { height: 46 }, onClick: register, disabled: loading },
+            loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-gold" }), "Registering\u2026") : "Register Account"
+          )
+        )
+      )
+    ),
+    /* @__PURE__ */ React.createElement("div", { className: "auth-footer" }, "\u00A9 ", (/* @__PURE__ */ new Date()).getFullYear(), " INSTITUTIONAL RESEARCH NODE \u00B7 SABNAHIS STE \u00B7 ALL RIGHTS RESERVED"),
+    showForgot && /* @__PURE__ */ React.createElement(ForgotModal, { onClose: () => setShowForgot(false) })
+  );
 }
 const OfflineDB = /* @__PURE__ */ (() => {
   const DB_NAME = "sabnahis_offline";
@@ -10553,12 +11179,38 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 // ── Loading screen counter + dismiss ──────────────────────────────
 (function() {
   var pctEl = document.getElementById('loader-pct');
+
+  function paintBlocks(root, pct) {
+    var blocks = root.querySelectorAll('.loader-block');
+    var total = blocks.length;
+    var filled = (pct / 100) * total;
+    for (var i = 0; i < total; i++) {
+      if (i < Math.floor(filled)) {
+        blocks[i].style.background = '#d4af37';
+        blocks[i].style.borderColor = '#d4af37';
+      } else if (i === Math.floor(filled)) {
+        // Partial leading block gets a soft glow to read as "in progress"
+        var frac = filled - i;
+        blocks[i].style.background = frac > 0.4 ? '#d4af37' : 'rgba(212,175,55,0.35)';
+        blocks[i].style.borderColor = 'rgba(212,175,55,0.5)';
+      } else {
+        blocks[i].style.background = 'transparent';
+        blocks[i].style.borderColor = 'rgba(67,73,87,0.3)';
+      }
+    }
+  }
+
+  // Continuous looping progress — since real page load time is unknown,
+  // the bar sweeps 0→100 repeatedly rather than stalling once it hits 100%.
   var progress = 0;
-  var interval = setInterval(function() {
+  var loaderRoot = document.getElementById('sabnahis-loader');
+  var mainInterval = setInterval(function() {
+    if (!document.body.contains(loaderRoot) || loaderRoot.classList.contains('fade-out')) return;
     var inc = Math.random() > 0.8 ? 0.5 : 1.8;
-    progress = Math.min(progress + inc, 100);
+    progress += inc;
+    if (progress >= 100) progress = 0; // loop back around
     if (pctEl) pctEl.textContent = Math.floor(progress) + '%';
-    if (progress >= 100) clearInterval(interval);
+    paintBlocks(loaderRoot, progress);
   }, 80);
 
   // Parallax on mouse
@@ -10576,53 +11228,19 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
     if (el) { el.classList.add('fade-out'); setTimeout(function(){ el.remove(); }, 700); }
   };
 
-  // Expose show — re-creates the loader if already removed, or re-shows it
+  // Expose show — re-shows the loader (research terminal screen)
   window.sabnahisLoaderShow = function(onComplete) {
     var el = document.getElementById('sabnahis-loader');
     if (!el) {
-      // Rebuild loader element
-      el = document.createElement('div');
-      el.id = 'sabnahis-loader';
-      el.innerHTML = [
-        '<div class="loader-grid-overlay"></div>',
-        '<div class="loader-corner loader-corner--tl"><span class="loader-corner-h" style="margin-bottom:12px;display:block;"></span><span class="loader-corner-v"></span></div>',
-        '<div class="loader-corner loader-corner--tr"><span class="loader-corner-h" style="margin-bottom:12px;display:block;margin-left:auto;"></span><span class="loader-corner-v" style="margin-left:auto;"></span></div>',
-        '<div class="loader-corner loader-corner--bl"><span class="loader-corner-v"></span><span class="loader-corner-h" style="margin-top:12px;display:block;"></span></div>',
-        '<div class="loader-corner loader-corner--br"><span class="loader-corner-v" style="margin-left:auto;"></span><span class="loader-corner-h" style="margin-top:12px;display:block;margin-left:auto;"></span></div>',
-        '<div class="loader-body">',
-          '<div class="loader-icon-wrap">',
-            '<div class="loader-icon-glow"></div>',
-            '<div class="loader-icon-box" style="flex-direction:row;gap:10px;width:auto;padding:0 16px;">',
-              '<img src="LOGO.png" alt="Logo 1" style="width:48px;height:48px;object-fit:contain;border-radius:6px;"/>',
-              '<img src="LOGO2.png" alt="Logo 2" style="width:48px;height:48px;object-fit:contain;border-radius:6px;"/>',
-            '</div>',
-          '</div>',
-          '<div class="loader-brand">',
-            '<div class="loader-brand-name">SABNAHIS STE</div>',
-            '<div class="loader-brand-sub">Advanced Research Environment</div>',
-          '</div>',
-          '<div class="loader-progress-wrap">',
-            '<div class="loader-track"><div class="loader-bar"></div></div>',
-            '<div class="loader-meta">',
-              '<span class="loader-meta-left"><span class="loader-meta-dot"></span>Authenticating…</span>',
-              '<span class="loader-meta-pct" id="loader-pct">0%</span>',
-            '</div>',
-          '</div>',
-        '</div>',
-        '<div class="loader-footer">',
-          '<div class="loader-tagline">Securing the Future of STEM Research</div>',
-        '</div>',
-      ].join('');
-      document.body.appendChild(el);
-    } else {
-      el.classList.remove('fade-out');
-      // Reset progress text
-      var p = el.querySelector('#loader-pct');
-      if (p) p.textContent = '0%';
-      // Update status label
-      var lbl = el.querySelector('.loader-meta-left');
-      if (lbl) lbl.innerHTML = '<span class="loader-meta-dot"></span>Authenticating…';
+      // If loader was fully removed, just skip to onComplete
+      if (onComplete) setTimeout(onComplete, 100);
+      return;
     }
+    el.classList.remove('fade-out');
+    // Reset progress text + blocks
+    var p = el.querySelector('#loader-pct');
+    if (p) p.textContent = '0%';
+    paintBlocks(el, 0);
 
     // Animate progress to 100% over ~1.8s then call onComplete
     var pct = el.querySelector('#loader-pct');
@@ -10631,6 +11249,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
       var inc = Math.random() > 0.7 ? 0.8 : 2.2;
       prog = Math.min(prog + inc, 100);
       if (pct) pct.textContent = Math.floor(prog) + '%';
+      paintBlocks(el, prog);
       if (prog >= 100) {
         clearInterval(iv);
         setTimeout(function() {
