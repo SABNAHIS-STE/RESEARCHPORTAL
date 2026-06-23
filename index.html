@@ -2,6 +2,27 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
+<script>
+// ── Iframe-embed protection ──────────────────────────────────────
+// Runs before anything else renders. If this document is loaded inside
+// a frame whose top-level window isn't itself, either escape to the
+// top-level window (so the real portal takes over) or blank the page,
+// depending on whether the navigation is cross-origin (sandbox escape
+// for same-origin top windows would throw, so wrap in try/catch).
+(function() {
+  try {
+    if (window.top !== window.self) {
+      window.top.location = window.self.location;
+    }
+  } catch (e) {
+    // Cross-origin parent blocked the read/write — parent is hostile.
+    // Replace the document instead of risking a half-rendered page
+    // inside someone else's frame. document.write() implicitly clears
+    // the existing document, so no separate innerHTML reset is needed.
+    document.write('<body style="background:#0d0f14;color:#e8eaf2;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;">This page cannot be displayed inside another site.</body>');
+  }
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <meta name="theme-color" content="#0d0f14"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -69,21 +90,36 @@
   /* Touch targets */
   --tap-min: 44px;
 
-  /* Sidebar (light mode defaults) */
-  --sidebar-bg: #ffffff;
-  --sidebar-border: #e2e5f0;
-  --sidebar-text: #4a5174;
-  --sidebar-text-strong: #0d0f14;
-  --sidebar-text-sub: #7c85a8;
-  --sidebar-text-label: #9ca3be;
-  --sidebar-item-hover-bg: #f5f6fa;
-  --sidebar-item-hover-text: #0d0f14;
-  --sidebar-item-active-bg: #fdf8ec;
+  /* Selection */
+  --selection-bg: rgba(201,162,39,0.25);
+
+  /* Sidebar (dark panel defaults) */
+  --sidebar-bg: #12141f;
+  --sidebar-border: rgba(255,255,255,0.07);
+  --sidebar-text: rgba(255,255,255,0.48);
+  --sidebar-text-strong: #f0f1f6;
+  --sidebar-text-sub: rgba(255,255,255,0.32);
+  --sidebar-text-label: rgba(255,255,255,0.2);
+  --sidebar-item-hover-bg: rgba(255,255,255,0.07);
+  --sidebar-item-hover-text: #f0f1f6;
+  --sidebar-item-active-bg: rgba(201,162,39,0.14);
+  --sidebar-item-active-border: #c9a227;
 }
 
 /* ══════════════════════════════════════════
    DARK MODE TOKENS
 ══════════════════════════════════════════ */
+/* Global text selection */
+::selection { background: var(--selection-bg); color: var(--ink); }
+
+/* Custom scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
 [data-theme="dark"] {
   --ink:#e8eaf2; --ink-2:#cdd0e0; --ink-3:#b0b5cc;
   --slate:#8891b0; --muted:#6a7090;
@@ -98,16 +134,16 @@
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.45);
   --shadow-xl: 0 24px 64px rgba(0,0,0,0.6);
 
-  /* Sidebar dark */
-  --sidebar-bg: #1a1d2e;
-  --sidebar-border: rgba(255,255,255,0.06);
-  --sidebar-text: rgba(255,255,255,0.5);
+  /* Sidebar dark — deeper for distinction */
+  --sidebar-bg: #0d0f18;
+  --sidebar-border: rgba(255,255,255,0.07);
+  --sidebar-text: rgba(255,255,255,0.44);
   --sidebar-text-strong: #e8eaf2;
-  --sidebar-text-sub: rgba(255,255,255,0.32);
-  --sidebar-text-label: rgba(255,255,255,0.22);
-  --sidebar-item-hover-bg: rgba(255,255,255,0.06);
+  --sidebar-text-sub: rgba(255,255,255,0.28);
+  --sidebar-text-label: rgba(255,255,255,0.18);
+  --sidebar-item-hover-bg: rgba(255,255,255,0.07);
   --sidebar-item-hover-text: #e8eaf2;
-  --sidebar-item-active-bg: rgba(224,184,48,0.14);
+  --sidebar-item-active-bg: rgba(201,162,39,0.16);
 }
 /* ── Reviews ────────────────────────────── */
 .review-list { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
@@ -150,7 +186,7 @@
   padding:14px 18px; border-bottom:1.5px solid var(--border);
 }
 .ann-popup-icon { font-size:1.3rem; }
-.ann-popup-label { font-weight:700; font-size:0.85rem; letter-spacing:0.3px; text-transform:uppercase; flex:1; }
+.ann-popup-label { font-weight:700; font-size:0.78rem; letter-spacing:0.6px; text-transform:uppercase; flex:1; color:var(--ink); }
 .ann-popup-count { font-size:0.72rem; color:var(--muted); font-weight:600; }
 .ann-popup-body { padding:18px 20px; }
 .ann-popup-title { font-family:var(--font-display); font-size:1.05rem; color:var(--ink); margin-bottom:8px; }
@@ -221,8 +257,8 @@
 }
 .notif-item:last-child { border-bottom:none; }
 .notif-item:hover { background:var(--surface); }
-.notif-item.unread { background:var(--teal-light); }
-.notif-item.unread:hover { background:rgba(26,127,110,0.12); }
+.notif-item.unread { background:var(--teal-light); border-left: 3px solid var(--teal); padding-left: 11px; }
+.notif-item.unread:hover { background:rgba(26,127,110,0.14); }
 .notif-icon { font-size:1.3rem; flex-shrink:0; margin-top:1px; }
 .notif-body { flex:1; min-width:0; }
 .notif-title { font-size:0.8rem; font-weight:600; color:var(--ink); line-height:1.35; margin-bottom:2px; word-break:break-word; }
@@ -274,7 +310,7 @@
   padding:4px 14px; border-radius:99px;
   font-weight:700; font-size:0.85rem; letter-spacing:0.3px;
 }
-.tf-grade-A  { background:linear-gradient(135deg,#d1fae5,#a7f3d0); color:#065f46; border:1.5px solid #6ee7b7; }
+.tf-grade-A  { background:linear-gradient(135deg,#d1fae5,#a7f3d0); color:#065f46; border:1.5px solid #6ee7b7; box-shadow: 0 2px 8px rgba(6,95,70,0.15); }
 .tf-grade-B  { background:linear-gradient(135deg,#dbeafe,#bfdbfe); color:#1e40af; border:1.5px solid #93c5fd; }
 .tf-grade-C  { background:linear-gradient(135deg,#fef9c3,#fde68a); color:#92400e; border:1.5px solid #fbbf24; }
 .tf-grade-D  { background:linear-gradient(135deg,#ffedd5,#fed7aa); color:#9a3412; border:1.5px solid #fb923c; }
@@ -296,35 +332,42 @@
 .review-comment { font-size:var(--text-sm); color:var(--ink); line-height:1.55; }
 .review-own { border-color:var(--gold); background:var(--gold-bg); }
 
-/* ── Sidebar light mode ─────────────────── */
+/* ── Sidebar — modern dark panel (both themes) ─────────────────── */
 [data-theme="light"] {
-  --sidebar-bg: #ffffff;
-  --sidebar-border: #e2e5f0;
-  --sidebar-text: #4a5174;
-  --sidebar-text-strong: #0d0f14;
-  --sidebar-text-sub: #7c85a8;
-  --sidebar-text-label: #9ca3be;
-  --sidebar-item-hover-bg: #f5f6fa;
-  --sidebar-item-hover-text: #0d0f14;
-  --sidebar-item-active-bg: #fdf8ec;
+  --sidebar-bg: #12141f;
+  --sidebar-border: rgba(255,255,255,0.07);
+  --sidebar-text: rgba(255,255,255,0.48);
+  --sidebar-text-strong: #f0f1f6;
+  --sidebar-text-sub: rgba(255,255,255,0.32);
+  --sidebar-text-label: rgba(255,255,255,0.2);
+  --sidebar-item-hover-bg: rgba(255,255,255,0.07);
+  --sidebar-item-hover-text: #f0f1f6;
+  --sidebar-item-active-bg: rgba(201,162,39,0.14);
+  --sidebar-item-active-border: #c9a227;
 }
 
 /* ── Theme toggle button ─────────────────── */
 .theme-toggle {
-  background: var(--sidebar-item-hover-bg);
-  border: 1px solid var(--sidebar-border);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
   color: var(--sidebar-text);
-  border-radius: 99px;
-  padding: 5px 11px;
+  border-radius: 8px;
+  padding: 6px 12px;
   font-size: 0.75rem;
   font-family: var(--font-body);
   cursor: pointer;
-  display: flex; align-items: center; gap: 5px;
-  transition: all var(--transition);
-  min-height: 32px;
+  display: flex; align-items: center; gap: 6px;
+  transition: all .18s ease;
+  min-height: 34px;
   white-space: nowrap;
+  width: 100%;
+  justify-content: center;
 }
-.theme-toggle:hover { background: var(--sidebar-item-hover-bg); color: var(--sidebar-text-strong); border-color: var(--gold); }
+.theme-toggle:hover {
+  background: rgba(201,162,39,0.12);
+  color: #f0d882;
+  border-color: rgba(201,162,39,0.25);
+}
 
 /* Topbar theme toggle */
 .topbar-theme-toggle {
@@ -519,132 +562,260 @@ a { color: inherit; }
   top: 0;
   left: 0;
   z-index: 150;
-  transition: transform .3s cubic-bezier(0.4,0,0.2,1), background 0.25s ease, width .22s ease;
+  transition: transform .3s cubic-bezier(0.4,0,0.2,1), width .22s ease;
   will-change: transform;
   border-right: 1px solid var(--sidebar-border);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 4px 0 32px rgba(0,0,0,0.35);
+  /* Subtle inner glow on right edge */
+  --sb-accent-glow: inset -1px 0 0 rgba(201,162,39,0.06);
+  background-image: radial-gradient(ellipse at 30% 10%, rgba(201,162,39,0.06) 0%, transparent 65%),
+                    radial-gradient(ellipse at 70% 90%, rgba(26,127,110,0.04) 0%, transparent 60%);
+}
+/* Gold shimmer line at top */
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(201,162,39,0.6) 40%, rgba(201,162,39,0.9) 55%, rgba(201,162,39,0.6) 70%, transparent 100%);
+  z-index: 1;
 }
 
 .sidebar-logo {
-  padding: clamp(16px,4vw,24px) clamp(16px,4vw,24px) 18px;
+  padding: 20px 18px 16px;
   border-bottom: 1px solid var(--sidebar-border);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
+  gap: 10px;
+  position: relative;
+  flex-shrink: 0;
 }
+
+/* Brand mark — icon + text */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.sidebar-brand-icon {
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, rgba(201,162,39,0.22), rgba(201,162,39,0.1));
+  border: 1px solid rgba(201,162,39,0.35);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 14px rgba(201,162,39,0.14);
+}
+.sidebar-brand-icon svg { width: 17px; height: 17px; color: var(--gold); }
 
 .sidebar-logo h1 {
-  font-family: var(--font-display);
-  font-size: clamp(0.92rem,2.5vw,1.05rem);
+  font-family: 'Hanken Grotesk', var(--font-body);
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--sidebar-text-strong);
-  line-height: 1.3;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .sidebar-logo h1 span { color: var(--gold); }
-.sidebar-logo p { font-size: var(--text-xs); color: var(--sidebar-text-sub); margin-top: 4px; }
+.sidebar-logo-sub {
+  font-size: 0.62rem;
+  color: var(--sidebar-text-label);
+  margin-top: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 
-.sidebar-nav { flex: 1; padding: 16px 12px; overflow-y: auto; overscroll-behavior: contain; }
+.sidebar-nav {
+  flex: 1;
+  padding: 12px 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sidebar-nav::-webkit-scrollbar { width: 3px; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
 
 .nav-label {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 1.5px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 1.8px;
   text-transform: uppercase;
   color: var(--sidebar-text-label);
-  padding: 12px 12px 5px;
+  padding: 14px 12px 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--sidebar-border);
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 12px;
-  min-height: var(--tap-min);
-  border-radius: 8px;
+  gap: 11px;
+  padding: 10px 12px;
+  min-height: 42px;
+  border-radius: 9px;
   cursor: pointer;
-  font-size: var(--text-sm);
+  font-size: 0.84rem;
+  font-weight: 450;
   color: var(--sidebar-text);
-  transition: all var(--transition);
-  margin-bottom: 2px;
-  border: none;
+  transition: all .18s ease;
+  margin-bottom: 1px;
+  border: 1px solid transparent;
   background: none;
   width: 100%;
   text-align: left;
+  position: relative;
 }
-.nav-item:hover { background: var(--sidebar-item-hover-bg); color: var(--sidebar-item-hover-text); }
-.nav-item.active { background: var(--sidebar-item-active-bg); color: var(--gold-light); font-weight: 500; }
-.nav-item svg { width: 17px; flex-shrink: 0; opacity: 0.7; }
+.nav-item:hover {
+  background: var(--sidebar-item-hover-bg);
+  color: var(--sidebar-item-hover-text);
+  border-color: rgba(255,255,255,0.04);
+}
+.nav-item.active {
+  background: var(--sidebar-item-active-bg);
+  color: #f0d882;
+  font-weight: 600;
+  border-color: rgba(201,162,39,0.18);
+  box-shadow: 0 1px 8px rgba(201,162,39,0.08);
+}
+/* Gold left accent bar on active item */
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 6px; bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--gold);
+  box-shadow: 0 0 8px rgba(201,162,39,0.5);
+}
+/* Icon treatment */
+.nav-item svg {
+  width: 17px; height: 17px;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: opacity .18s, transform .18s;
+}
+.nav-item:hover svg { opacity: 0.75; }
+.nav-item.active svg { opacity: 1; color: var(--gold); filter: drop-shadow(0 0 5px rgba(201,162,39,0.4)); }
+
+.nav-item-label { flex: 1; }
+
 .nav-badge {
   margin-left: auto;
-  background: var(--gold); color: var(--ink);
-  font-size: 0.63rem; font-weight: 700;
+  background: rgba(201,162,39,0.22);
+  color: var(--gold-light);
+  font-size: 0.6rem; font-weight: 700;
   padding: 2px 7px; border-radius: 99px;
   min-width: 20px; text-align: center;
+  border: 1px solid rgba(201,162,39,0.2);
+  letter-spacing: 0.03em;
 }
 
 .sidebar-footer {
-  padding: 14px;
+  padding: 12px 10px;
   border-top: 1px solid var(--sidebar-border);
+  flex-shrink: 0;
 }
 .user-chip {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 8px;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: background .18s, border-color .18s;
+  cursor: default;
+}
+.user-chip:hover {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.1);
 }
 .avatar {
-  width: 36px; height: 36px;
-  border-radius: 50%;
-  background: linear-gradient(135deg,var(--gold),var(--teal));
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--gold), #c47b2b);
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.78rem; font-weight: 700; color: #fff;
+  font-size: 0.75rem; font-weight: 700; color: #1a1200;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(201,162,39,0.3);
+  border: 1px solid rgba(201,162,39,0.3);
 }
-.user-info strong { display: block; font-size: var(--text-sm); color: var(--sidebar-text-strong); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
-.user-info span { font-size: var(--text-xs); color: var(--sidebar-text-sub); text-transform: capitalize; }
+.user-info { min-width: 0; flex: 1; }
+.user-info strong {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--sidebar-text-strong);
+  font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 140px;
+}
+.user-info span {
+  font-size: 0.68rem;
+  color: var(--sidebar-text-sub);
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+}
 
 .sidebar-close-btn {
-  background: none; border: none;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
   color: var(--sidebar-text-sub);
   cursor: pointer;
   padding: 6px;
-  border-radius: 6px;
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
+  border-radius: 7px;
+  min-width: 34px;
+  min-height: 34px;
   display: flex; align-items: center; justify-content: center;
-  transition: color var(--transition);
+  transition: all .18s;
 }
-.sidebar-close-btn:hover { color: var(--sidebar-text-strong); }
+.sidebar-close-btn:hover { color: #f0f1f6; background: rgba(255,255,255,0.12); }
 
 /* ── Collapsible sidebar (desktop) ─────────────── */
 .sidebar-collapse-btn {
   position: absolute;
-  top: 22px;
-  right: -13px;
-  width: 26px;
-  height: 26px;
+  top: 24px;
+  right: -14px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: var(--sidebar-bg);
-  border: 1px solid var(--sidebar-border);
-  color: var(--sidebar-text-sub);
+  background: #1e2235;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: var(--shadow-md);
-  transition: color var(--transition), background var(--transition);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  transition: color .18s, background .18s, border-color .18s;
   z-index: 160;
 }
-.sidebar-collapse-btn:hover { color: var(--sidebar-text-strong); }
-.sidebar-collapse-btn svg { width: 14px; height: 14px; transition: transform .22s ease; }
+.sidebar-collapse-btn:hover {
+  color: var(--gold);
+  background: rgba(201,162,39,0.12);
+  border-color: rgba(201,162,39,0.3);
+}
+.sidebar-collapse-btn svg { width: 13px; height: 13px; transition: transform .22s ease; }
 
 @media (min-width:769px) {
   .app-shell.sidebar-collapsed .sidebar { width: var(--sidebar-collapsed-w); }
   .app-shell.sidebar-collapsed .main-content { margin-left: var(--sidebar-collapsed-w); }
   .app-shell.sidebar-collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
 
-  .app-shell.sidebar-collapsed .sidebar-logo { justify-content: center; padding-left: 14px; padding-right: 14px; }
+  .app-shell.sidebar-collapsed .sidebar-logo { justify-content: center; padding-left: 10px; padding-right: 10px; }
+  .app-shell.sidebar-collapsed .sidebar-brand { justify-content: center; }
+  .app-shell.sidebar-collapsed .sidebar-logo h1,
+  .app-shell.sidebar-collapsed .sidebar-logo-sub,
   .app-shell.sidebar-collapsed .sidebar-logo-text,
   .app-shell.sidebar-collapsed .nav-label,
   .app-shell.sidebar-collapsed .nav-item-label,
@@ -666,9 +837,10 @@ a { color: inherit; }
     background: var(--gold);
     box-shadow: 0 0 0 2px var(--sidebar-bg);
   }
-  .app-shell.sidebar-collapsed .sidebar-nav { padding: 16px 8px; }
-  .app-shell.sidebar-collapsed .user-chip { justify-content: center; padding: 8px 0; }
+  .app-shell.sidebar-collapsed .sidebar-nav { padding: 12px 8px; }
+  .app-shell.sidebar-collapsed .user-chip { justify-content: center; padding: 8px 0; background: none; border-color: transparent; }
   .app-shell.sidebar-collapsed .sidebar-signout { justify-content: center; gap: 0; }
+  .app-shell.sidebar-collapsed .sidebar-footer { padding: 10px 6px; }
 }
 
 .main-content {
@@ -682,7 +854,9 @@ a { color: inherit; }
 }
 
 .topbar {
-  background: var(--white);
+  background: rgba(var(--white-rgb, 255,255,255), 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   padding: 0 clamp(16px,4vw,28px);
   height: var(--topbar-h);
@@ -694,8 +868,12 @@ a { color: inherit; }
   z-index: 50;
   transition: background 0.25s ease, border-color 0.25s ease;
 }
-.topbar-search { position:relative; flex:1; max-width:340px; min-width:0; }
-.topbar-search .sb { min-height:38px; padding:0 11px; }
+[data-theme="dark"] .topbar {
+  background: rgba(26,29,46,0.88);
+}
+.topbar-search { position:relative; flex:1; max-width:360px; min-width:0; }
+.topbar-search .sb { min-height:38px; padding:0 11px; border-radius: 99px; }
+.topbar-search .sb:focus-within { box-shadow: 0 0 0 3px rgba(201,162,39,0.12); }
 .topbar-search .sb input { font-size:var(--text-sm); }
 .topbar-search-results {
   position:absolute; left:0; right:0; top:calc(100% + 6px);
@@ -786,13 +964,15 @@ a { color: inherit; }
   display: none;
   position: fixed; top: 0; left: 0; right: 0;
   z-index: 99;
-  background: var(--sidebar-bg);
+  background: rgba(18,20,31,0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   height: var(--mob-header-h);
   align-items: center;
   padding: 0 16px;
   padding-top: var(--safe-top);
   gap: 10px;
-  border-bottom: 1px solid var(--sidebar-border);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
 }
 .mob-header-title {
   font-family: var(--font-display);
@@ -816,9 +996,12 @@ a { color: inherit; }
   display: none;
   position: fixed; bottom: 0; left: 0; right: 0;
   z-index: 200;
-  background: var(--sidebar-bg);
-  border-top: 1px solid var(--sidebar-border);
+  background: rgba(18,20,31,0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255,255,255,0.07);
   padding-bottom: var(--safe-bottom);
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
 }
 .mob-nav-inner {
   display: flex;
@@ -829,19 +1012,20 @@ a { color: inherit; }
 .mob-nav-btn {
   display: flex; flex-direction: column;
   align-items: center; gap: 3px;
-  padding: 8px;
-  min-width: 56px;
+  padding: 8px 6px;
+  min-width: 52px;
   min-height: var(--tap-min);
   border: none; background: none;
-  color: var(--sidebar-text);
+  color: rgba(255,255,255,0.38);
   cursor: pointer; border-radius: 10px;
-  transition: all .2s;
+  transition: all .18s;
   font-family: var(--font-body);
   -webkit-tap-highlight-color: transparent;
 }
 .mob-nav-btn.active { color: var(--gold); }
+.mob-nav-btn.active svg { filter: drop-shadow(0 0 5px rgba(201,162,39,0.55)); }
 .mob-nav-btn svg { width: 20px; height: 20px; }
-.mob-nav-btn span { font-size: 0.6rem; font-weight: 500; white-space: nowrap; }
+.mob-nav-btn span { font-size: 0.58rem; font-weight: 600; white-space: nowrap; letter-spacing: 0.02em; }
 
 /* ══════════════════════════════════════════
    AUTH PAGE
@@ -878,8 +1062,10 @@ input, select, textarea {
 }
 input:focus, select:focus, textarea:focus {
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(201,162,39,0.1);
+  box-shadow: 0 0 0 3px rgba(201,162,39,0.12);
 }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 textarea { resize: vertical; min-height: 90px; }
 .hint { font-size: var(--text-xs); color: var(--muted); margin-top: 3px; }
 
@@ -928,7 +1114,7 @@ textarea { resize: vertical; min-height: 90px; }
   -webkit-tap-highlight-color: transparent;
 }
 .btn-ink  { background:var(--ink);    color:#fff; }  .btn-ink:hover  { background:var(--ink-2); transform:translateY(-1px); }
-.btn-gold { background:var(--gold);   color:var(--ink); font-weight:600; } .btn-gold:hover { background:#b8911f; transform:translateY(-1px); }
+.btn-gold { background: linear-gradient(135deg, var(--gold), #b8911f); color:var(--ink); font-weight:600; box-shadow: 0 2px 8px rgba(201,162,39,0.28); } .btn-gold:hover { background: linear-gradient(135deg, #d4ad2d, #a07a18); transform:translateY(-1px); box-shadow: 0 4px 16px rgba(201,162,39,0.36); }
 .btn-ol   { background:none; border:1.5px solid var(--border); color:var(--ink-3); } .btn-ol:hover { border-color:var(--ink-3); background:var(--surface); }
 .btn-red  { background:var(--red);    color:#fff; } .btn-red:hover  { background:#a93226; }
 .btn-grn  { background:var(--green);  color:#fff; } .btn-grn:hover  { background:#156b3c; }
@@ -956,8 +1142,9 @@ textarea { resize: vertical; min-height: 90px; }
   flex-wrap: wrap; gap: 9px;
 }
 .card-title { font-family:var(--font-display); font-size:var(--text-base); font-weight:600; color:var(--ink); }
-.card-clickable { transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
-.card-clickable:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); border-color: var(--gold); }
+.card-clickable { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; cursor: pointer; }
+.card-clickable:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: rgba(201,162,39,0.5); }
+.card-clickable:active { transform: scale(0.98); }
 .lift-hover { transition: transform .15s ease, box-shadow .15s ease; }
 .lift-hover:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 
@@ -981,11 +1168,11 @@ textarea { resize: vertical; min-height: 90px; }
 
 [data-theme="dark"] .skel {
   background: linear-gradient(90deg,
-    rgba(255,255,255,0.06) 25%,
-    rgba(255,255,255,0.12) 50%,
-    rgba(255,255,255,0.06) 75%);
-  background-size: 600px 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
+    rgba(255,255,255,0.05) 25%,
+    rgba(255,255,255,0.1) 50%,
+    rgba(255,255,255,0.05) 75%);
+  background-size: 700px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
 }
 
 /* Study card skeleton */
@@ -1049,15 +1236,28 @@ textarea { resize: vertical; min-height: 90px; }
 .stat {
   background: var(--white); border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: clamp(14px,3vw,18px);
-  display: flex; align-items:flex-start; gap: 12px;
-  transition: transform .18s ease, box-shadow .18s ease;
+  padding: clamp(14px,3vw,20px);
+  display: flex; align-items:flex-start; gap: 13px;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  position: relative; overflow: hidden;
 }
-.stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.stat::after {
+  content:''; position:absolute; inset:0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events:none;
+}
+.stat:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+.stat.gold:hover  { box-shadow: 0 8px 28px rgba(201,162,39,0.18),  var(--shadow); border-color: rgba(201,162,39,0.4); }
+.stat.teal:hover  { box-shadow: 0 8px 28px rgba(26,127,110,0.18), var(--shadow); border-color: rgba(26,127,110,0.35); }
+.stat.blue:hover  { box-shadow: 0 8px 28px rgba(26,95,168,0.18),  var(--shadow); border-color: rgba(26,95,168,0.35); }
+.stat.red:hover   { box-shadow: 0 8px 28px rgba(192,57,43,0.18),  var(--shadow); border-color: rgba(192,57,43,0.35); }
+.stat.pur:hover   { box-shadow: 0 8px 28px rgba(109,63,168,0.18), var(--shadow); border-color: rgba(109,63,168,0.35); }
 .stat-icon {
-  flex-shrink:0; width:38px; height:38px; border-radius:10px;
+  flex-shrink:0; width:40px; height:40px; border-radius:12px;
   display:flex; align-items:center; justify-content:center;
+  transition: transform .2s var(--spring);
 }
+.stat:hover .stat-icon { transform: scale(1.08) rotate(-4deg); }
 .stat-body { display:flex; flex-direction:column; gap:4px; min-width:0; }
 .stat.gold  { border-left: 4px solid var(--gold); }
 .stat.teal  { border-left: 4px solid var(--teal); }
@@ -1099,11 +1299,16 @@ textarea { resize: vertical; min-height: 90px; }
   transform: scaleX(0); transform-origin: left;
   transition: transform var(--transition);
 }
-.sc:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: rgba(201,162,39,0.3); }
+.sc:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(13,15,20,0.13); border-color: rgba(201,162,39,0.35); }
 .sc:hover::before { transform: scaleX(1); }
-.sc:active { transform: scale(0.98); }
+.sc:active { transform: scale(0.97); transition-duration:.08s; }
+.sc-footer-bar {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding-top:10px; border-top:1px solid var(--border); margin-top:auto;
+  flex-wrap:wrap;
+}
 .sc-cats { display:flex; flex-wrap:wrap; gap:4px; }
-.sc-cat { font-size:var(--text-xs); font-weight:600; padding:2px 7px; border-radius:4px; background:var(--gold-bg); color:var(--gold); }
+.sc-cat { font-size:var(--text-xs); font-weight:600; padding:3px 9px; border-radius:99px; background:var(--gold-bg); color:var(--gold); border: 1px solid rgba(201,162,39,0.25); letter-spacing:0.02em; }
 .sc-title { font-family:var(--font-display); font-size:clamp(0.88rem,2.5vw,0.97rem); font-weight:600; color:var(--ink); line-height:1.4; }
 .sc-authors { font-size:var(--text-xs); color:var(--muted); }
 .sc-abs { font-size:var(--text-sm); color:var(--slate); line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; transition:all .25s ease; }
@@ -1126,15 +1331,16 @@ th {
 }
 td { padding: 12px 13px; border-bottom: 1px solid var(--border); font-size: var(--text-sm); color: var(--ink-3); vertical-align: middle; }
 tr:last-child td { border-bottom: none; }
-tr:hover td { background: var(--surface); }
+tr:hover td { background: var(--surface); transition: background .1s; }
+tr { transition: background .1s; }
 
 /* ══════════════════════════════════════════
    BADGES
 ══════════════════════════════════════════ */
 .badge { display:inline-flex; align-items:center; gap:3px; padding:3px 9px; border-radius:99px; font-size:var(--text-xs); font-weight:600; }
-.badge-pend { background:#fff8e6; color:#b7860b; }
-.badge-appr { background:var(--green-light); color:var(--green); }
-.badge-rej  { background:var(--red-light);   color:var(--red); }
+.badge-pend { background:#fff8e6; color:#b7860b; border: 1px solid rgba(183,134,11,0.2); }
+.badge-appr { background:var(--green-light); color:var(--green); border: 1px solid rgba(26,127,74,0.2); }
+.badge-rej  { background:var(--red-light);   color:var(--red); border: 1px solid rgba(192,57,43,0.2); }
 .badge-teacher{ background:var(--blue-light);  color:var(--blue); }
 
 /* ══════════════════════════════════════════
@@ -1149,7 +1355,7 @@ tr:hover td { background: var(--surface); }
   min-height: var(--tap-min);
   transition: border-color var(--transition);
 }
-.sb:focus-within { border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,0.1); }
+.sb:focus-within { border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,0.12); background: var(--white); }
 .sb input { border:none; background:none; padding:9px 0; flex:1; outline:none; font-size:var(--text-sm); }
 .fb { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
 
@@ -1206,15 +1412,15 @@ tr:hover td { background: var(--surface); }
 ══════════════════════════════════════════ */
 .overlay {
   position: fixed; inset: 0;
-  background: rgba(13,15,20,0.6);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(13,15,20,0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 18px;
-  animation: fIn .2s ease;
+  animation: fIn .18s ease;
   overscroll-behavior: contain;
 }
 .modal {
@@ -1338,16 +1544,19 @@ tr:hover td { background: var(--surface); }
 }
 .toast {
   background: var(--ink); color: #fff;
-  padding: 12px 15px;
-  border-radius: var(--radius);
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
   font-size: var(--text-sm);
-  display: flex; align-items: center; gap: 9px;
+  display: flex; align-items: center; gap: 10px;
   min-width: 240px;
-  box-shadow: var(--shadow-lg);
-  animation: sRight .3s ease;
+  box-shadow: var(--shadow-xl);
+  animation: sRight .32s cubic-bezier(0.34,1.56,0.64,1);
   pointer-events: all;
   word-break: break-word;
+  border: 1px solid rgba(255,255,255,0.08);
+  font-weight: 500;
 }
+.toast.ok  { border-color: rgba(255,255,255,0.12); }
 .toast.ok  { background:var(--green); }
 .toast.err { background:var(--red);   }
 .toast.info{ background:var(--blue);  }
@@ -1361,11 +1570,12 @@ tr:hover td { background: var(--surface); }
 .empty p { font-size:var(--text-sm); max-width:380px; margin:0 auto; line-height:1.6; }
 
 .empty-badge {
-  width:64px; height:64px; border-radius:50%;
+  width:72px; height:72px; border-radius:50%;
   display:flex; align-items:center; justify-content:center;
-  font-size:2rem; margin:0 auto 14px;
+  font-size:2.1rem; margin:0 auto 16px;
   background:var(--gold-bg); border:1.5px dashed var(--gold);
   animation: emptyFloat 3.2s ease-in-out infinite;
+  box-shadow: 0 0 24px rgba(201,162,39,0.12);
 }
 @keyframes emptyFloat {
   0%,100% { transform:translateY(0) rotate(0deg); }
@@ -1414,25 +1624,26 @@ tr:hover td { background: var(--surface); }
   border-radius:8px;
   border: 1.5px solid var(--border);
   background: var(--white); color: var(--ink);
-  cursor: pointer; font-size: var(--text-sm);
+  cursor: pointer; font-size: var(--text-sm); font-weight:500;
   display: flex; align-items: center; justify-content: center;
   transition: all var(--transition);
   min-width: 36px;
 }
-.pg:hover { border-color:var(--gold); background:var(--gold-bg); }
-.pg.active { background:var(--ink); color:#fff; border-color:var(--ink); }
-.pg:disabled { opacity:0.38; cursor:not-allowed; }
+.pg:hover { border-color:var(--gold); background:var(--gold-bg); color:var(--gold); transform:translateY(-1px); }
+.pg.active { background: linear-gradient(135deg, var(--ink), var(--ink-2)); color:#fff; border-color:var(--ink); box-shadow: 0 3px 10px rgba(13,15,20,0.25); }
+.pg:disabled { opacity:0.38; cursor:not-allowed; transform:none !important; }
 
 /* ══════════════════════════════════════════
    ALERTS
 ══════════════════════════════════════════ */
 .al {
-  display:flex; align-items:flex-start; gap:9px;
-  padding: 11px 14px;
+  display:flex; align-items:flex-start; gap:10px;
+  padding: 12px 15px;
   border-radius: var(--radius);
   font-size: var(--text-sm);
   margin-bottom: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
+  border-left: 3px solid currentColor;
 }
 .al-info{ background:var(--blue-light); color:var(--blue); }
 .al-ok  { background:var(--green-light); color:var(--green); }
@@ -1444,7 +1655,8 @@ tr:hover td { background: var(--surface); }
 ══════════════════════════════════════════ */
 .sd-title { font-family:var(--font-display); font-size:clamp(1.15rem,4vw,1.5rem); font-weight:700; color:var(--ink); line-height:1.3; margin-bottom:10px; }
 .sd-auth  { font-size:var(--text-base); color:var(--slate); margin-bottom:14px; }
-.kw { display:inline-block; padding:2px 9px; background:var(--surface); border:1px solid var(--border); border-radius:99px; font-size:var(--text-xs); color:var(--slate); margin:2px; }
+.kw { display:inline-block; padding:3px 10px; background:var(--surface); border:1px solid var(--border); border-radius:99px; font-size:var(--text-xs); color:var(--slate); margin:2px; transition: all .15s; cursor:default; }
+.kw:hover { background:var(--gold-bg); border-color:rgba(201,162,39,0.3); color:var(--gold); }
 
 /* ── Co-author tag input ────────────────── */
 .author-field {
@@ -1454,7 +1666,7 @@ tr:hover td { background: var(--surface); }
   transition:border-color var(--transition), box-shadow var(--transition);
   min-height:var(--tap-min);
 }
-.author-field:focus-within { border-color:var(--teal); box-shadow:0 0 0 3px rgba(26,127,110,0.12); }
+.author-field:focus-within { border-color:var(--teal); box-shadow:0 0 0 3px rgba(26,127,110,0.14); background: var(--white); }
 .author-tag {
   display:inline-flex; align-items:center; gap:5px;
   padding:3px 10px 3px 8px; border-radius:99px;
@@ -1513,16 +1725,17 @@ tr:hover td { background: var(--surface); }
 .ds p  { color:var(--ink-3); font-size:var(--text-sm); line-height:1.7; }
 .apa-box {
   background:var(--surface);
-  border-left: 3px solid var(--gold);
-  padding: 11px 14px;
+  border-left: 4px solid var(--gold);
+  padding: 14px 16px;
   border-radius: 0 var(--radius) var(--radius) 0;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--ink-3);
-  line-height: 1.6;
+  line-height: 1.7;
   word-break: break-word;
   position: relative;
-  padding-right: 70px;
+  padding-right: 80px;
+  box-shadow: inset 3px 0 0 rgba(201,162,39,0.08);
 }
 .apa-cp {
   position:absolute; top:7px; right:7px;
@@ -1918,7 +2131,7 @@ tr:hover td { background: var(--surface); }
 
   /* Misc */
   .page-hd { flex-direction:column; gap:8px; }
-  .auth-inner { padding:16px; }
+  .auth-inner { padding:16px; padding-bottom: calc(64px + var(--safe-bottom)); }
   .auth-card { padding:20px 18px; }
   .stats { grid-template-columns: repeat(2,1fr); }
 
@@ -2002,10 +2215,11 @@ tr:hover td { background: var(--surface); }
 }
 #sabnahis-loader .scan-line {
   width:100%; height:1px;
-  background: linear-gradient(to right, transparent, rgba(212,175,55,0.4), transparent);
+  background: linear-gradient(to right, transparent, rgba(212,175,55,0.55), rgba(255,255,255,0.2), rgba(212,175,55,0.55), transparent);
   position:absolute; top:-2px;
-  animation: rls-scan 8s linear infinite;
+  animation: rls-scan 6s linear infinite;
   z-index:20; pointer-events:none;
+  filter: blur(0.5px);
 }
 @keyframes rls-scan { 0%{top:0%} 100%{top:100%} }
 #sabnahis-loader .terminal-cursor {
@@ -2049,10 +2263,13 @@ tr:hover td { background: var(--surface); }
 ══════════════════════════════════════════ */
 .auth-wrap {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   background: #0c0e12;
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   padding-top: var(--safe-top);
 }
 #auth-dna-canvas {
@@ -2202,8 +2419,9 @@ tr:hover td { background: var(--surface); }
 .auth-card select:focus,
 .auth-card textarea:focus {
   border-color: #d4af37;
-  box-shadow: 0 0 16px rgba(212,175,55,0.22);
+  box-shadow: 0 0 0 3px rgba(212,175,55,0.18), 0 0 18px rgba(212,175,55,0.14);
   outline: none;
+  background: rgba(16,18,24,0.75);
 }
 
 /* Forgot password link */
@@ -2590,16 +2808,26 @@ tr:hover td { background: var(--surface); }
               <span id="loader-pct" style="color:#d4af37;font-weight:700;">0%</span>
             </div>
             <div id="loader-block-track" style="display:flex;gap:4px;height:12px;width:100%;" class="progress-scan">
-              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
-              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
-              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
-              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
-              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
-              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
-              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
-              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
-              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
-              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.25s ease;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
+              <div class="loader-block" style="flex:1;border:1px solid rgba(67,73,87,0.3);background:transparent;transition:background 0.22s ease;border-radius:2px;"></div>
             </div>
           </div>
           <!-- Terminal Log -->
@@ -2725,7 +2953,12 @@ tr:hover td { background: var(--surface); }
       '>> LOADING_SCHEMA_V4',
       '>> ASSEMBLING_FRAGMENT_STREAMS',
       '>> NEURAL_STREAM_STABILIZED',
-      '>> DATABASE_SYNC: 88%'
+      '>> DATABASE_SYNC: 88%',
+      '>> INTEGRITY_CHECK: PASSED',
+      '>> USER_CONTEXT: LOADING...',
+      '>> RESEARCH_INDEX: MOUNTED',
+      '>> CACHE_WARM: READY',
+      '>> PORTAL_READY ✓'
     ];
     var logWindow = document.getElementById('rls-terminal-log');
     var idx = 0;
@@ -2783,6 +3016,27 @@ document.addEventListener('keydown', function(e) {
   if (!allowed) e.preventDefault();
 });
 
+// Block "Save Page As" (Ctrl/Cmd+S) and "View Source" (Ctrl/Cmd+U) everywhere
+document.addEventListener('keydown', function(e) {
+  var key = (e.key || '').toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && key === 's') e.preventDefault();
+  if ((e.ctrlKey || e.metaKey) && key === 'u') e.preventDefault();
+});
+
+// Block dragging images/text out of the page (drag-to-save, drag-to-new-tab)
+document.addEventListener('dragstart', function(e) {
+  var t = e.target;
+  var allowed = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA';
+  if (!allowed) e.preventDefault();
+});
+
+// Disable the native "Open image in new tab" / long-press save affordance for <img>
+document.addEventListener('DOMContentLoaded', function() {
+  var style = document.createElement('style');
+  style.textContent = 'img{-webkit-user-drag:none;-webkit-touch-callout:none;pointer-events:auto;}';
+  document.head.appendChild(style);
+});
+
 // ── Screenshot / screen-capture blur protection ────────────────────
 (function() {
   // KEY iOS SAFARI FIX: overlay must use opacity:0 not display:none
@@ -2814,6 +3068,36 @@ document.addEventListener('keydown', function(e) {
       'body>*:not(#ss-blur-overlay){filter:blur(40px)!important;opacity:0!important;}',
       '#ss-blur-overlay{opacity:1!important;pointer-events:all!important;}',
     '}',
+    /* Per-user traceability stamp — faint, tiled, non-interactive.
+       Deliberately unstyled-looking class/id names; avoid anything
+       that reads as "watermark" or "protection" in devtools.
+       Fixed positioning + JS-driven height (see WatermarkOverlay)
+       avoids relying on percentage-height inheritance through an
+       uncertain ancestor chain, while still covering scrolled content.
+       Rotation/scale is set inline per-session (randomized) rather than
+       here, so cropping a screenshot to a known fixed angle doesn't
+       reliably strip it across different users/sessions. Two interleaved
+       layers at different angles/densities make content-aware-fill
+       removal from a leaked image harder than removing a single pattern. */
+    '#rn-fx-9c2, #rn-fx-9c2b{',
+      'position:fixed;top:0;left:0;right:0;',
+      'z-index:2147483646;',
+      'pointer-events:none;overflow:hidden;',
+      'transform-origin:center;',
+      'display:flex;flex-wrap:wrap;align-content:flex-start;',
+      'user-select:none;-webkit-user-select:none;',
+    '}',
+    '#rn-fx-9c2{ opacity:0.05; mix-blend-mode:difference; z-index:2147483646; }',
+    '#rn-fx-9c2b{ opacity:0.035; mix-blend-mode:difference; z-index:2147483645; }',
+    '#rn-fx-9c2 span{',
+      'font-family:"JetBrains Mono",monospace;font-size:13px;color:#fff;',
+      'white-space:nowrap;padding:34px 26px;flex-shrink:0;',
+    '}',
+    '#rn-fx-9c2b span{',
+      'font-family:"JetBrains Mono",monospace;font-size:9px;color:#fff;',
+      'white-space:nowrap;padding:12px 10px;flex-shrink:0;',
+    '}',
+    '@media print{ #rn-fx-9c2{ opacity:0.12!important; mix-blend-mode:normal!important; } #rn-fx-9c2 span{ color:#999!important; } #rn-fx-9c2b{ opacity:0.08!important; mix-blend-mode:normal!important; } #rn-fx-9c2b span{ color:#bbb!important; } }',
   ].join('');
   document.head.appendChild(style);
 
@@ -2833,12 +3117,16 @@ document.addEventListener('keydown', function(e) {
   }
 
   // ── 1. PrintScreen (Windows/Linux) ──────────────────────────────
-  document.addEventListener('keyup', function(e) {
+  // Covers both keydown and keyup — some keyboard drivers/browsers only
+  // reliably surface one or the other for this particular key.
+  function handlePrintScreen(e) {
     if (e.key === 'PrintScreen' || e.key === 'Print') {
       showThenHide(2000);
       try { navigator.clipboard.writeText(''); } catch(_) {}
     }
-  });
+  }
+  document.addEventListener('keyup', handlePrintScreen);
+  document.addEventListener('keydown', handlePrintScreen);
 
   // ── 2. Keyboard combos (Win+Shift+S, Mac Cmd+Shift+3/4/5) ───────
   document.addEventListener('keydown', function(e) {
@@ -2895,6 +3183,56 @@ document.addEventListener('keydown', function(e) {
     }
   }, { passive: true });
 
+  // ── 6b. Desktop rAF stall detector ────────────────────────────────
+  // Both the Windows Snipping Tool overlay (screen dims, compositor
+  // hands a frame to the capture pipeline) and macOS screenshot capture
+  // (Cmd+Shift+3/4/5, or the macOS screenshot toolbar) cause a brief but
+  // measurable pause in requestAnimationFrame callback timing — this is
+  // a real, observable side effect of the OS taking a frame, not a guess.
+  // A normal frame is ~16ms (60fps); a stall well past that during an
+  // otherwise idle page is a meaningful signal on desktop specifically,
+  // where rAF runs consistently unlike mobile background throttling.
+  var lastFrameAt = performance.now();
+  var rafStallArmed = true;
+  function rafStallCheck(now) {
+    var delta = now - lastFrameAt;
+    if (rafStallArmed && delta > 250) {
+      showThenHide(1500);
+    }
+    lastFrameAt = now;
+    requestAnimationFrame(rafStallCheck);
+  }
+  requestAnimationFrame(rafStallCheck);
+  // Disarm while the tab itself is backgrounded — rAF naturally pauses
+  // there for unrelated reasons (browser throttling), which would
+  // otherwise read as a huge, meaningless "stall" on every tab switch.
+  document.addEventListener('visibilitychange', function() {
+    rafStallArmed = document.visibilityState === 'visible';
+    if (rafStallArmed) lastFrameAt = performance.now();
+  });
+
+  // ── 6c. Window geometry watcher (desktop) ─────────────────────────
+  // Some screenshot/recording tools (Snagit region select, OBS region
+  // capture, browser-extension screenshot tools) briefly change the
+  // browser window's outer dimensions or screen position when invoked.
+  // Track outerWidth/outerHeight/screenX/screenY and flag rapid changes
+  // that aren't a normal user-initiated resize (those tend to be
+  // smoother/slower than a tool snapping the window for capture).
+  var lastGeom = { w: window.outerWidth, h: window.outerHeight, x: window.screenX, y: window.screenY };
+  setInterval(function() {
+    var g = { w: window.outerWidth, h: window.outerHeight, x: window.screenX, y: window.screenY };
+    var moved = Math.abs(g.x - lastGeom.x) > 3 || Math.abs(g.y - lastGeom.y) > 3;
+    var resized = Math.abs(g.w - lastGeom.w) > 3 || Math.abs(g.h - lastGeom.h) > 3;
+    if (moved && resized) {
+      // Simultaneous reposition + resize in one tick is characteristic
+      // of a capture tool snapping the window, rather than a person
+      // dragging an edge (which changes size without also teleporting
+      // position) or dragging a title bar (which moves without resizing).
+      showThenHide(1200);
+    }
+    lastGeom = g;
+  }, 500);
+
   // ── 7. iOS DeviceMotion flash detection ──────────────────────────
   // iOS flashes the screen white for ~120ms when a screenshot is taken.
   // We can't detect the flash directly, but we can watch for the
@@ -2919,10 +3257,152 @@ document.addEventListener('keydown', function(e) {
     }, { passive: true });
   }
 
+  // ── 7b. Android volume-key heuristic ──────────────────────────────
+  // Android's screenshot gesture is Power + Volume-Down. Regular mobile
+  // browser tabs never see hardware volume-key events (the OS intercepts
+  // them), but installed PWAs and some WebView wrappers do receive
+  // AudioVolumeDown/Up as keydown — worth catching for those contexts at
+  // zero cost; harmless no-op in a normal browser tab.
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'AudioVolumeDown' || e.key === 'AudioVolumeUp') {
+      showThenHide(2000);
+    }
+  });
+
+  // ── 7c. Android focus-poll backstop ───────────────────────────────
+  // Some Android OEM skins (Samsung One UI, MIUI) show a brief system
+  // screenshot/share toolbar overlay that does NOT always fire the
+  // window 'blur' event the way alt-tabbing does, since the page can
+  // stay technically focused underneath. Poll document.hasFocus() as
+  // a backstop — catches the case where blur never fires but focus
+  // briefly reads false during the OS overlay.
+  var wasFocused = document.hasFocus();
+  setInterval(function() {
+    var isFocused = document.hasFocus();
+    if (wasFocused && !isFocused) {
+      showBlur();
+      clearTimeout(blurTimer);
+    } else if (!wasFocused && isFocused) {
+      blurTimer = setTimeout(hideBlur, 1800);
+    }
+    wasFocused = isFocused;
+  }, 400);
+
+  // ── 7d. Viewport-shift heuristic ──────────────────────────────────
+  // Some Android OEM screenshot/screen-recorder UIs briefly resize the
+  // visual viewport (status bar takeover, capture toolbar) even when
+  // focus/visibility don't change. The single biggest false-positive
+  // risk here is the mobile address bar collapsing/expanding on scroll,
+  // which produces an identical height delta on nearly every scroll —
+  // so this only fires if there was NO scroll in the preceding window,
+  // since legitimate address-bar collapse is always scroll-triggered.
+  if (window.visualViewport) {
+    var lastVH = window.visualViewport.height;
+    var lastScrollAt = 0;
+    window.addEventListener('scroll', function() {
+      lastScrollAt = Date.now();
+    }, { passive: true, capture: true });
+    window.visualViewport.addEventListener('resize', function() {
+      var newVH = window.visualViewport.height;
+      var delta = Math.abs(newVH - lastVH);
+      var recentlyScrolled = Date.now() - lastScrollAt < 700;
+      var typing = document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA');
+      if (delta > 40 && delta < 220 && !recentlyScrolled && !typing) {
+        showThenHide(1200);
+      }
+      lastVH = newVH;
+    });
+  }
+
   // ── 8. CSS ::backdrop ────────────────────────────────────────────
   var backdropStyle = document.createElement('style');
   backdropStyle.textContent = '::backdrop{filter:blur(40px);}';
   document.head.appendChild(backdropStyle);
+
+  // ── 9. iOS 13+ DeviceMotion permission request ───────────────────
+  // iOS 13+ requires an explicit user gesture to grant motion access;
+  // without this, section 7's listener silently never fires on modern iPhones.
+  function requestMotionPermission() {
+    if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission().catch(function() {});
+    }
+    document.removeEventListener('touchend', requestMotionPermission);
+    document.removeEventListener('click', requestMotionPermission);
+  }
+  document.addEventListener('touchend', requestMotionPermission, { once: true, passive: true });
+  document.addEventListener('click', requestMotionPermission, { once: true });
+
+  // ── 10. DevTools detection (size heuristic) ───────────────────────
+  // When DevTools is docked, the rendered viewport shrinks relative to
+  // the outer window by a large, sustained margin. This catches docked
+  // panels on desktop Chrome/Firefox/Edge/Safari. Skipped on touch-primary
+  // devices, where on-screen keyboards can shrink innerHeight similarly
+  // and outerWidth/innerWidth aren't a meaningful signal anyway.
+  var DT_THRESHOLD = 160;
+  var devtoolsOpen = false;
+  var isTouchPrimary = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  function checkDevtoolsSize() {
+    if (isTouchPrimary) return;
+    var widthDelta = window.outerWidth - window.innerWidth;
+    var heightDelta = window.outerHeight - window.innerHeight;
+    var isOpen = widthDelta > DT_THRESHOLD || heightDelta > DT_THRESHOLD;
+    if (isOpen && !devtoolsOpen) {
+      devtoolsOpen = true;
+      showBlur();
+      clearTimeout(blurTimer);
+    } else if (!isOpen && devtoolsOpen) {
+      devtoolsOpen = false;
+      blurTimer = setTimeout(hideBlur, 1800);
+    }
+  }
+  setInterval(checkDevtoolsSize, 600);
+  window.addEventListener('resize', checkDevtoolsSize);
+
+  // ── 11. DevTools detection (debugger timing trap) ─────────────────
+  // With DevTools open, `debugger` pauses execution; the elapsed wall-clock
+  // time across that statement balloons. Closed DevTools = sub-millisecond.
+  // Run quietly in the background; never blocks the UI thread for long.
+  // Backs off after repeated triggers so a sustained, legitimate debugging
+  // session (e.g. a teacher diagnosing a Firestore error) isn't strobed
+  // indefinitely — the deterrent matters most in the first moments.
+  var dtTimingStrikes = 0;
+  var dtTimingInterval = 2200;
+  var dtTimingTimer = null;
+  function checkDevtoolsTiming() {
+    var t0 = performance.now();
+    // eslint-disable-next-line no-debugger
+    debugger;
+    var elapsed = performance.now() - t0;
+    if (elapsed > 100) {
+      showBlur();
+      clearTimeout(blurTimer);
+      blurTimer = setTimeout(hideBlur, 2500);
+      dtTimingStrikes = Math.min(dtTimingStrikes + 1, 5);
+    } else {
+      dtTimingStrikes = 0;
+    }
+    var nextDelay = dtTimingInterval * Math.pow(1.8, dtTimingStrikes);
+    dtTimingTimer = setTimeout(checkDevtoolsTiming, nextDelay);
+  }
+  dtTimingTimer = setTimeout(checkDevtoolsTiming, dtTimingInterval);
+
+  // ── 12. console tamper trap ────────────────────────────────────────
+  // Many casual "inspect/extract" workflows open the console first.
+  // A getter on a console-logged object fires only when devtools is
+  // actually rendering it in the panel (object inspection), giving a
+  // secondary signal independent of window-size heuristics.
+  try {
+    var consoleTrap = document.createElement('div');
+    Object.defineProperty(consoleTrap, 'id', {
+      get: function() {
+        showBlur();
+        clearTimeout(blurTimer);
+        blurTimer = setTimeout(hideBlur, 2000);
+        return '';
+      }
+    });
+    setInterval(function() { console.log('%c', consoleTrap); }, 1000);
+  } catch (_) {}
 })();
 </script>
 
@@ -3236,7 +3716,7 @@ const API = {
     const normalized = title.trim().toLowerCase().replace(/\s+/g, " ");
     const existing = await db.collection("studies").where("titleNorm", "==", normalized).limit(1).get();
     if (!existing.empty) throw new Error(`\u26A0\uFE0F A study with this title already exists: "${existing.docs[0].data().title}"`);
-    await db.collection("studies").add({
+    const newStudyDocRef = await db.collection("studies").add({
       title: title.trim(),
       titleNorm: normalized,
       authors,
@@ -3273,8 +3753,7 @@ const API = {
       console.warn("Co-author uploadCount increment failed:", e.message);
     }
     try {
-      const newStudyRef = (await db.collection("studies").where("titleNorm", "==", normalized).limit(1).get()).docs[0];
-      const newStudyId = newStudyRef ? newStudyRef.id : null;
+      const newStudyId = newStudyDocRef.id;
       await db.collection("pendingReviews").add({
         type: "new_study",
         studyId: newStudyId,
@@ -3294,8 +3773,7 @@ const API = {
       const registeredCoAuthors = (coAuthors || []).filter((ca) => ca.userId && ca.registered);
       if (registeredCoAuthors.length > 0) {
         const coAuthorBatch = db.batch();
-        const studyRef = (await db.collection("studies").where("titleNorm", "==", normalized).limit(1).get()).docs[0];
-        const studyId = studyRef ? studyRef.id : null;
+        const studyId = newStudyDocRef.id;
         registeredCoAuthors.forEach((ca) => {
           const ref = db.collection("users").doc(ca.userId).collection("notifications").doc();
           coAuthorBatch.set(ref, {
@@ -3594,6 +4072,7 @@ const API = {
   },
   async resubmitStudy(studyId, { title, abstract, keywords, gdrive, resubmittedBy, resubmittedByName }) {
     const snap = await db.collection("studies").doc(studyId).get();
+    if (!snap.exists) throw new Error("Study not found. It may have been deleted.");
     const current = snap.data();
     const version = current.version || 1;
     const changedFields = {};
@@ -3816,18 +4295,14 @@ const API = {
       await db.collection("studies").doc(id).update({ [field]: firebase.firestore.FieldValue.increment(1) });
       if (user) {
         const logType = field === "viewCount" ? "views" : "downloads";
-        const logRef = db.collection("studies").doc(id).collection(logType).doc(user.id);
-        const isFirstTime = !(await logRef.get()).exists;
-        await logRef.set(__spreadProps(__spreadValues({
+        await db.collection("studies").doc(id).collection(logType).add({
           userId: user.id,
           userName: user.name,
           userEmail: user.email,
           institution: user.institution || "",
-          department: user.department || ""
-        }, isFirstTime && { firstViewedAt: (/* @__PURE__ */ new Date()).toISOString() }), {
-          lastViewedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          count: firebase.firestore.FieldValue.increment(1)
-        }), { merge: true });
+          department: user.department || "",
+          timestamp: Date.now()
+        });
       }
       Cache.invalidate("studies:raw", "allStudies", "stats");
     } catch (e) {
@@ -3841,11 +4316,19 @@ const API = {
         db.collection("studies").doc(id).collection("downloads").get(),
         db.collection("studies").doc(id).collection("citations").get()
       ]);
-      const byRecency = (field) => (a, b) => new Date(b[field] || 0) - new Date(a[field] || 0);
+      // Legacy docs (pre-fix) stored lastViewedAt/lastCitedAt as an ISO
+      // string instead of a numeric timestamp; fall back to those so
+      // older history doesn't disappear or show as "Unknown" once new
+      // events start using the correct `timestamp` field.
+      const normalize = (d, fallbackField) => {
+        const ts = d.timestamp != null ? d.timestamp : d[fallbackField] ? new Date(d[fallbackField]).getTime() : null;
+        return __spreadProps(__spreadValues({}, d), { timestamp: ts });
+      };
+      const byRecency = (a, b) => (b.timestamp || 0) - (a.timestamp || 0);
       return {
-        views: vSnap.docs.map((d) => d.data()).sort(byRecency("lastViewedAt")),
-        downloads: dSnap.docs.map((d) => d.data()).sort(byRecency("lastViewedAt")),
-        citations: cSnap.docs.map((d) => d.data()).sort(byRecency("lastCitedAt"))
+        views: vSnap.docs.map((d) => normalize(d.data(), "lastViewedAt")).sort(byRecency),
+        downloads: dSnap.docs.map((d) => normalize(d.data(), "lastViewedAt")).sort(byRecency),
+        citations: cSnap.docs.map((d) => normalize(d.data(), "lastCitedAt")).sort(byRecency)
       };
     } catch (e) {
       return { views: [], downloads: [], citations: [] };
@@ -3954,7 +4437,11 @@ const API = {
   },
   async logAction(actor, action, target = "") {
     try {
-      const deleteAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1e3).toISOString();
+      // deleteAt = last moment of the current calendar month
+      const now = new Date();
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
+      endOfMonth.setMilliseconds(-1);
+      const deleteAt = endOfMonth.toISOString();
       await db.collection("auditLog").add({
         actorId: (actor == null ? void 0 : actor.id) || "",
         actorName: (actor == null ? void 0 : actor.name) || "Unknown",
@@ -3966,18 +4453,19 @@ const API = {
     } catch (e) {
     }
   },
-  async getAuditLog(limit = 200) {
+  async getAuditLog(limit = 500) {
     try {
       const snap = await db.collection("auditLog").orderBy("timestamp", "desc").limit(limit).get();
-      const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1e3).toISOString();
-      const stale = snap.docs.filter((d) => (d.data().timestamp || "") < cutoff);
+      // Keep only logs from the current calendar month
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const stale = snap.docs.filter((d) => (d.data().timestamp || "") < monthStart);
       if (stale.length) {
         const batch = db.batch();
         stale.forEach((d) => batch.delete(d.ref));
-        batch.commit().catch(() => {
-        });
+        batch.commit().catch(() => {});
       }
-      return snap.docs.filter((d) => (d.data().timestamp || "") >= cutoff).map((d) => __spreadValues({ id: d.id }, d.data()));
+      return snap.docs.filter((d) => (d.data().timestamp || "") >= monthStart).map((d) => __spreadValues({ id: d.id }, d.data()));
     } catch (e) {
       return [];
     }
@@ -4099,6 +4587,13 @@ const API = {
     await db.collection("users").doc(uid).update({ secQ, secA: secA.trim().toLowerCase() });
   },
   async _withAnon(fn) {
+    // Only sign in anonymously if there is no currently-logged-in user,
+    // otherwise signing out in the finally block would log out the real user.
+    const existingUser = auth.currentUser;
+    if (existingUser) {
+      // Already authenticated — run fn() directly without touching auth state
+      return await fn();
+    }
     let anonUser = null;
     try {
       const cred = await auth.signInAnonymously();
@@ -4400,6 +4895,14 @@ async function callAI(query, history, studies, mode = "general") {
         temperature: 0.7
       })
     });
+    if (!res.ok && res.status !== 400) {
+      const errText = await res.text().catch(() => res.statusText);
+      console.error("Groq HTTP error:", res.status, errText);
+      if (res.status === 401) toast.err("Groq: Invalid API key. Check your key in Settings.");
+      else if (res.status === 429) toast.err("Groq: Rate limit reached. Try again in a moment.");
+      else toast.err(`Groq: Server error (${res.status}). Falling back to local mode.`);
+      throw new Error(`Groq HTTP ${res.status}`);
+    }
     const data = await res.json();
     if (data.error) {
       console.error("Groq API error:", data.error);
@@ -4989,18 +5492,13 @@ function APABox({ study, currentUser }) {
       }).catch(() => {
       });
       if (currentUser) {
-        const citRef = db.collection("studies").doc(study.id).collection("citations").doc(currentUser.id);
-        citRef.get().then((snap) => {
-          citRef.set(__spreadProps(__spreadValues({
-            userId: currentUser.id,
-            userName: currentUser.name,
-            userEmail: currentUser.email,
-            institution: currentUser.institution || "",
-            department: currentUser.department || ""
-          }, snap.exists ? {} : { firstCitedAt: (/* @__PURE__ */ new Date()).toISOString() }), {
-            lastCitedAt: (/* @__PURE__ */ new Date()).toISOString(),
-            count: firebase.firestore.FieldValue.increment(1)
-          }), { merge: true });
+        db.collection("studies").doc(study.id).collection("citations").add({
+          userId: currentUser.id,
+          userName: currentUser.name,
+          userEmail: currentUser.email,
+          institution: currentUser.institution || "",
+          department: currentUser.department || "",
+          timestamp: Date.now()
         }).catch(() => {
         });
       }
@@ -5690,6 +6188,10 @@ function OfflineReadingPage({ currentUser, onOpenStudy }) {
 function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies = [], onOpenStudy, onStudyUpdated }) {
   const [editOpen, setEditOpen] = useState(false);
   const [liveStudy, setLiveStudy] = useState(study);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("sabnahis:study-reading", { detail: { delta: 1 } }));
+    return () => window.dispatchEvent(new CustomEvent("sabnahis:study-reading", { detail: { delta: -1 } }));
+  }, []);
   const isOwner = currentUser.id === liveStudy.uploadedBy;
   const canDel = currentUser.role === "admin";
   const canEdit = currentUser.role === "admin" || isOwner;
@@ -5744,7 +6246,7 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies = 
   const toggleFav = async () => {
     const prev = faved;
     setFaved(!prev);
-    setFavLoading(false);
+    setFavLoading(true);
     try {
       if (prev) {
         await API.removeFavorite(currentUser.id, study.id);
@@ -5756,6 +6258,8 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies = 
     } catch (e) {
       setFaved(prev);
       toast.err(e.message);
+    } finally {
+      setFavLoading(false);
     }
   };
   return /* @__PURE__ */ React.createElement(React.Fragment, null, editOpen && /* @__PURE__ */ React.createElement(
@@ -5777,7 +6281,7 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies = 
   } : onClose, wide: true }, /* @__PURE__ */ React.createElement("div", { className: "sc-cats", style: { marginBottom: 12 } }, (liveStudy.categories || []).map((c) => /* @__PURE__ */ React.createElement("span", { key: c, className: "sc-cat" }, c))), /* @__PURE__ */ React.createElement("h2", { className: "sd-title" }, liveStudy.title), /* @__PURE__ */ React.createElement("div", { className: "sd-auth", style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", flexShrink: 0 } }, "Authors"), liveStudy.coAuthors && liveStudy.coAuthors.length > 0 ? [
     /* @__PURE__ */ React.createElement("span", { key: "uploader", className: "author-tag self", style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (liveStudy.uploadedByName || liveStudy.authors && liveStudy.authors[0] || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, liveStudy.uploadedByName || liveStudy.authors && liveStudy.authors[0] || "Unknown"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", opacity: 0.6, fontWeight: 400, marginLeft: 1 } }, "(owner)")),
     ...liveStudy.coAuthors.map((ca, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: `author-tag${ca.registered ? " registered" : ""}`, style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (ca.name || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, ca.name), !ca.registered && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", opacity: 0.55, fontWeight: 400, marginLeft: 1 } }, "(ext.)")))
-  ] : (liveStudy.authors || []).map((a, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: `author-tag${i === 0 ? " self" : ""}`, style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (a || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, a)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.eye, null), liveStudy.viewCount || 0, " views"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.dl, null), liveStudy.downloadCount || 0, " downloads"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, "\u{1F4CB} ", liveStudy.citationCount || 0, " citations"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.cal, null), liveStudy.year)), /* @__PURE__ */ React.createElement("div", { className: "ds", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("h4", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, "Abstract", /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", fontWeight: 400, color: "var(--muted)", fontFamily: "var(--font-body)" } }, "\u{1F4D6} ", readingTime(liveStudy.abstract))), /* @__PURE__ */ React.createElement("p", { style: { lineHeight: 1.7, color: "var(--ink-3)", fontSize: "var(--text-sm)", transition: "all .2s" } }, absIsLong && !absExpanded ? absPreview : liveStudy.abstract), absIsLong && /* @__PURE__ */ React.createElement("button", { className: "sc-abs-toggle", style: { marginTop: 6 }, onClick: () => setAbsExpanded((v) => !v), "aria-expanded": absExpanded }, absExpanded ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "18 15 12 9 6 15" })), " Show less") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" })), " Read full abstract"))), (liveStudy.keywords || []).length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "Keywords"), (liveStudy.keywords || []).map((k) => /* @__PURE__ */ React.createElement("span", { key: k, className: "kw" }, k))), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "APA Citation"), /* @__PURE__ */ React.createElement(APABox, { study: liveStudy, currentUser })), gdriveUrl && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--teal-light)", border: "1.5px solid var(--teal)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 87.3 78", width: "22", height: "22", xmlns: "http://www.w3.org/2000/svg", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z", fill: "#0066da" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.6c-.8 1.4-1.2 2.95-1.2 4.5h27.5z", fill: "#00ac47" }), /* @__PURE__ */ React.createElement("path", { d: "M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 11.5z", fill: "#ea4335" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.1.45-4.5 1.2z", fill: "#00832d" }), /* @__PURE__ */ React.createElement("path", { d: "M59.8 53.1H27.5L13.75 76.9c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.1-.45 4.5-1.2z", fill: "#2684fc" }), /* @__PURE__ */ React.createElement("path", { d: "M73.4 26.6l-12.6-21.9C59.9 3.2 58.75 2.1 57.4 1.3L43.65 25l16.15 28.1h27.45c0-1.55-.4-3.1-1.2-4.5z", fill: "#ffba00" })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.875rem", color: "var(--teal)" } }, "Google Drive File"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.73rem", color: "var(--teal)", opacity: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, gdriveUrl)), /* @__PURE__ */ React.createElement("a", { href: gdriveUrl, target: "_blank", rel: "noopener noreferrer", onClick: handleDL, className: "btn btn-teal btn-sm", style: { textDecoration: "none" } }, /* @__PURE__ */ React.createElement(Ico.eye, null), " Open"), gdriveDownload && /* @__PURE__ */ React.createElement("a", { href: gdriveDownload, target: "_blank", rel: "noopener noreferrer", onClick: handleDL, className: "btn btn-ol btn-sm", style: { textDecoration: "none" } }, /* @__PURE__ */ React.createElement(Ico.dl, null), " Download")), liveStudy.uploadedByName && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--surface)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 32, height: 32, fontSize: "0.78rem" } }, initials(liveStudy.uploadedByName)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, "Uploaded by"), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.875rem" } }, liveStudy.uploadedByName))), /* @__PURE__ */ React.createElement(TeacherFeedbackSection, { study: liveStudy, currentUser }), /* @__PURE__ */ React.createElement(ReviewsSection, { study: liveStudy, currentUser }), isOwner && favBy.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14, padding: "10px 14px", background: "var(--purple-light)", border: "1px solid var(--purple)", borderRadius: "var(--radius)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, cursor: "pointer" }, onClick: () => setShowFavBy((s) => !s) }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.8rem", fontWeight: 600, color: "var(--purple)" } }, "\u{1F4CC} ", favBy.length, " student", favBy.length !== 1 ? "s" : "", " bookmarked this study"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--purple)", marginLeft: "auto" } }, showFavBy ? "\u25B2 hide" : "\u25BC show")), showFavBy && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, favBy.map((u) => /* @__PURE__ */ React.createElement("div", { key: u.uid, style: { display: "flex", alignItems: "center", gap: 8, fontSize: "0.78rem" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 26, height: 26, borderRadius: "50%", background: "var(--purple)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.7rem", flexShrink: 0 } }, u.name.charAt(0).toUpperCase()), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500 } }, u.name), u.institution && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--muted)" } }, u.institution)))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingTop: 14, borderTop: "1px solid var(--border)", flexWrap: "wrap", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(
+  ] : (liveStudy.authors || []).map((a, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: `author-tag${i === 0 ? " self" : ""}`, style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (a || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, a)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.eye, null), liveStudy.viewCount || 0, " views"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.dl, null), liveStudy.downloadCount || 0, " downloads"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, "\u{1F4CB} ", liveStudy.citationCount || 0, " citations"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.cal, null), liveStudy.year)), /* @__PURE__ */ React.createElement("div", { className: "ds", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("h4", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, "Abstract", /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", fontWeight: 400, color: "var(--muted)", fontFamily: "var(--font-body)" } }, "\u{1F4D6} ", readingTime(liveStudy.abstract))), /* @__PURE__ */ React.createElement("p", { style: { lineHeight: 1.7, color: "var(--ink-3)", fontSize: "var(--text-sm)", transition: "all .2s" } }, absIsLong && !absExpanded ? absPreview : liveStudy.abstract), absIsLong && /* @__PURE__ */ React.createElement("button", { className: "sc-abs-toggle", style: { marginTop: 6 }, onClick: () => setAbsExpanded((v) => !v), "aria-expanded": absExpanded }, absExpanded ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "18 15 12 9 6 15" })), " Show less") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" })), " Read full abstract"))), (liveStudy.keywords || []).length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "Keywords"), (liveStudy.keywords || []).map((k) => /* @__PURE__ */ React.createElement("span", { key: k, className: "kw" }, k))), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "APA Citation"), /* @__PURE__ */ React.createElement(APABox, { study: liveStudy, currentUser })), gdriveUrl && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--teal-light)", border: "1.5px solid var(--teal)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 87.3 78", width: "22", height: "22", xmlns: "http://www.w3.org/2000/svg", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z", fill: "#0066da" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.6c-.8 1.4-1.2 2.95-1.2 4.5h27.5z", fill: "#00ac47" }), /* @__PURE__ */ React.createElement("path", { d: "M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 11.5z", fill: "#ea4335" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.1.45-4.5 1.2z", fill: "#00832d" }), /* @__PURE__ */ React.createElement("path", { d: "M59.8 53.1H27.5L13.75 76.9c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.1-.45 4.5-1.2z", fill: "#2684fc" }), /* @__PURE__ */ React.createElement("path", { d: "M73.4 26.6l-12.6-21.9C59.9 3.2 58.75 2.1 57.4 1.3L43.65 25l16.15 28.1h27.45c0-1.55-.4-3.1-1.2-4.5z", fill: "#ffba00" })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.875rem", color: "var(--teal)" } }, "Google Drive File"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.73rem", color: "var(--teal)", opacity: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "Linked file \u2014 use Open or Download below")), /* @__PURE__ */ React.createElement("a", { href: gdriveUrl, target: "_blank", rel: "noopener noreferrer", onClick: handleDL, className: "btn btn-teal btn-sm", style: { textDecoration: "none" } }, /* @__PURE__ */ React.createElement(Ico.eye, null), " Open"), gdriveDownload && /* @__PURE__ */ React.createElement("a", { href: gdriveDownload, target: "_blank", rel: "noopener noreferrer", onClick: handleDL, className: "btn btn-ol btn-sm", style: { textDecoration: "none" } }, /* @__PURE__ */ React.createElement(Ico.dl, null), " Download")), liveStudy.uploadedByName && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--surface)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 32, height: 32, fontSize: "0.78rem" } }, initials(liveStudy.uploadedByName)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, "Uploaded by"), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.875rem" } }, liveStudy.uploadedByName))), /* @__PURE__ */ React.createElement(TeacherFeedbackSection, { study: liveStudy, currentUser }), /* @__PURE__ */ React.createElement(ReviewsSection, { study: liveStudy, currentUser }), isOwner && favBy.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14, padding: "10px 14px", background: "var(--purple-light)", border: "1px solid var(--purple)", borderRadius: "var(--radius)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, cursor: "pointer" }, onClick: () => setShowFavBy((s) => !s) }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.8rem", fontWeight: 600, color: "var(--purple)" } }, "\u{1F4CC} ", favBy.length, " student", favBy.length !== 1 ? "s" : "", " bookmarked this study"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--purple)", marginLeft: "auto" } }, showFavBy ? "\u25B2 hide" : "\u25BC show")), showFavBy && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, favBy.map((u) => /* @__PURE__ */ React.createElement("div", { key: u.uid, style: { display: "flex", alignItems: "center", gap: 8, fontSize: "0.78rem" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 26, height: 26, borderRadius: "50%", background: "var(--purple)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.7rem", flexShrink: 0 } }, u.name.charAt(0).toUpperCase()), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500 } }, u.name), u.institution && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--muted)" } }, u.institution)))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingTop: 14, borderTop: "1px solid var(--border)", flexWrap: "wrap", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: faved ? "btn btn-gold btn-sm" : "btn btn-ol btn-sm",
@@ -7355,20 +7859,39 @@ function StudyHistoryModal({ study, onClose }) {
   }, [logs]);
   const currentList = useMemo(() => {
     if (!logs) return [];
-    const list = logs[tab];
+    const list = [...logs[tab]];
+    // Always sort newest first
+    list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     if (selectedYear === "all") return list;
     return list.filter((l) => getYear(l.timestamp) === parseInt(selectedYear));
   }, [logs, tab, selectedYear]);
-  const groupedByYear = useMemo(() => {
+  const groupedByDay = useMemo(() => {
     if (selectedYear !== "all") return null;
     const groups = {};
     currentList.forEach((log) => {
-      const yr = getYear(log.timestamp) || "Unknown";
-      if (!groups[yr]) groups[yr] = [];
-      groups[yr].push(log);
+      const ts = log.timestamp;
+      let dayKey = "Unknown";
+      if (ts) {
+        const d = new Date(typeof ts === "number" ? ts : ts);
+        dayKey = d.toISOString().slice(0, 10);
+      }
+      if (!groups[dayKey]) groups[dayKey] = [];
+      groups[dayKey].push(log);
     });
-    return Object.entries(groups).sort((a, b) => b[0] - a[0]);
+    // Sort each day's entries newest-first (already sorted from currentList)
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   }, [currentList, selectedYear]);
+  const fmtDayBanner = (key) => {
+    if (!key || key === "Unknown") return "Unknown Date";
+    const d = new Date(key + "T00:00:00");
+    const today = new Date(); today.setHours(0,0,0,0);
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === today.toDateString())
+      return "Today \u2014 " + d.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+    if (d.toDateString() === yesterday.toDateString())
+      return "Yesterday \u2014 " + d.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+    return d.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  };
   const uniqueStudents = logs ? [...new Set([
     ...logs.views.map((l) => l.userId),
     ...logs.downloads.map((l) => l.userId),
@@ -7426,7 +7949,7 @@ function StudyHistoryModal({ study, onClose }) {
       message: selectedYear !== "all" ? `Try selecting a different year or "All Years".` : `No one has ${tab === "views" ? "viewed" : tab === "downloads" ? "downloaded" : "cited"} this study yet.`,
       compact: true
     }
-  ) : selectedYear !== "all" ? /* @__PURE__ */ React.createElement("div", { className: "tw" }, /* @__PURE__ */ React.createElement("table", null, /* @__PURE__ */ React.createElement(TableHead, null), /* @__PURE__ */ React.createElement("tbody", null, currentList.map((log, i) => /* @__PURE__ */ React.createElement(LogRow, { key: i, log, i }))))) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 18 } }, groupedByYear.map(([yr, entries]) => /* @__PURE__ */ React.createElement("div", { key: yr }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { background: "var(--purple)", color: "#fff", borderRadius: 6, padding: "3px 12px", fontSize: "var(--text-xs)", fontWeight: 700, flexShrink: 0 } }, "\u{1F4C5} ", yr), /* @__PURE__ */ React.createElement("div", { style: { height: 1, flex: 1, background: "var(--border)" } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", flexShrink: 0 } }, entries.length, " record", entries.length !== 1 ? "s" : "")), /* @__PURE__ */ React.createElement("div", { className: "tw" }, /* @__PURE__ */ React.createElement("table", null, /* @__PURE__ */ React.createElement(TableHead, null), /* @__PURE__ */ React.createElement("tbody", null, entries.map((log, i) => /* @__PURE__ */ React.createElement(LogRow, { key: i, log, i })))))))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 16, padding: "10px 14px", background: "var(--surface)", borderRadius: "var(--radius)", fontSize: "var(--text-xs)", color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "13", height: "13", fill: "none", stroke: "currentColor", strokeWidth: "2" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "8", x2: "12", y2: "12" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "16", x2: "12.01", y2: "16" })), "Only activity recorded after this feature was enabled is shown. Earlier counts are totals only."));
+  ) : selectedYear !== "all" ? /* @__PURE__ */ React.createElement("div", { className: "tw" }, /* @__PURE__ */ React.createElement("table", null, /* @__PURE__ */ React.createElement(TableHead, null), /* @__PURE__ */ React.createElement("tbody", null, currentList.map((log, i) => /* @__PURE__ */ React.createElement(LogRow, { key: i, log, i }))))) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } }, groupedByDay.map(([dayKey, entries]) => /* @__PURE__ */ React.createElement("div", { key: dayKey }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { background: "var(--gold-bg)", color: "var(--gold)", border: "1px solid var(--gold-light)", borderRadius: 6, padding: "3px 12px", fontSize: "var(--text-xs)", fontWeight: 700, flexShrink: 0 } }, "\uD83D\uDCC5 ", fmtDayBanner(dayKey)), /* @__PURE__ */ React.createElement("div", { style: { height: 1, flex: 1, background: "var(--border)" } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", flexShrink: 0 } }, entries.length, " record", entries.length !== 1 ? "s" : "")), /* @__PURE__ */ React.createElement("div", { className: "tw" }, /* @__PURE__ */ React.createElement("table", null, /* @__PURE__ */ React.createElement(TableHead, null), /* @__PURE__ */ React.createElement("tbody", null, entries.map((log, i) => /* @__PURE__ */ React.createElement(LogRow, { key: i, log, i })))))))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 16, padding: "10px 14px", background: "var(--surface)", borderRadius: "var(--radius)", fontSize: "var(--text-xs)", color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "13", height: "13", fill: "none", stroke: "currentColor", strokeWidth: "2" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "8", x2: "12", y2: "12" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "16", x2: "12.01", y2: "16" })), "Only activity recorded after this feature was enabled is shown. Earlier counts are totals only."));
 }
 function RecentlyViewedCard({ onOpenStudy }) {
   const [items, setItems] = useState([]);
@@ -9095,20 +9618,134 @@ function AdminAuditLog() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [collapsedDays, setCollapsedDays] = useState({});
+  const nowDate = new Date();
+  const currentMonthLabel = nowDate.toLocaleDateString("en-PH", { month: "long", year: "numeric" });
+
   const load = async () => {
     setLoading(true);
-    setLogs(await API.getAuditLog(300));
+    setLogs(await API.getAuditLog(500));
     setLoading(false);
   };
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
+
   const filtered = React.useMemo(() => {
     if (!search.trim()) return logs;
     const q = search.toLowerCase();
-    return logs.filter((l) => (l.actorName || "").toLowerCase().includes(q) || (l.action || "").toLowerCase().includes(q) || (l.target || "").toLowerCase().includes(q));
+    return logs.filter((l) =>
+      (l.actorName || "").toLowerCase().includes(q) ||
+      (l.action || "").toLowerCase().includes(q) ||
+      (l.target || "").toLowerCase().includes(q)
+    );
   }, [logs, search]);
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10, marginBottom: 18 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h2", { className: "sec-title", style: { marginBottom: 1 } }, "Audit Log"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, logs.length, " recorded actions")), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: load }, "\u21BB Refresh")), /* @__PURE__ */ React.createElement("div", { className: "fb", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "sb", style: { flex: 1, minWidth: 200 } }, /* @__PURE__ */ React.createElement(Ico.search, null), /* @__PURE__ */ React.createElement("input", { placeholder: "Search by admin, action, or target\u2026", value: search, onChange: (e) => setSearch(e.target.value), "aria-label": "Search audit log" }), search && /* @__PURE__ */ React.createElement("button", { onClick: () => setSearch(""), style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "0 2px", fontSize: "1rem", lineHeight: 1 }, "data-tip": "Clear search" }, "\u2715"))), /* @__PURE__ */ React.createElement("div", { className: "card" }, loading ? /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "30px", color: "var(--muted)" } }, "Loading\u2026") : filtered.length === 0 ? /* @__PURE__ */ React.createElement(EmptyState, { icon: "\u{1F4DC}", title: "No actions recorded", message: search ? "No actions match your search." : "Admin actions like approvals, deletions, and edits will show up here.", compact: true }) : /* @__PURE__ */ React.createElement("div", { className: "tw" }, /* @__PURE__ */ React.createElement("table", null, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Time"), /* @__PURE__ */ React.createElement("th", null, "Admin"), /* @__PURE__ */ React.createElement("th", null, "Action"), /* @__PURE__ */ React.createElement("th", null, "Target"))), /* @__PURE__ */ React.createElement("tbody", null, filtered.map((l) => /* @__PURE__ */ React.createElement("tr", { key: l.id }, /* @__PURE__ */ React.createElement("td", { style: { whiteSpace: "nowrap", fontSize: "0.78rem", color: "var(--muted)" } }, fmtDate(l.timestamp)), /* @__PURE__ */ React.createElement("td", { style: { fontWeight: 500 } }, l.actorName), /* @__PURE__ */ React.createElement("td", null, l.action), /* @__PURE__ */ React.createElement("td", { style: { fontSize: "0.82rem", color: "var(--ink-3)" } }, l.target || "\u2014"))))))));
+
+  // Group by calendar day (YYYY-MM-DD key), newest day first
+  const groupedByDay = React.useMemo(() => {
+    const map = {};
+    filtered.forEach((l) => {
+      const key = l.timestamp ? l.timestamp.slice(0, 10) : "unknown";
+      if (!map[key]) map[key] = [];
+      map[key].push(l);
+    });
+    Object.values(map).forEach((arr) => arr.sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || "")));
+    return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [filtered]);
+
+  const toggleDay = (key) => setCollapsedDays((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const fmtDayHeader = (key) => {
+    if (!key || key === "unknown") return "Unknown Date";
+    const d = new Date(key + "T00:00:00");
+    const today = new Date(); today.setHours(0,0,0,0);
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === today.toDateString())
+      return "Today \u2014 " + d.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric" });
+    if (d.toDateString() === yesterday.toDateString())
+      return "Yesterday \u2014 " + d.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric" });
+    return d.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  };
+
+  const fmtTime = (ts) => ts ? new Date(ts).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit", hour12: true }) : "\u2014";
+
+  return /* @__PURE__ */ React.createElement("div", null,
+    /* Header row */
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10, marginBottom: 18 } },
+      /* @__PURE__ */ React.createElement("div", null,
+        /* @__PURE__ */ React.createElement("h2", { className: "sec-title", style: { marginBottom: 1 } }, "Audit Log"),
+        /* @__PURE__ */ React.createElement("p", { className: "muted" },
+          logs.length, " action", logs.length !== 1 ? "s" : "", " \u2014 ",
+          /* @__PURE__ */ React.createElement("span", { style: { color: "var(--gold)", fontWeight: 600 } }, currentMonthLabel),
+          " \u2014 resets on the 1st"
+        )
+      ),
+      /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: load }, "\u21BB Refresh")
+    ),
+    /* Search bar */
+    /* @__PURE__ */ React.createElement("div", { className: "fb", style: { marginBottom: 16 } },
+      /* @__PURE__ */ React.createElement("div", { className: "sb", style: { flex: 1, minWidth: 200 } },
+        /* @__PURE__ */ React.createElement(Ico.search, null),
+        /* @__PURE__ */ React.createElement("input", { placeholder: "Search by admin, action, or target\u2026", value: search, onChange: (e) => setSearch(e.target.value), "aria-label": "Search audit log" }),
+        search && /* @__PURE__ */ React.createElement("button", { onClick: () => setSearch(""), style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "0 2px", fontSize: "1rem", lineHeight: 1 } }, "\u2715")
+      )
+    ),
+    /* Body */
+    loading
+      ? /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "30px", color: "var(--muted)" } }, "Loading\u2026")
+      : filtered.length === 0
+        ? /* @__PURE__ */ React.createElement(EmptyState, { icon: "\u{1F4DC}", title: "No actions recorded", message: search ? "No actions match your search." : "Admin actions like approvals, deletions, and edits will show up here.", compact: true })
+        : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
+            groupedByDay.map(([dayKey, dayLogs]) => {
+              const collapsed = !!collapsedDays[dayKey];
+              return /* @__PURE__ */ React.createElement("div", { key: dayKey },
+                /* Day header button */
+                /* @__PURE__ */ React.createElement("button", {
+                  onClick: () => toggleDay(dayKey),
+                  style: {
+                    width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                    background: "var(--surface)", border: "1px solid var(--border)",
+                    borderRadius: collapsed ? "var(--radius)" : "var(--radius) var(--radius) 0 0",
+                    padding: "9px 14px", cursor: "pointer",
+                    fontFamily: "var(--font-body)", textAlign: "left", gap: 10
+                  }
+                },
+                  /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+                    /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem" } }, "\uD83D\uDCC5"),
+                    /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink)" } }, fmtDayHeader(dayKey)),
+                    /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", background: "var(--gold-bg)", color: "var(--gold)", borderRadius: 99, padding: "1px 9px", fontWeight: 600, border: "1px solid var(--gold-light)", flexShrink: 0 } },
+                      dayLogs.length, " action", dayLogs.length !== 1 ? "s" : ""
+                    )
+                  ),
+                  /* @__PURE__ */ React.createElement("span", { style: { color: "var(--muted)", fontSize: "0.8rem", display: "inline-block", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.18s" } }, "\u25BE")
+                ),
+                /* Day table */
+                !collapsed && /* @__PURE__ */ React.createElement("div", { className: "card", style: { borderRadius: "0 0 var(--radius) var(--radius)", borderTop: "none", padding: 0, overflow: "hidden" } },
+                  /* @__PURE__ */ React.createElement("div", { className: "tw" },
+                    /* @__PURE__ */ React.createElement("table", null,
+                      /* @__PURE__ */ React.createElement("thead", null,
+                        /* @__PURE__ */ React.createElement("tr", null,
+                          /* @__PURE__ */ React.createElement("th", null, "Time"),
+                          /* @__PURE__ */ React.createElement("th", null, "Admin"),
+                          /* @__PURE__ */ React.createElement("th", null, "Action"),
+                          /* @__PURE__ */ React.createElement("th", null, "Target")
+                        )
+                      ),
+                      /* @__PURE__ */ React.createElement("tbody", null,
+                        dayLogs.map((l) =>
+                          /* @__PURE__ */ React.createElement("tr", { key: l.id },
+                            /* @__PURE__ */ React.createElement("td", { style: { whiteSpace: "nowrap", fontSize: "0.78rem", color: "var(--muted)", fontFamily: "var(--font-mono)" } }, fmtTime(l.timestamp)),
+                            /* @__PURE__ */ React.createElement("td", { style: { fontWeight: 500 } }, l.actorName),
+                            /* @__PURE__ */ React.createElement("td", null, l.action),
+                            /* @__PURE__ */ React.createElement("td", { style: { fontSize: "0.82rem", color: "var(--ink-3)" } }, l.target || "\u2014")
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              );
+            })
+          )
+  );
 }
 function AdminCats() {
   const [cats, setCats] = useState([]);
@@ -9121,6 +9758,11 @@ function AdminCats() {
   const [studiesLoading, setStudiesLoading] = useState(false);
   const [expandedYear, setExpandedYear] = useState(null);
   const [selectedStudy, setSelectedStudy] = useState(null);
+  useEffect(() => {
+    if (!selectedStudy) return;
+    window.dispatchEvent(new CustomEvent("sabnahis:study-reading", { detail: { delta: 1 } }));
+    return () => window.dispatchEvent(new CustomEvent("sabnahis:study-reading", { detail: { delta: -1 } }));
+  }, [selectedStudy]);
   useEffect(() => {
     API.getCategories().then((c) => {
       setCats(c);
@@ -9787,10 +10429,17 @@ function AdminNotifBell({ currentUser, count, onCountChange }) {
   };
   const dismiss = async (e, notif) => {
     e.stopPropagation();
-    await API.deleteStudyNotification(currentUser.id, notif.id);
+    // Optimistic removal
     const wasUnread = !notif.read;
     setNotifs((n) => n.filter((x) => x.id !== notif.id));
     if (wasUnread) onCountChange(Math.max(0, count - 1));
+    try {
+      await API.deleteStudyNotification(currentUser.id, notif.id);
+    } catch (err) {
+      // Revert optimistic update on failure
+      setNotifs((n) => [...n, notif].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+      if (wasUnread) onCountChange((c) => c + 1);
+    }
   };
   const fmtRelTime = (iso) => {
     const diff = Date.now() - new Date(iso).getTime();
@@ -10084,6 +10733,98 @@ function ScrollToTopButton() {
   }, []);
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   return /* @__PURE__ */ React.createElement("button", { className: `scroll-top-btn${show ? " show" : ""}`, onClick: toTop, "aria-label": "Scroll to top", title: "Back to top", tabIndex: show ? 0 : -1 }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", width: "20", height: "20" }, /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "19", x2: "12", y2: "5" }), /* @__PURE__ */ React.createElement("polyline", { points: "5 12 12 5 19 12" })));
+}
+function WatermarkOverlay({ currentUser }) {
+  const [now, setNow] = useState(() => /* @__PURE__ */ new Date());
+  const [pageHeight, setPageHeight] = useState(() => window.innerHeight);
+  const [remountKey, setRemountKey] = useState(0);
+  const [readingCount, setReadingCount] = useState(0);
+  const stampRef = useRef("");
+  useEffect(() => {
+    const onReading = (e) => setReadingCount((c) => Math.max(0, c + e.detail.delta));
+    window.addEventListener("sabnahis:study-reading", onReading);
+    return () => window.removeEventListener("sabnahis:study-reading", onReading);
+  }, []);
+  useEffect(() => {
+    const id = setInterval(() => setNow(/* @__PURE__ */ new Date()), 6e4);
+    return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    const measure = () => setPageHeight(Math.max(document.documentElement.scrollHeight, window.innerHeight));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(document.documentElement);
+    window.addEventListener("resize", measure);
+    const poll = setInterval(measure, 4e3);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+      clearInterval(poll);
+    };
+  }, []);
+  const isReading = readingCount > 0 && !!currentUser;
+  const stamp = currentUser ? `${currentUser.name} \u00B7 ${currentUser.email || currentUser.id} \u00B7 ${now.toLocaleString()}` : "";
+  const microStamp = currentUser ? `${currentUser.name} \u00B7 ${currentUser.email || currentUser.id}` : "";
+  stampRef.current = stamp;
+  useWatermarkWatchdog(stampRef, setRemountKey, isReading);
+  const seedRef = useRef(null);
+  if (seedRef.current === null) {
+    seedRef.current = {
+      angleA: -26 + Math.random() * 12,
+      angleB: 18 + Math.random() * 14,
+      scaleA: 1.3 + Math.random() * 0.3,
+      scaleB: 1.1 + Math.random() * 0.25
+    };
+  }
+  if (!isReading) return null;
+  const seed = seedRef.current;
+  const rowHeight = 100;
+  const rowCount = Math.ceil((pageHeight * 1.6) / rowHeight) + 2;
+  const colCount = 8;
+  const tiles = Array.from({ length: rowCount * colCount }, (_, i) => i);
+  const microRowHeight = 46;
+  const microRowCount = Math.ceil((pageHeight * 1.6) / microRowHeight) + 2;
+  const microTiles = Array.from({ length: microRowCount * 14 }, (_, i) => i);
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
+    "div",
+    { key: "a" + remountKey, id: "rn-fx-9c2", "aria-hidden": "true", style: { height: pageHeight * 1.6 + "px", transform: `rotate(${seed.angleA}deg) scale(${seed.scaleA})` } },
+    tiles.map((i) => /* @__PURE__ */ React.createElement("span", { key: i }, stamp))
+  ), /* @__PURE__ */ React.createElement(
+    "div",
+    { key: "b" + remountKey, id: "rn-fx-9c2b", "aria-hidden": "true", style: { height: pageHeight * 1.6 + "px", transform: `rotate(${seed.angleB}deg) scale(${seed.scaleB})` } },
+    microTiles.map((i) => /* @__PURE__ */ React.createElement("span", { key: i }, microStamp))
+  ));
+}
+function useWatermarkWatchdog(stampRef, setRemountKey, isReading) {
+  useEffect(() => {
+    if (!isReading) return;
+    function checkOne(id) {
+      const node = document.getElementById(id);
+      if (!node) return false;
+      const cs = window.getComputedStyle(node);
+      const tampered = cs.display === "none" || parseFloat(cs.opacity) === 0 || cs.visibility === "hidden";
+      if (tampered) {
+        node.style.removeProperty("display");
+        node.style.removeProperty("opacity");
+        node.style.removeProperty("visibility");
+      }
+      return true;
+    }
+    function ensureIntact() {
+      const aPresent = checkOne("rn-fx-9c2");
+      const bPresent = checkOne("rn-fx-9c2b");
+      if (!aPresent || !bPresent) {
+        setRemountKey((k) => k + 1);
+      }
+    }
+    const mo = new MutationObserver(ensureIntact);
+    mo.observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ["style", "class", "id"] });
+    const poll = setInterval(ensureIntact, 1500);
+    return () => {
+      mo.disconnect();
+      clearInterval(poll);
+    };
+  }, [setRemountKey, isReading]);
 }
 const ANNOUNCE_DISMISS_KEY = "sabnahis_dismissed_announcements";
 function AnnouncementPopup({ currentUser }) {
@@ -11162,7 +11903,7 @@ function App() {
         setOfflineStudy(__spreadProps(__spreadValues({}, s), { viewCount: (s.viewCount || 0) + 1 }));
       }
     }
-  ), /* @__PURE__ */ React.createElement(ScrollToTopButton, null), showTour && /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement(ScrollToTopButton, null), /* @__PURE__ */ React.createElement(WatermarkOverlay, { currentUser }), showTour && /* @__PURE__ */ React.createElement(
     OnboardingTour,
     {
       isAdmin,
