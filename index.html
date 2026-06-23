@@ -3,6 +3,128 @@
 <head>
 <meta charset="UTF-8"/>
 <script>
+// ── Certificate Verification Handler ─────────────────────────────
+// Runs before anything else. If the URL contains ?verify=..., show
+// a standalone verification page instead of loading the full portal.
+(function() {
+  // Support both hash (#verify=...) and query (?verify=...) for compatibility
+  var token = null;
+  var hash = window.location.hash;
+  if (hash && hash.indexOf('#verify=') === 0) {
+    token = hash.slice('#verify='.length);
+  } else {
+    var params = new URLSearchParams(window.location.search);
+    token = params.get('verify');
+  }
+  if (!token) return; // normal portal load
+
+  // Prevent the iframe-embed check below from redirecting
+  // by overriding top so its check is a no-op (we ARE the top).
+  try {
+    // Restore URL-safe base64 padding and chars then decode
+    var b64 = token.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    var data = JSON.parse(atob(b64));
+  } catch(e) {
+    document.open();
+    document.write('<body style="background:#0d0f14;color:#e55;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;"><div><div style="font-size:3rem;margin-bottom:16px;">⚠️</div><div style="font-size:1.2rem;">Invalid or tampered certificate QR code.</div></div></body>');
+    document.close();
+    return;
+  }
+
+  // Build verification page (keys match compact payload: i,t,a,g,s,tc,d,gl,sc)
+  var grade = data.g || data.grade || '—';
+  var score = (data.s !== undefined && data.s !== '') ? data.s + '/100' : (data.score != null ? data.score + '/100' : '—');
+  var title = data.t || data.title || 'Untitled Study';
+  var teacher = data.tc || data.teacher || '—';
+  var date = data.d || data.date || '—';
+  var certId = data.i || data.id || '—';
+  var gradeLevel = data.gl || data.gradeLevel || '—';
+  var section = data.sc || data.section || '—';
+  var authorList = data.a || data.authors || ['Unknown'];
+
+  var gradeColors = {
+    'A+':'#1a7f4a','A':'#1a7f4a','A-':'#1a7f4a',
+    'B+':'#1a5fa8','B':'#1a5fa8','B-':'#1a5fa8',
+    'C+':'#c9a227','C':'#c9a227','C-':'#c9a227',
+    'D':'#c0392b','F':'#c0392b'
+  };
+  var gradeColor = gradeColors[grade] || '#1a5fa8';
+
+  var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1"/>'
+    + '<title>Certificate Verification — SABNAHIS</title>'
+    + '<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>'
+    + '<style>'
+    + '*{box-sizing:border-box;margin:0;padding:0}'
+    + 'body{background:#0d0f14;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:"DM Sans",sans-serif;padding:24px;}'
+    + '.card{background:#fff;border-radius:20px;max-width:520px;width:100%;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,0.5);}'
+    + '.hd{background:#0d0f14;padding:28px 32px 22px;text-align:center;}'
+    + '.hd-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(201,162,39,0.15);border:1px solid rgba(201,162,39,0.4);border-radius:99px;padding:5px 14px;margin-bottom:16px;}'
+    + '.hd-badge-dot{width:8px;height:8px;background:#22c55e;border-radius:50%;animation:pulse 1.8s infinite;}'
+    + '@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}'
+    + '.hd-badge-text{font-size:0.72rem;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:#c9a227;}'
+    + '.hd-icon{font-size:2.4rem;margin-bottom:8px;}'
+    + '.hd-title{font-family:"Playfair Display",serif;font-size:1.35rem;color:#fff;margin-bottom:4px;}'
+    + '.hd-sub{font-size:0.8rem;color:rgba(255,255,255,0.45);}'
+    + '.body{padding:28px 32px;}'
+    + '.verified-banner{display:flex;align-items:center;gap:12px;background:#e6f5ee;border:1.5px solid #1a7f4a;border-radius:12px;padding:14px 18px;margin-bottom:24px;}'
+    + '.verified-icon{font-size:1.8rem;flex-shrink:0;}'
+    + '.verified-text{font-size:0.88rem;color:#0d0f14;font-weight:500;line-height:1.4;}'
+    + '.verified-text strong{color:#1a7f4a;display:block;font-size:1rem;margin-bottom:2px;}'
+    + '.section-label{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#7c85a8;margin-bottom:6px;}'
+    + '.study-title{font-family:"Playfair Display",serif;font-size:1.1rem;color:#0d0f14;font-style:italic;margin-bottom:18px;line-height:1.4;}'
+    + '.authors-box{background:#fdf8ec;border:1.5px solid #c9a227;border-radius:10px;padding:14px 18px;margin-bottom:18px;}'
+    + '.author-tag{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #e2e5f0;border-radius:99px;padding:4px 12px;font-size:0.82rem;font-weight:600;color:#0d0f14;margin:3px;}'
+    + '.author-tag-icon{width:22px;height:22px;border-radius:50%;background:#0d0f14;color:#c9a227;display:inline-flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:700;flex-shrink:0;}'
+    + '.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}'
+    + '.meta-item{background:#f5f6fa;border-radius:8px;padding:10px 14px;}'
+    + '.meta-value{font-size:0.95rem;font-weight:600;color:#0d0f14;margin-top:2px;}'
+    + '.grade-pill{display:inline-block;padding:2px 10px;border-radius:99px;font-weight:700;font-size:0.95rem;color:#fff;background:'+gradeColor+';}'
+    + '.footer-note{font-size:0.7rem;color:#7c85a8;text-align:center;line-height:1.5;padding-top:16px;border-top:1px solid #e2e5f0;}'
+    + '.cert-id{font-family:monospace;font-size:0.65rem;color:#b0b5cc;margin-top:4px;}'
+    + '</style></head><body>'
+    + '<div class="card">'
+    + '<div class="hd">'
+    + '<div class="hd-badge"><span class="hd-badge-dot"></span><span class="hd-badge-text">Verified Certificate</span></div>'
+    + '<div class="hd-icon">🎓</div>'
+    + '<div class="hd-title">SABNAHIS STE Research Portal</div>'
+    + '<div class="hd-sub">Certificate of Academic Recognition</div>'
+    + '</div>'
+    + '<div class="body">'
+    + '<div class="verified-banner">'
+    + '<div class="verified-icon">✅</div>'
+    + '<div class="verified-text"><strong>Certificate Verified</strong>This certificate is authentic and was issued by the SABNAHIS STE Research Portal.</div>'
+    + '</div>'
+    + '<div class="section-label">Research Title</div>'
+    + '<div class="study-title">&ldquo;' + title.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '&rdquo;</div>'
+    + '<div class="section-label">Researcher(s)</div>'
+    + '<div class="authors-box">';
+
+  authorList.forEach(function(a) {
+    var initials = a.split(' ').map(function(w){return w[0]||'';}).filter(Boolean).slice(0,2).join('').toUpperCase();
+    html += '<span class="author-tag"><span class="author-tag-icon">' + initials + '</span>' + a.replace(/</g,'&lt;') + '</span>';
+  });
+
+  html += '</div>'
+    + '<div class="meta-grid">'
+    + '<div class="meta-item"><div class="section-label">Grade Received</div><div class="meta-value"><span class="grade-pill">'+grade+'</span></div></div>'
+    + '<div class="meta-item"><div class="section-label">Score</div><div class="meta-value">'+score+'</div></div>'
+    + '<div class="meta-item"><div class="section-label">Reviewed By</div><div class="meta-value">'+teacher.replace(/</g,'&lt;')+'</div></div>'
+    + '<div class="meta-item"><div class="section-label">Date Awarded</div><div class="meta-value">'+date.replace(/</g,'&lt;')+'</div></div>'
+    + '<div class="meta-item"><div class="section-label">Grade Level</div><div class="meta-value">'+gradeLevel.replace(/</g,'&lt;')+'</div></div>'
+    + '<div class="meta-item"><div class="section-label">Section</div><div class="meta-value">'+section.replace(/</g,'&lt;')+'</div></div>'
+    + '</div>'
+    + '<div class="footer-note">This certificate was digitally issued by the SABNAHIS STE Research Portal.<br>Scanning this QR code confirms its authenticity.<div class="cert-id">Certificate ID: '+certId+'</div></div>'
+    + '</div></div>'
+    + '</body></html>';
+
+  document.open();
+  document.write(html);
+  document.close();
+})();
+</script>
+<script>
 // ── Iframe-embed protection ──────────────────────────────────────
 // Runs before anything else renders. If this document is loaded inside
 // a frame whose top-level window isn't itself, either escape to the
@@ -6254,6 +6376,14 @@ function generateCertificate(study, feedback, currentUser) {
   const mainAuthor = study.uploadedByName || study.authors && study.authors[0] || "Unknown";
   const coAuthorNames = study.coAuthors && study.coAuthors.length > 0 ? study.coAuthors.map((ca) => ca.name || ca).filter(Boolean) : (study.authors || []).slice(1);
   const allAuthors = [mainAuthor, ...coAuthorNames];
+  function fmtName(n) {
+    if (!n) return n;
+    const parts = n.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0];
+    const last = parts[parts.length - 1];
+    const firstInitial = parts[0][0].toUpperCase() + ".";
+    return last + " " + firstInitial;
+  }
   function embedImage(url, callback) {
     const img = new Image();
     img.crossOrigin = "Anonymous";
@@ -6382,35 +6512,75 @@ function generateCertificate(study, feedback, currentUser) {
     doc.setTextColor(180, 180, 180);
     doc.text("This certificate is an official recognition issued by SABNAHIS STE Research Portal. Unauthorized reproduction is prohibited.", W / 2, H - 15, { align: "center" });
     try {
-      const qrDiv = document.createElement("div");
-      document.body.appendChild(qrDiv);
-      new QRCode(qrDiv, {
-        text: window.location.href || "https://sabnahis.portal",
-        width: 80,
-        height: 80,
-        colorDark: "#0d0f14",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.M
+      const certId = "CERT-" + (study.id || study.studyId || "X").slice(-6).toUpperCase()
+        + "-" + ((feedback.gradedAt ? new Date(feedback.gradedAt).getTime().toString(36) : Date.now().toString(36)).toUpperCase());
+
+      // Keep QR text short — qrcodejs Level L max ~500 bytes
+      // Format: "dela Cruz J., Santos M."
+      // Assumes name is "Firstname Middlename(s) Lastname" or "Firstname Lastname"
+      const authorLine = allAuthors.map(fmtName).join(", ").slice(0, 80);
+      const qrText = [
+        "SABNAHIS CERT",
+        certId,
+        authorLine,
+        "GRADE:" + (feedback.grade || "N/A") + " " + (feedback.totalScore != null ? feedback.totalScore + "/100" : ""),
+        fmtName(feedback.teacherName || "Teacher").slice(0,20),
+        awardDate
+      ].join("\n");
+
+      // Draw QR directly onto an off-screen canvas using qrcodejs,
+      // then pull the data URL from that canvas for jsPDF.
+      const qrDataUrl = await new Promise(function(resolve) {
+        const qrWrap = document.createElement("div");
+        qrWrap.style.cssText = "position:fixed;left:0;top:0;width:160px;height:160px;opacity:0;pointer-events:none;z-index:9999;";
+        document.body.appendChild(qrWrap);
+        new QRCode(qrWrap, {
+          text: qrText,
+          width: 160,
+          height: 160,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.L
+        });
+        setTimeout(function() {
+          let url = null;
+          const cv = qrWrap.querySelector("canvas");
+          if (cv) {
+            url = cv.toDataURL("image/png");
+          } else {
+            const im = qrWrap.querySelector("img");
+            if (im) url = im.src;
+          }
+          document.body.removeChild(qrWrap);
+          resolve(url);
+        }, 1000);
       });
-      await new Promise((r) => setTimeout(r, 120));
-      const qrCanvas = qrDiv.querySelector("canvas");
-      if (qrCanvas) {
-        const qrData = qrCanvas.toDataURL("image/png");
-        doc.addImage(qrData, "PNG", W - 48, H - 54, 24, 24);
+
+      if (qrDataUrl && qrDataUrl.length > 100) {
+        const qrSize = 30;
+        const qrX = W - 14 - qrSize;
+        const qrY = H - 31 - qrSize;
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(qrX - 2, qrY - 2, qrSize + 4, qrSize + 10, 2, 2, "F");
+        doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(4.5);
+        doc.setTextColor(74, 81, 116);
+        doc.text("SCAN TO VERIFY", qrX + qrSize / 2, qrY + qrSize + 3.5, { align: "center" });
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(5.5);
+        doc.setFontSize(3.8);
         doc.setTextColor(124, 133, 168);
-        doc.text("Scan to verify", W - 36, H - 28, { align: "center" });
+        doc.text(certId, qrX + qrSize / 2, qrY + qrSize + 7, { align: "center" });
       }
-      document.body.removeChild(qrDiv);
     } catch (e) {
+      console.error("QR generation failed:", e);
     }
     const safeTitle = (study.title || "certificate").replace(/[^a-z0-9]/gi, "_").slice(0, 40);
     doc.save("Certificate_" + safeTitle + ".pdf");
   }
   embedImage(SCHOOL_LOGO_URL || "", (d1, w1, h1) => {
     embedImage(SCHOOL_LOGO_URL2 || "", (d2, w2, h2) => {
-      buildPDF(d1, w1 || 1, h1 || 1, d2, w2 || 1, h2 || 1);
+      buildPDF(d1, w1 || 1, h1 || 1, d2, w2 || 1, h2 || 1).catch(console.error);
     });
   });
 }
