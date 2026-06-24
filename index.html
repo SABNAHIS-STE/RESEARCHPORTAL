@@ -411,6 +411,15 @@
   min-height: 32px;
 }
 .tb-pill:hover { border-color: var(--gold); background: var(--gold-bg); }
+
+/* streak pill — no hover animation, kept calm */
+/* Freeze flame inside topbar pill — no animation there */
+.tb-pill .streak-flame {
+  animation: none !important;
+  transform: none !important;
+  font-size: 1.05rem !important;
+}
+
 .tb-pill-dropdown {
   position:absolute; top:calc(100% + 9px); right:0;
   width:300px; max-width:calc(100vw - 24px);
@@ -1265,6 +1274,76 @@ textarea { resize: vertical; min-height: 90px; }
 .stat-sub { font-size:var(--text-xs); color:var(--muted); }
 
 /* ══════════════════════════════════════════
+   ENHANCED STAT CARDS (clickable)
+══════════════════════════════════════════ */
+.stat[data-clickable="true"] { cursor: pointer; }
+.stat[data-clickable="true"]:hover { transform: translateY(-4px) !important; }
+.stat[data-clickable="true"]:active { transform: scale(0.97); }
+.stat[data-clickable="true"]::before {
+  content: "tap to expand →";
+  position: absolute; bottom: 7px; right: 10px;
+  font-size: 0.58rem; font-weight: 600; color: var(--muted);
+  opacity: 0; transition: opacity .2s;
+  pointer-events: none; font-family: var(--font-body);
+}
+.stat[data-clickable="true"]:hover::before { opacity: 0.8; }
+
+/* Count-up animation for stat values */
+@keyframes statCountIn { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.stat-val-anim { animation: statCountIn 0.4s var(--spring) both; }
+
+/* Page header gradient accent */
+.page-hd-gradient {
+  position: relative; margin-bottom: 20px; padding-bottom: 16px;
+}
+.page-hd-gradient::after {
+  content: ''; position: absolute; bottom: 0; left: 0;
+  width: 48px; height: 3px; border-radius: 99px;
+  background: linear-gradient(90deg, var(--gold), var(--teal));
+}
+
+/* Card hover lift — applied to all .card elements */
+.card { transition: box-shadow .2s ease, transform .2s ease; }
+.card-clickable:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+
+/* Study row hover in My Stats */
+.mstats-study-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--surface);
+  border-radius: 9px; border: 1px solid var(--border);
+  flex-wrap: wrap; transition: all .15s ease; cursor: pointer;
+}
+.mstats-study-row:hover { border-color: var(--gold); background: var(--gold-bg); transform: translateX(3px); }
+
+/* Animated progress bar for drill-down */
+@keyframes barGrow { from { width: 0; } to { width: var(--w); } }
+
+/* Better empty state icon */
+.empty-badge { 
+  font-size: 2.5rem; margin-bottom: 12px; 
+  filter: grayscale(0.3);
+  animation: emptyBounce 2s ease-in-out infinite;
+}
+@keyframes emptyBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+
+/* Improved page title */
+.sec-title-enhanced {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl); font-weight: 700;
+  background: linear-gradient(135deg, var(--ink) 60%, var(--gold));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; margin-bottom: 3px;
+}
+[data-theme="dark"] .sec-title-enhanced {
+  background: linear-gradient(135deg, var(--ink) 60%, var(--gold));
+  -webkit-background-clip: text; background-clip: text;
+}
+
+/* Inline mini sparkline bars in study list */
+.sparkbar { height: 4px; border-radius: 99px; background: var(--border); overflow: hidden; margin-top: 3px; }
+.sparkbar-fill { height: 100%; border-radius: 99px; transition: width .6s ease; }
+
+/* ══════════════════════════════════════════
    STUDY CARDS
 ══════════════════════════════════════════ */
 .grid {
@@ -1577,16 +1656,209 @@ tr { transition: background .1s; }
 /* ── Streak flame ─────────────────────────── */
 .streak-flame {
   display:inline-flex; align-items:center; justify-content:center;
-  font-size:1.8rem; animation: streakFlicker 1.6s ease-in-out infinite;
+  position:relative;
+  font-size:1.8rem;
+  animation:
+    streakFlicker   1.4s ease-in-out infinite,
+    streakBreathe   2.1s ease-in-out infinite,
+    streakDrift     3.0s ease-in-out infinite;
+  transform-origin: 50% 90%;
+  will-change: transform, filter;
 }
+
+/* Main flicker — organic wobble */
 @keyframes streakFlicker {
-  0%,100% { transform:scale(1) rotate(0deg); }
-  25%     { transform:scale(1.06) rotate(-2deg); }
-  50%     { transform:scale(0.97) rotate(1deg); }
-  75%     { transform:scale(1.04) rotate(2deg); }
+  0%   { transform: scale(1.00) rotate(0deg)   skewX(0deg); }
+  10%  { transform: scale(1.07) rotate(-3deg)  skewX(-1deg); }
+  20%  { transform: scale(0.95) rotate(2deg)   skewX(1deg); }
+  30%  { transform: scale(1.05) rotate(-1deg)  skewX(-2deg); }
+  40%  { transform: scale(1.00) rotate(3deg)   skewX(1deg); }
+  50%  { transform: scale(0.96) rotate(-2deg)  skewX(0deg); }
+  60%  { transform: scale(1.08) rotate(1deg)   skewX(-1deg); }
+  70%  { transform: scale(0.98) rotate(-3deg)  skewX(2deg); }
+  80%  { transform: scale(1.04) rotate(2deg)   skewX(-1deg); }
+  90%  { transform: scale(0.97) rotate(-1deg)  skewX(1deg); }
+  100% { transform: scale(1.00) rotate(0deg)   skewX(0deg); }
 }
+
+/* Pulse — fire "breathes" with intensity */
+@keyframes streakBreathe {
+  0%,100% { opacity: 1;    filter: brightness(1.0) saturate(1.0); }
+  30%     { opacity: 0.88; filter: brightness(0.85) saturate(0.9); }
+  60%     { opacity: 1.0;  filter: brightness(1.15) saturate(1.2); }
+}
+
+/* Gentle float — whole flame drifts upward slightly */
+@keyframes streakDrift {
+  0%,100% { margin-top: 0px; }
+  50%     { margin-top: -2px; }
+}
+
+/* Glow pulse on the drop-shadow itself */
+@keyframes streakGlow {
+  0%,100% { filter: drop-shadow(0 0 4px rgba(255,140,0,0.6)) drop-shadow(0 0 10px rgba(255,80,0,0.3)); }
+  25%     { filter: drop-shadow(0 0 7px rgba(255,180,0,0.8)) drop-shadow(0 0 16px rgba(255,100,0,0.5)); }
+  50%     { filter: drop-shadow(0 0 3px rgba(255,100,0,0.5)) drop-shadow(0 0 8px rgba(200,50,0,0.25)); }
+  75%     { filter: drop-shadow(0 0 9px rgba(255,200,50,0.9)) drop-shadow(0 0 18px rgba(255,120,0,0.55)); }
+}
+
+/* When the flame HAS a tier glow color injected, also animate it */
+.streak-flame[style*="drop-shadow"] {
+  animation:
+    streakFlicker   1.4s ease-in-out infinite,
+    streakBreathe   2.1s ease-in-out infinite,
+    streakDrift     3.0s ease-in-out infinite,
+    streakGlow      1.8s ease-in-out infinite;
+}
+
+/* Tier-specific extra intensity multipliers */
+.streak-flame-orange { animation-duration: 1.4s, 2.1s, 3.0s; }
+.streak-flame-yellow { animation-duration: 1.2s, 1.9s, 2.7s; }
+.streak-flame-red    {
+  animation:
+    streakFlicker 1.0s ease-in-out infinite,
+    streakBreathe 1.7s ease-in-out infinite,
+    streakDrift   2.5s ease-in-out infinite,
+    streakGlow    1.2s ease-in-out infinite;
+}
+.streak-flame-purple {
+  animation:
+    streakFlicker 0.9s ease-in-out infinite,
+    streakBreathe 1.5s ease-in-out infinite,
+    streakDrift   2.2s ease-in-out infinite,
+    streakGlow    1.0s ease-in-out infinite;
+}
+.streak-flame-blue {
+  animation:
+    streakFlicker 0.75s ease-in-out infinite,
+    streakBreathe 1.2s  ease-in-out infinite,
+    streakDrift   1.8s  ease-in-out infinite,
+    streakGlow    0.85s ease-in-out infinite;
+}
+
+/* Ember particles — tiny sparks that float off the flame */
+.streak-flame-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.streak-flame-wrap::before,
+.streak-flame-wrap::after {
+  content: '✦';
+  position: absolute;
+  font-size: 0.35rem;
+  color: #ffcc44;
+  pointer-events: none;
+  animation: emberFloat1 2.4s ease-in-out infinite;
+  opacity: 0;
+}
+.streak-flame-wrap::before {
+  left: 15%; top: 10%;
+  animation: emberFloat1 2.4s ease-in-out infinite;
+}
+.streak-flame-wrap::after {
+  right: 12%; top: 5%;
+  animation: emberFloat2 2.9s ease-in-out infinite 0.8s;
+  color: #ff8844;
+}
+@keyframes emberFloat1 {
+  0%   { transform: translate(0, 0)   scale(1);   opacity: 0; }
+  15%  { opacity: 0.9; }
+  60%  { transform: translate(-4px, -14px) scale(0.6); opacity: 0.5; }
+  100% { transform: translate(-6px, -22px) scale(0.2); opacity: 0; }
+}
+@keyframes emberFloat2 {
+  0%   { transform: translate(0, 0)   scale(1);   opacity: 0; }
+  15%  { opacity: 0.85; }
+  60%  { transform: translate(5px, -12px) scale(0.5); opacity: 0.4; }
+  100% { transform: translate(7px, -20px) scale(0.2); opacity: 0; }
+}
+
+/* Heat haze ring around large flames */
+@keyframes heatRing {
+  0%,100% { transform: scale(1);   opacity: 0.18; }
+  50%     { transform: scale(1.12); opacity: 0.08; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .streak-flame { animation:none; }
+  .streak-flame,
+  .streak-flame-red,
+  .streak-flame-purple,
+  .streak-flame-blue { animation: none; }
+  .streak-flame-wrap::before,
+  .streak-flame-wrap::after { display: none; }
+}
+
+/* ══════════════════════════════════════════
+   STREAK CARD big flame circle hover
+══════════════════════════════════════════ */
+.streak-circle {
+  cursor: pointer;
+  transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
+  position: relative; overflow: visible !important;
+  animation: streakCirclePulse 2.4s ease-in-out infinite;
+}
+@keyframes streakCirclePulse {
+  0%,100% { box-shadow: 0 0 0 0 var(--sk-glow, rgba(255,140,0,.25)); }
+  50%     { box-shadow: 0 0 0 7px var(--sk-glow, rgba(255,140,0,0)); }
+}
+.streak-circle:hover {
+  transform: scale(1.3) translateY(-5px);
+  box-shadow:
+    0 0 0 3px  var(--sk-color, #f0883e),
+    0 0 18px 7px var(--sk-glow, rgba(255,140,0,.55)),
+    0 0 44px 16px var(--sk-glow, rgba(255,100,0,.22));
+  animation: streakCircleWobble .55s ease-in-out infinite;
+  z-index: 10;
+}
+@keyframes streakCircleWobble {
+  0%   { transform: scale(1.30) translateY(-5px) rotate(0deg)  skewX(0); }
+  15%  { transform: scale(1.34) translateY(-7px) rotate(-4deg) skewX(-2deg); }
+  30%  { transform: scale(1.27) translateY(-4px) rotate(3deg)  skewX(2deg); }
+  50%  { transform: scale(1.31) translateY(-6px) rotate(-2deg) skewX(-1deg); }
+  70%  { transform: scale(1.28) translateY(-5px) rotate(4deg)  skewX(1deg); }
+  85%  { transform: scale(1.33) translateY(-7px) rotate(-3deg) skewX(-2deg); }
+  100% { transform: scale(1.30) translateY(-5px) rotate(0deg)  skewX(0); }
+}
+.streak-circle:hover .streak-flame {
+  animation: streakFlicker .55s ease-in-out infinite, streakBlazeHot .45s ease-in-out infinite;
+  font-size: 2.4rem !important;
+}
+@keyframes streakBlazeHot {
+  0%,100% { filter: drop-shadow(0 0 6px #ff8800) drop-shadow(0 0 14px #ff4400) brightness(1.1); }
+  33%     { filter: drop-shadow(0 0 14px #ffcc00) drop-shadow(0 0 28px #ff6600) brightness(1.4); }
+  66%     { filter: drop-shadow(0 0 4px #ff5500) drop-shadow(0 0 10px #cc2200) brightness(.9); }
+}
+.streak-circle::before {
+  content:''; position:absolute; inset:-4px; border-radius:50%;
+  border:2px solid var(--sk-color,#f0883e); opacity:0; pointer-events:none;
+}
+.streak-circle:hover::before { animation: skRipple .75s ease-out infinite; }
+.streak-circle::after {
+  content:''; position:absolute; inset:-4px; border-radius:50%;
+  border:1.5px solid var(--sk-color,#f0883e); opacity:0; pointer-events:none;
+}
+.streak-circle:hover::after { animation: skRipple .75s ease-out .28s infinite; }
+@keyframes skRipple {
+  0%   { inset:-2px;  opacity:.8; }
+  100% { inset:-20px; opacity:0; }
+}
+/* Tier badge row hover */
+.streak-tier-badge {
+  transition: transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease, opacity .18s ease;
+}
+.streak-tier-badge:hover {
+  transform: scale(1.2) translateY(-3px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  opacity:1 !important; z-index:5;
+}
+.streak-tier-badge:hover .streak-tier-emoji {
+  animation: streakFlicker .8s ease-in-out infinite, streakBreathe 1.2s ease-in-out infinite;
+  display:inline-block;
+}
+@media (prefers-reduced-motion:reduce) {
+  .streak-circle,.streak-circle:hover,.streak-tier-badge:hover { animation:none; transform:none; }
 }
 
 /* ══════════════════════════════════════════
@@ -6223,7 +6495,7 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies = 
           console.log("[readBadge] new read count=", count);
           const b = [...READING_BADGES].reverse().find((x) => x.min <= count);
           const prevB = [...READING_BADGES].reverse().find((x) => x.min <= count - 1);
-          if (b && b !== prevB) toast.ok(`${b.icon} New badge earned: ${b.label}!`);
+          if (b && b !== prevB) { toast.ok(`${b.icon} New badge earned: ${b.label}!`); showBadgePopup(b); }
         }).catch((e) => console.warn("getReadCount failed:", e));
       }).catch((e) => console.warn("markStudyRead failed:", e));
     }, READ_DWELL_MS);
@@ -6270,7 +6542,7 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies = 
   } : onClose, wide: true }, /* @__PURE__ */ React.createElement("div", { className: "sc-cats", style: { marginBottom: 12 } }, (liveStudy.categories || []).map((c) => /* @__PURE__ */ React.createElement("span", { key: c, className: "sc-cat" }, c))), /* @__PURE__ */ React.createElement("h2", { className: "sd-title" }, liveStudy.title), /* @__PURE__ */ React.createElement("div", { className: "sd-auth", style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", flexShrink: 0 } }, "Authors"), liveStudy.coAuthors && liveStudy.coAuthors.length > 0 ? [
     /* @__PURE__ */ React.createElement("span", { key: "uploader", className: "author-tag self", style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (liveStudy.uploadedByName || liveStudy.authors && liveStudy.authors[0] || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, liveStudy.uploadedByName || liveStudy.authors && liveStudy.authors[0] || "Unknown"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", opacity: 0.6, fontWeight: 400, marginLeft: 1 } }, "(owner)")),
     ...liveStudy.coAuthors.map((ca, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: `author-tag${ca.registered ? " registered" : ""}`, style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (ca.name || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, ca.name), !ca.registered && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", opacity: 0.55, fontWeight: 400, marginLeft: 1 } }, "(ext.)")))
-  ] : (liveStudy.authors || []).map((a, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: `author-tag${i === 0 ? " self" : ""}`, style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (a || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, a)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.eye, null), liveStudy.viewCount || 0, " views"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.dl, null), liveStudy.downloadCount || 0, " downloads"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, "\u{1F4CB} ", liveStudy.citationCount || 0, " citations"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.cal, null), liveStudy.year)), /* @__PURE__ */ React.createElement("div", { className: "ds", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("h4", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, "Abstract", /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", fontWeight: 400, color: "var(--muted)", fontFamily: "var(--font-body)" } }, "\u{1F4D6} ", readingTime(liveStudy.abstract))), /* @__PURE__ */ React.createElement("p", { style: { lineHeight: 1.7, color: "var(--ink-3)", fontSize: "var(--text-sm)", transition: "all .2s" } }, absIsLong && !absExpanded ? absPreview : liveStudy.abstract), absIsLong && /* @__PURE__ */ React.createElement("button", { className: "sc-abs-toggle", style: { marginTop: 6 }, onClick: () => setAbsExpanded((v) => !v), "aria-expanded": absExpanded }, absExpanded ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "18 15 12 9 6 15" })), " Show less") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" })), " Read full abstract"))), (liveStudy.keywords || []).length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "Keywords"), (liveStudy.keywords || []).map((k) => /* @__PURE__ */ React.createElement("span", { key: k, className: "kw" }, k))), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "APA Citation"), /* @__PURE__ */ React.createElement(APABox, { study: liveStudy, currentUser })), gdriveUrl && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--teal-light)", border: "1.5px solid var(--teal)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 87.3 78", width: "22", height: "22", xmlns: "http://www.w3.org/2000/svg", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z", fill: "#0066da" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.6c-.8 1.4-1.2 2.95-1.2 4.5h27.5z", fill: "#00ac47" }), /* @__PURE__ */ React.createElement("path", { d: "M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 11.5z", fill: "#ea4335" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.1.45-4.5 1.2z", fill: "#00832d" }), /* @__PURE__ */ React.createElement("path", { d: "M59.8 53.1H27.5L13.75 76.9c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.1-.45 4.5-1.2z", fill: "#2684fc" }), /* @__PURE__ */ React.createElement("path", { d: "M73.4 26.6l-12.6-21.9C59.9 3.2 58.75 2.1 57.4 1.3L43.65 25l16.15 28.1h27.45c0-1.55-.4-3.1-1.2-4.5z", fill: "#ffba00" })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.875rem", color: "var(--teal)" } }, "Google Drive File"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.73rem", color: "var(--teal)", opacity: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "Linked file \u2014 use Open or Download below")), /* @__PURE__ */ React.createElement("a", { href: gdriveUrl, target: "_blank", rel: "noopener noreferrer", onClick: handleDL, className: "btn btn-teal btn-sm", style: { textDecoration: "none" } }, /* @__PURE__ */ React.createElement(Ico.eye, null), " Open"), gdriveDownload && /* @__PURE__ */ React.createElement("a", { href: gdriveDownload, target: "_blank", rel: "noopener noreferrer", onClick: handleDL, className: "btn btn-ol btn-sm", style: { textDecoration: "none" } }, /* @__PURE__ */ React.createElement(Ico.dl, null), " Download")), liveStudy.uploadedByName && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--surface)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 32, height: 32, fontSize: "0.78rem" } }, initials(liveStudy.uploadedByName)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, "Uploaded by"), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.875rem" } }, liveStudy.uploadedByName))), /* @__PURE__ */ React.createElement(TeacherFeedbackSection, { study: liveStudy, currentUser }), /* @__PURE__ */ React.createElement(ReviewsSection, { study: liveStudy, currentUser }), isOwner && favBy.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14, padding: "10px 14px", background: "var(--purple-light)", border: "1px solid var(--purple)", borderRadius: "var(--radius)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, cursor: "pointer" }, onClick: () => setShowFavBy((s) => !s) }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.8rem", fontWeight: 600, color: "var(--purple)" } }, "\u{1F4CC} ", favBy.length, " student", favBy.length !== 1 ? "s" : "", " bookmarked this study"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--purple)", marginLeft: "auto" } }, showFavBy ? "\u25B2 hide" : "\u25BC show")), showFavBy && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, favBy.map((u) => /* @__PURE__ */ React.createElement("div", { key: u.uid, style: { display: "flex", alignItems: "center", gap: 8, fontSize: "0.78rem" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 26, height: 26, borderRadius: "50%", background: "var(--purple)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.7rem", flexShrink: 0 } }, u.name.charAt(0).toUpperCase()), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500 } }, u.name), u.institution && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--muted)" } }, u.institution)))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingTop: 14, borderTop: "1px solid var(--border)", flexWrap: "wrap", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(
+  ] : (liveStudy.authors || []).map((a, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: `author-tag${i === 0 ? " self" : ""}`, style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (a || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, a)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.eye, null), liveStudy.viewCount || 0, " views"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.dl, null), liveStudy.downloadCount || 0, " downloads"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, "\u{1F4CB} ", liveStudy.citationCount || 0, " citations"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.cal, null), liveStudy.year)), /* @__PURE__ */ React.createElement("div", { className: "ds", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("h4", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, "Abstract", /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", fontWeight: 400, color: "var(--muted)", fontFamily: "var(--font-body)" } }, "\u{1F4D6} ", readingTime(liveStudy.abstract))), /* @__PURE__ */ React.createElement("p", { style: { lineHeight: 1.7, color: "var(--ink-3)", fontSize: "var(--text-sm)", transition: "all .2s" } }, absIsLong && !absExpanded ? absPreview : liveStudy.abstract), absIsLong && /* @__PURE__ */ React.createElement("button", { className: "sc-abs-toggle", style: { marginTop: 6 }, onClick: () => setAbsExpanded((v) => !v), "aria-expanded": absExpanded }, absExpanded ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "18 15 12 9 6 15" })), " Show less") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" })), " Read full abstract"))), (liveStudy.keywords || []).length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "Keywords"), (liveStudy.keywords || []).map((k) => /* @__PURE__ */ React.createElement("span", { key: k, className: "kw" }, k))), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "APA Citation"), /* @__PURE__ */ React.createElement(APABox, { study: liveStudy, currentUser })), gdriveUrl && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--teal-light)", border: "1.5px solid var(--teal)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 87.3 78", width: "22", height: "22", xmlns: "http://www.w3.org/2000/svg", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z", fill: "#0066da" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.6c-.8 1.4-1.2 2.95-1.2 4.5h27.5z", fill: "#00ac47" }), /* @__PURE__ */ React.createElement("path", { d: "M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 11.5z", fill: "#ea4335" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.1.45-4.5 1.2z", fill: "#00832d" }), /* @__PURE__ */ React.createElement("path", { d: "M59.8 53.1H27.5L13.75 76.9c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.1-.45 4.5-1.2z", fill: "#2684fc" }), /* @__PURE__ */ React.createElement("path", { d: "M73.4 26.6l-12.6-21.9C59.9 3.2 58.75 2.1 57.4 1.3L43.65 25l16.15 28.1h27.45c0-1.55-.4-3.1-1.2-4.5z", fill: "#ffba00" })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.875rem", color: "var(--teal)" } }, "Google Drive File"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.73rem", color: "var(--teal)", opacity: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "Linked file \u2014 use Open or Download below")), /* @__PURE__ */ React.createElement("a", { href: gdriveUrl, target: "_blank", rel: "noopener noreferrer", onClick: handleDL, className: "btn btn-teal btn-sm", style: { textDecoration: "none" } }, /* @__PURE__ */ React.createElement(Ico.eye, null), " Open"), gdriveDownload && /* @__PURE__ */ React.createElement("a", { href: gdriveDownload, target: "_blank", rel: "noopener noreferrer", onClick: handleDL, className: "btn btn-ol btn-sm", style: { textDecoration: "none" } }, /* @__PURE__ */ React.createElement(Ico.dl, null), " Download")), liveStudy.uploadedByName && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--surface)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 32, height: 32, fontSize: "0.78rem" } }, initials(liveStudy.uploadedByName)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, "Uploaded by"), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.875rem" } }, liveStudy.uploadedByName))), /* @__PURE__ */ React.createElement(TeacherFeedbackSection, { study: liveStudy, currentUser }), /* @__PURE__ */ React.createElement(ReviewsSection, { study: liveStudy, currentUser }), /* @__PURE__ */ React.createElement(StudyImpactTimeline, { studyId: liveStudy.id }), /* @__PURE__ */ React.createElement(StudyAbstractCritiqueSection, { study: liveStudy }), /* @__PURE__ */ React.createElement(StudyRevisionDiffSection, { studyId: liveStudy.id, currentStudy: liveStudy }), isOwner && favBy.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14, padding: "10px 14px", background: "var(--purple-light)", border: "1px solid var(--purple)", borderRadius: "var(--radius)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, cursor: "pointer" }, onClick: () => setShowFavBy((s) => !s) }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.8rem", fontWeight: 600, color: "var(--purple)" } }, "\u{1F4CC} ", favBy.length, " student", favBy.length !== 1 ? "s" : "", " bookmarked this study"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--purple)", marginLeft: "auto" } }, showFavBy ? "\u25B2 hide" : "\u25BC show")), showFavBy && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, favBy.map((u) => /* @__PURE__ */ React.createElement("div", { key: u.uid, style: { display: "flex", alignItems: "center", gap: 8, fontSize: "0.78rem" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 26, height: 26, borderRadius: "50%", background: "var(--purple)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.7rem", flexShrink: 0 } }, u.name.charAt(0).toUpperCase()), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500 } }, u.name), u.institution && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--muted)" } }, u.institution)))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingTop: 14, borderTop: "1px solid var(--border)", flexWrap: "wrap", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: faved ? "btn btn-gold btn-sm" : "btn btn-ol btn-sm",
@@ -7314,7 +7586,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
       const l = plagiarismLevel(r.score);
       return /* @__PURE__ */ React.createElement("div", { key: i, style: { borderBottom: i < plagResults.length - 1 ? "1px solid var(--border)" : "none", paddingBottom: i < plagResults.length - 1 ? 8 : 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 42, height: 20, borderRadius: 99, background: l.bg, border: `1px solid ${l.color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.65rem", fontWeight: 700, color: l.color, flexShrink: 0 } }, Math.round(r.score * 100), "%"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.78rem", fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, title: r.study.title }, r.study.title.length > 70 ? r.study.title.slice(0, 70) + "\u2026" : r.study.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", color: "var(--muted)" } }, (r.study.authors || []).slice(0, 2).join(", "), " \xB7 ", r.study.year))), r.shared.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 3, flexWrap: "wrap", marginTop: 3, paddingLeft: 50 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.62rem", color: "var(--muted)", marginRight: 2 } }, "Shared terms:"), r.shared.map((w) => /* @__PURE__ */ React.createElement("span", { key: w, style: { background: "var(--gold-bg)", color: "var(--gold)", fontSize: "0.62rem", padding: "1px 6px", borderRadius: 99, border: "1px solid var(--gold)" } }, w))));
     })), top.score >= 0.5 && /* @__PURE__ */ React.createElement("div", { style: { background: "var(--red-light)", padding: "8px 12px", fontSize: "0.75rem", color: "var(--red)", fontWeight: 500 } }, "\u{1F6A8} Submission blocked \u2014 abstract is too similar to an existing study. Rewrite it significantly before submitting."), top.score >= 0.3 && top.score < 0.5 && /* @__PURE__ */ React.createElement("div", { style: { background: "#fef9c3", padding: "8px 12px", fontSize: "0.75rem", color: "#92400e" } }, "\u26A0\uFE0F Moderate similarity detected. Review your abstract and consider rephrasing."));
-  })()), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Category * ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)" } }, "(select 1\u20132)")), /* @__PURE__ */ React.createElement(CatPicker, { selected: selCats, onChange: handleCatsChange, max: 2, cats })), /* @__PURE__ */ React.createElement("div", { className: "fr" }, /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Year"), /* @__PURE__ */ React.createElement("input", { type: "number", min: "1900", max: "2099", value: form.year, onChange: (e) => sf("year", e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Keywords ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)" } }, "(comma-separated)")), /* @__PURE__ */ React.createElement("input", { placeholder: "e.g. robotics, AI, biology", value: form.keywords, onChange: (e) => sf("keywords", e.target.value) }), form.keywords.trim() && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap", marginTop: 5 } }, form.keywords.split(",").map((k) => k.trim()).filter(Boolean).map((k) => /* @__PURE__ */ React.createElement("span", { key: k, style: { background: "var(--gold-bg)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 20, padding: "1px 8px", fontSize: "0.72rem" } }, k))))), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 7 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15", fill: "none", stroke: "currentColor", strokeWidth: "2" }, /* @__PURE__ */ React.createElement("path", { d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" }), /* @__PURE__ */ React.createElement("polyline", { points: "15 3 21 3 21 9" }), /* @__PURE__ */ React.createElement("line", { x1: "10", y1: "14", x2: "21", y2: "3" })), "Google Drive Link", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)", fontSize: "0.78rem" } }, "(optional)")), /* @__PURE__ */ React.createElement("div", { className: "al al-info", style: { marginBottom: 10, padding: "9px 13px", fontSize: "0.78rem" } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", style: { flexShrink: 0, marginTop: 1 } }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "8", x2: "12", y2: "12" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "16", x2: "12.01", y2: "16" })), /* @__PURE__ */ React.createElement("span", null, "Upload your PDF to ", /* @__PURE__ */ React.createElement("strong", null, "Google Drive"), ", set sharing to ", /* @__PURE__ */ React.createElement("strong", null, '"Anyone with the link"'), ", then paste the link here.")), gdriveInfo ? /* @__PURE__ */ React.createElement("div", { className: "gdrive-preview" }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "2", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.82rem", marginBottom: 2 } }, "Google Drive file linked"), /* @__PURE__ */ React.createElement("a", { href: gdriveInfo.viewUrl, target: "_blank", rel: "noopener noreferrer", style: { fontSize: "0.73rem" } }, gdriveInfo.viewUrl)), /* @__PURE__ */ React.createElement("button", { className: "gdrive-remove", onClick: () => {
+  })()), /* @__PURE__ */ React.createElement(AIAbstractCritiqueInline, { abstract: form.abstract }), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Category * ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)" } }, "(select 1\u20132)")), /* @__PURE__ */ React.createElement(CatPicker, { selected: selCats, onChange: handleCatsChange, max: 2, cats })), /* @__PURE__ */ React.createElement("div", { className: "fr" }, /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Year"), /* @__PURE__ */ React.createElement("input", { type: "number", min: "1900", max: "2099", value: form.year, onChange: (e) => sf("year", e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Keywords ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)" } }, "(comma-separated)")), /* @__PURE__ */ React.createElement("input", { placeholder: "e.g. robotics, AI, biology", value: form.keywords, onChange: (e) => sf("keywords", e.target.value) }), form.keywords.trim() && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap", marginTop: 5 } }, form.keywords.split(",").map((k) => k.trim()).filter(Boolean).map((k) => /* @__PURE__ */ React.createElement("span", { key: k, style: { background: "var(--gold-bg)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 20, padding: "1px 8px", fontSize: "0.72rem" } }, k))))), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 7 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15", fill: "none", stroke: "currentColor", strokeWidth: "2" }, /* @__PURE__ */ React.createElement("path", { d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" }), /* @__PURE__ */ React.createElement("polyline", { points: "15 3 21 3 21 9" }), /* @__PURE__ */ React.createElement("line", { x1: "10", y1: "14", x2: "21", y2: "3" })), "Google Drive Link", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)", fontSize: "0.78rem" } }, "(optional)")), /* @__PURE__ */ React.createElement("div", { className: "al al-info", style: { marginBottom: 10, padding: "9px 13px", fontSize: "0.78rem" } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", style: { flexShrink: 0, marginTop: 1 } }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "8", x2: "12", y2: "12" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "16", x2: "12.01", y2: "16" })), /* @__PURE__ */ React.createElement("span", null, "Upload your PDF to ", /* @__PURE__ */ React.createElement("strong", null, "Google Drive"), ", set sharing to ", /* @__PURE__ */ React.createElement("strong", null, '"Anyone with the link"'), ", then paste the link here.")), gdriveInfo ? /* @__PURE__ */ React.createElement("div", { className: "gdrive-preview" }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "2", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.82rem", marginBottom: 2 } }, "Google Drive file linked"), /* @__PURE__ */ React.createElement("a", { href: gdriveInfo.viewUrl, target: "_blank", rel: "noopener noreferrer", style: { fontSize: "0.73rem" } }, gdriveInfo.viewUrl)), /* @__PURE__ */ React.createElement("button", { className: "gdrive-remove", onClick: () => {
     setGdriveUrl("");
     setGdriveInfo(null);
     triggerDraftSave(form, selCats, "", null);
@@ -8141,8 +8413,78 @@ function MyStatsPage({ currentUser }) {
   const topStudy = [...myStudies].sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))[0];
   const { current: badge } = getReadingBadge(readCount);
   const tier = getStreakTier(streakData.streak);
-  if (loading) return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 22 } }, /* @__PURE__ */ React.createElement("div", { className: "skel skel-page-title", style: { marginBottom: 8 } }), /* @__PURE__ */ React.createElement("div", { className: "skel", style: { height: 13, width: 200, borderRadius: 5 } })), /* @__PURE__ */ React.createElement(StatsSkeleton, { count: 4 }));
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 22 } }, /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", marginBottom: 3 } }, "\u{1F4C8} My Stats"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, "Your personal research activity at a glance.")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10, marginBottom: 18 } }, /* @__PURE__ */ React.createElement(StatPill, { label: "Studies Uploaded", value: myStudies.length, color: "var(--gold)" }), /* @__PURE__ */ React.createElement(StatPill, { label: "Co-authored", value: coAuthoredStudies.length, color: "var(--teal)" }), /* @__PURE__ */ React.createElement(StatPill, { label: "Total Views", value: totalViews, color: "var(--teal)" }), /* @__PURE__ */ React.createElement(StatPill, { label: "Downloads", value: totalDownloads, color: "var(--blue)" }), /* @__PURE__ */ React.createElement(StatPill, { label: "Citations", value: totalCitations, color: "var(--purple)" }), /* @__PURE__ */ React.createElement(StatPill, { label: "Studies Read", value: readCount, color: "var(--green)" }), /* @__PURE__ */ React.createElement(StatPill, { label: "Bookmarks", value: favorites.length, color: "var(--ink-3)" }), /* @__PURE__ */ React.createElement(StatPill, { label: "Day Streak", value: streakData.streak, color: tier ? tier.color : "var(--muted)" }), /* @__PURE__ */ React.createElement(StatPill, { label: "Best Streak", value: streakData.longestStreak, color: "var(--gold)" })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "\u{1F525} Daily Streak")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: {
+  const [drillModal, setDrillModal] = React.useState(null); // {type, title, color, rows}
+
+  const openDrill = (type) => {
+    const sorts = {
+      views: { title: "👁 Views by Study", color: "var(--teal)", key: "viewCount", icon: "👁", col: "Views" },
+      downloads: { title: "⬇ Downloads by Study", color: "var(--blue)", key: "downloadCount", icon: "⬇", col: "Downloads" },
+      citations: { title: "📋 Citations by Study", color: "var(--purple)", key: "citationCount", icon: "📋", col: "Citations" },
+      studies: { title: "📄 My Uploaded Studies", color: "var(--gold)", key: "viewCount", icon: "📄", col: "Views" },
+      coauthored: { title: "🤝 Co-authored Studies", color: "var(--teal)", key: "viewCount", icon: "👁", col: "Views" },
+      bookmarks: { title: "🔖 Saved Studies", color: "var(--ink-3)", key: null, icon: "🔖", col: "" },
+    };
+    const cfg = sorts[type];
+    if (!cfg) return;
+    let items = type === "coauthored" ? coAuthoredStudies : type === "bookmarks" ? favorites.map(f=>({...f, id: f.studyId, title: f.title})) : myStudies;
+    if (cfg.key) items = [...items].sort((a,b)=>(b[cfg.key]||0)-(a[cfg.key]||0));
+    setDrillModal({ ...cfg, type, items });
+  };
+
+  if (loading) return React.createElement("div", null, React.createElement("div", { style: { marginBottom: 22 } }, React.createElement("div", { className: "skel skel-page-title", style: { marginBottom: 8 } }), React.createElement("div", { className: "skel", style: { height: 13, width: 200, borderRadius: 5 } })), React.createElement(StatsSkeleton, { count: 4 }));
+  return React.createElement("div", null,
+    // ── Page header ──
+    React.createElement("div", { style: { marginBottom: 22 } },
+      React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", marginBottom: 3 } }, "📈 My Stats"),
+      React.createElement("p", { className: "muted" }, "Your personal research activity at a glance. ", React.createElement("span", { style:{fontSize:"0.72rem",color:"var(--teal)"}}, "Tap any card to drill down →"))
+    ),
+    // ── Stat pills grid ──
+    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10, marginBottom: 18 } },
+      React.createElement(StatPill, { label: "Studies Uploaded", value: myStudies.length, color: "var(--gold)", icon: "📄", onClick: () => openDrill("studies"), sub: "tap to view" }),
+      React.createElement(StatPill, { label: "Co-authored", value: coAuthoredStudies.length, color: "var(--teal)", icon: "🤝", onClick: coAuthoredStudies.length > 0 ? () => openDrill("coauthored") : undefined }),
+      React.createElement(StatPill, { label: "Total Views", value: totalViews, color: "var(--teal)", icon: "👁", onClick: totalViews > 0 ? () => openDrill("views") : undefined }),
+      React.createElement(StatPill, { label: "Downloads", value: totalDownloads, color: "var(--blue)", icon: "⬇", onClick: totalDownloads > 0 ? () => openDrill("downloads") : undefined }),
+      React.createElement(StatPill, { label: "Citations", value: totalCitations, color: "var(--purple)", icon: "📋", onClick: totalCitations > 0 ? () => openDrill("citations") : undefined }),
+      React.createElement(StatPill, { label: "Studies Read", value: readCount, color: "var(--green)", icon: "📖" }),
+      React.createElement(StatPill, { label: "Bookmarks", value: favorites.length, color: "var(--ink-3)", icon: "🔖", onClick: favorites.length > 0 ? () => openDrill("bookmarks") : undefined }),
+      React.createElement(StatPill, { label: "Day Streak", value: streakData.streak, color: tier ? tier.color : "var(--muted)", icon: "🔥" }),
+      React.createElement(StatPill, { label: "Best Streak", value: streakData.longestStreak, color: "var(--gold)", icon: "🏅" })
+    ),
+    // ── Drill-down modal ──
+    drillModal && React.createElement("div", {
+      style: { position:"fixed", inset:0, background:"rgba(15,23,42,0.55)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2000, padding:16, backdropFilter:"blur(3px)", animation:"fIn .15s ease" },
+      onClick: (e) => e.target === e.currentTarget && setDrillModal(null)
+    },
+      React.createElement("div", { style: { background:"var(--white)", borderRadius:16, border:"1.5px solid var(--border)", boxShadow:"var(--shadow-xl)", width:"100%", maxWidth:520, overflow:"hidden", animation:"fIn .2s ease", maxHeight:"85vh", display:"flex", flexDirection:"column" } },
+        // Header
+        React.createElement("div", { style: { display:"flex", alignItems:"center", gap:10, padding:"14px 18px", borderBottom:"1px solid var(--border)", background:"var(--surface)" } },
+          React.createElement("div", { style: { width:8, height:8, borderRadius:"50%", background:drillModal.color, flexShrink:0, boxShadow:`0 0 0 3px ${drillModal.color}30` } }),
+          React.createElement("span", { style: { fontWeight:700, fontSize:"var(--text-sm)", color:"var(--ink)", flex:1 } }, drillModal.title),
+          React.createElement("span", { style: { fontSize:"0.72rem", color:"var(--muted)", fontWeight:600, background:"var(--border)", padding:"2px 8px", borderRadius:99 } }, drillModal.items.length, " items"),
+          React.createElement("button", { onClick:()=>setDrillModal(null), style:{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:"1.1rem",padding:"2px 6px",borderRadius:6,lineHeight:1}}, "×")
+        ),
+        // Body
+        React.createElement("div", { style: { overflowY:"auto", padding:"14px 18px", display:"flex", flexDirection:"column", gap:8 } },
+          drillModal.items.length === 0
+            ? React.createElement("div", { style:{textAlign:"center",padding:"32px",color:"var(--muted)",fontSize:"0.82rem"} }, "Nothing here yet.")
+            : drillModal.items.map((s, i) => {
+                const val = drillModal.key ? (s[drillModal.key] || 0) : null;
+                const maxVal = drillModal.key ? Math.max(...drillModal.items.map(x=>x[drillModal.key]||0), 1) : 1;
+                const pct = val != null ? Math.round((val/maxVal)*100) : 0;
+                return React.createElement("div", { key: s.id||i, style:{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"var(--surface)", borderRadius:9, border:"1px solid var(--border)" } },
+                  React.createElement("div", { style:{ width:22, height:22, borderRadius:6, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"0.65rem", fontWeight:700, background: i===0?"var(--gold)":i===1?"rgba(180,180,180,0.25)":i===2?"rgba(205,127,50,0.2)":"var(--border)", color: i<3?"var(--ink)":"var(--muted)" } }, i+1),
+                  React.createElement("div", { style:{ flex:1, minWidth:0 } },
+                    React.createElement("div", { style:{ fontWeight:500, fontSize:"0.82rem", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom: val!=null?4:0 } }, s.title),
+                    val != null && React.createElement("div", { style:{ height:5, borderRadius:99, background:"var(--border)", overflow:"hidden" } },
+                      React.createElement("div", { style:{ height:"100%", width:pct+"%", background:drillModal.color, borderRadius:99, transition:"width .5s ease" } })
+                    )
+                  ),
+                  val != null && React.createElement("span", { style:{ fontSize:"0.82rem", fontWeight:700, color:drillModal.color, flexShrink:0, minWidth:28, textAlign:"right" } }, val)
+                );
+              })
+        )
+      )
+    ), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "\u{1F525} Daily Streak")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: {
     width: 54,
     height: 54,
     borderRadius: "50%",
@@ -8152,17 +8494,50 @@ function MyStatsPage({ currentUser }) {
     justifyContent: "center",
     background: tier ? `radial-gradient(circle, ${tier.glow}, transparent 70%)` : "var(--surface)",
     border: `2px solid ${tier ? tier.color : "var(--border)"}`
-  } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.6rem", filter: tier ? `drop-shadow(0 0 6px ${tier.glow})` : "none", opacity: tier ? 1 : 0.3 } }, "\u{1F525}")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-display)", fontSize: "1.8rem", fontWeight: 700, color: tier ? tier.color : "var(--muted)", lineHeight: 1 } }, streakData.streak), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.78rem", color: "var(--muted)", marginTop: 2 } }, "day", streakData.streak !== 1 ? "s" : "", " \xB7 Best: ", streakData.longestStreak), tier && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, color: tier.color, marginTop: 3 } }, "Keep going!")))), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "\u{1F3C5} Reading Badge")), badge ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 54, height: 54, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: badge.bg, fontSize: "1.8rem" } }, badge.icon), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: "var(--text-sm)", color: badge.color } }, badge.label), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)", marginTop: 2 } }, readCount, " studies read"))) : /* @__PURE__ */ React.createElement("p", { className: "muted", style: { fontSize: "0.82rem" } }, "Read your first study to earn a badge!"))), topStudy && /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14, borderLeft: "3px solid var(--gold)" } }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "\u2B50 Your Best Study"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, "Most viewed")), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: 4 } }, topStudy.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.75rem", color: "var(--muted)", marginBottom: 10 } }, (topStudy.authors || []).join(", "), " \xB7 ", topStudy.year), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--teal)", fontWeight: 600 } }, "\u{1F441} ", topStudy.viewCount || 0, " views"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--blue)", fontWeight: 600 } }, "\u2B07 ", topStudy.downloadCount || 0, " downloads"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--purple)", fontWeight: 600 } }, "\u{1F4CB} ", topStudy.citationCount || 0, " citations"))), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "\u{1F4C4} All My Studies"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, myStudies.length, " uploaded")), myStudies.length === 0 ? /* @__PURE__ */ React.createElement(EmptyState, { icon: "\u{1F4C4}", title: "No studies yet", message: "Upload your first research study to see your stats here.", compact: true }) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } }, myStudies.map((s) => /* @__PURE__ */ React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "var(--surface)", borderRadius: 8, border: "1px solid var(--border)", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.85rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", color: "var(--muted)", marginTop: 2 } }, (s.categories || []).join(", "), " \xB7 ", s.year)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, flexShrink: 0, flexWrap: "wrap", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--teal)", fontWeight: 600 } }, "\u{1F441} ", s.viewCount || 0), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--blue)", fontWeight: 600 } }, "\u2B07 ", s.downloadCount || 0), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--purple)", fontWeight: 600 } }, "\u{1F4CB} ", s.citationCount || 0), s.revisionStatus === "revision_requested" && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.68rem", background: "var(--gold-bg)", color: "var(--gold)", borderRadius: 6, padding: "2px 7px", fontWeight: 700, border: "1px solid var(--gold)", whiteSpace: "nowrap" } }, "\u270F\uFE0F Revise"), s.revisionStatus === "resubmitted" && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.68rem", background: "var(--blue-light)", color: "var(--blue)", borderRadius: 6, padding: "2px 7px", fontWeight: 700, border: "1px solid var(--blue)", whiteSpace: "nowrap" } }, "\u{1F504} Revised"), /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      className: "btn btn-ol btn-sm",
-      style: { display: "flex", alignItems: "center", gap: 5, fontSize: "0.72rem", padding: "5px 10px", minHeight: 32 },
-      onClick: () => setHistoryStudy(s),
-      "data-tip": "See who viewed, downloaded, and cited this study"
-    },
-    /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", width: "12", height: "12" }, /* @__PURE__ */ React.createElement("path", { d: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" }), /* @__PURE__ */ React.createElement("circle", { cx: "9", cy: "7", r: "4" }), /* @__PURE__ */ React.createElement("path", { d: "M23 21v-2a4 4 0 0 0-3-3.87" }), /* @__PURE__ */ React.createElement("path", { d: "M16 3.13a4 4 0 0 1 0 7.75" })),
-    "Activity"
-  )))))), coAuthoredStudies.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "\u{1F91D} Co-authored Studies"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, coAuthoredStudies.length, " tagged")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } }, coAuthoredStudies.map((s) => /* @__PURE__ */ React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "var(--surface)", borderRadius: 8, border: "1px solid var(--border)", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.85rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", color: "var(--muted)", marginTop: 2 } }, "by ", (s.authors || []).join(", "), " \xB7 ", s.year)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, flexShrink: 0, flexWrap: "wrap", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--teal)", fontWeight: 600 } }, "\u{1F441} ", s.viewCount || 0), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--blue)", fontWeight: 600 } }, "\u2B07 ", s.downloadCount || 0), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--purple)", fontWeight: 600 } }, "\u{1F4CB} ", s.citationCount || 0), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.68rem", background: "var(--teal-light)", color: "var(--teal)", borderRadius: 6, padding: "2px 8px", fontWeight: 600 } }, "co-author")))))), historyStudy && /* @__PURE__ */ React.createElement(StudyHistoryModal, { study: historyStudy, onClose: () => setHistoryStudy(null) }));
+  } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.6rem", filter: tier ? `drop-shadow(0 0 6px ${tier.glow})` : "none", opacity: tier ? 1 : 0.3 } }, "\u{1F525}")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-display)", fontSize: "1.8rem", fontWeight: 700, color: tier ? tier.color : "var(--muted)", lineHeight: 1 } }, streakData.streak), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.78rem", color: "var(--muted)", marginTop: 2 } }, "day", streakData.streak !== 1 ? "s" : "", " \xB7 Best: ", streakData.longestStreak), tier && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, color: tier.color, marginTop: 3 } }, "Keep going!")))), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "\u{1F3C5} Reading Badge")), badge ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 54, height: 54, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: badge.bg, fontSize: "1.8rem" } }, badge.icon), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: "var(--text-sm)", color: badge.color } }, badge.label), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)", marginTop: 2 } }, readCount, " studies read"))) : /* @__PURE__ */ React.createElement("p", { className: "muted", style: { fontSize: "0.82rem" } }, "Read your first study to earn a badge!"))), topStudy && /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14, borderLeft: "3px solid var(--gold)" } }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "\u2B50 Your Best Study"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, "Most viewed")), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: 4 } }, topStudy.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.75rem", color: "var(--muted)", marginBottom: 10 } }, (topStudy.authors || []).join(", "), " \xB7 ", topStudy.year), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--teal)", fontWeight: 600 } }, "\u{1F441} ", topStudy.viewCount || 0, " views"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--blue)", fontWeight: 600 } }, "\u2B07 ", topStudy.downloadCount || 0, " downloads"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--purple)", fontWeight: 600 } }, "\u{1F4CB} ", topStudy.citationCount || 0, " citations"))), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "\u{1F4C4} All My Studies"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, myStudies.length, " uploaded")), myStudies.length === 0 ? React.createElement(EmptyState, { icon: "📄", title: "No studies yet", message: "Upload your first research study to see your stats here.", compact: true }) : (() => {
+  const maxViews = Math.max(...myStudies.map(s=>s.viewCount||0), 1);
+  const maxDls = Math.max(...myStudies.map(s=>s.downloadCount||0), 1);
+  const maxCites = Math.max(...myStudies.map(s=>s.citationCount||0), 1);
+  return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+    myStudies.map((s) => React.createElement("div", { key: s.id, className: "mstats-study-row", onClick: () => setHistoryStudy(s) },
+      React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+        React.createElement("div", { style: { fontWeight: 500, fontSize: "0.85rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.title),
+        React.createElement("div", { style: { fontSize: "0.68rem", color: "var(--muted)", marginTop: 2, display: "flex", gap: 6, flexWrap: "wrap" } },
+          React.createElement("span", null, (s.categories||[]).join(", ")),
+          s.year && React.createElement("span", null, "· ", s.year),
+          s.teacherGrade && React.createElement("span", { style:{fontWeight:700, color:"var(--teal)"} }, "· ", s.teacherGrade)
+        ),
+        // Sparklines
+        React.createElement("div", { style: { display:"flex", gap: 6, marginTop: 6 } },
+          React.createElement("div", { style:{flex:1} },
+            React.createElement("div", { style:{fontSize:"0.55rem",color:"var(--muted)",marginBottom:2,fontWeight:600} }, "VIEWS"),
+            React.createElement("div", { className: "sparkbar" }, React.createElement("div", { className: "sparkbar-fill", style:{width: Math.round(((s.viewCount||0)/maxViews)*100)+"%", background:"var(--teal)"} }))
+          ),
+          React.createElement("div", { style:{flex:1} },
+            React.createElement("div", { style:{fontSize:"0.55rem",color:"var(--muted)",marginBottom:2,fontWeight:600} }, "DLS"),
+            React.createElement("div", { className: "sparkbar" }, React.createElement("div", { className: "sparkbar-fill", style:{width: Math.round(((s.downloadCount||0)/maxDls)*100)+"%", background:"var(--blue)"} }))
+          ),
+          React.createElement("div", { style:{flex:1} },
+            React.createElement("div", { style:{fontSize:"0.55rem",color:"var(--muted)",marginBottom:2,fontWeight:600} }, "CITES"),
+            React.createElement("div", { className: "sparkbar" }, React.createElement("div", { className: "sparkbar-fill", style:{width: Math.round(((s.citationCount||0)/maxCites)*100)+"%", background:"var(--purple)"} }))
+          )
+        )
+      ),
+      React.createElement("div", { style: { display: "flex", flexDirection:"column", gap: 4, alignItems:"flex-end", flexShrink: 0 } },
+        React.createElement("div", { style:{display:"flex",gap:8} },
+          React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--teal)", fontWeight: 600 } }, "👁 ", s.viewCount || 0),
+          React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--blue)", fontWeight: 600 } }, "⬇ ", s.downloadCount || 0),
+          React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--purple)", fontWeight: 600 } }, "📋 ", s.citationCount || 0)
+        ),
+        React.createElement("div", { style:{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"} },
+          s.revisionStatus === "revision_requested" && React.createElement("span", { style: { fontSize: "0.65rem", background: "var(--gold-bg)", color: "var(--gold)", borderRadius: 6, padding: "2px 7px", fontWeight: 700, border: "1px solid var(--gold)" } }, "✏️ Revise"),
+          s.revisionStatus === "resubmitted" && React.createElement("span", { style: { fontSize: "0.65rem", background: "var(--blue-light)", color: "var(--blue)", borderRadius: 6, padding: "2px 7px", fontWeight: 700, border: "1px solid var(--blue)" } }, "🔄 Revised"),
+          React.createElement("span", { style:{fontSize:"0.62rem",color:"var(--muted)"} }, "→ activity")
+        )
+      )
+    ))
+  );
+})()), coAuthoredStudies.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "\u{1F91D} Co-authored Studies"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, coAuthoredStudies.length, " tagged")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } }, coAuthoredStudies.map((s) => /* @__PURE__ */ React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "var(--surface)", borderRadius: 8, border: "1px solid var(--border)", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.85rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", color: "var(--muted)", marginTop: 2 } }, "by ", (s.authors || []).join(", "), " \xB7 ", s.year)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, flexShrink: 0, flexWrap: "wrap", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--teal)", fontWeight: 600 } }, "\u{1F441} ", s.viewCount || 0), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--blue)", fontWeight: 600 } }, "\u2B07 ", s.downloadCount || 0), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--purple)", fontWeight: 600 } }, "\u{1F4CB} ", s.citationCount || 0), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.68rem", background: "var(--teal-light)", color: "var(--teal)", borderRadius: 6, padding: "2px 8px", fontWeight: 600 } }, "co-author")))))), historyStudy && /* @__PURE__ */ React.createElement(StudyHistoryModal, { study: historyStudy, onClose: () => setHistoryStudy(null) }));
 }
 function GradeOverviewPage({ currentUser }) {
   const [students, setStudents] = useState([]);
@@ -8352,7 +8727,53 @@ function StudentDash({ currentUser }) {
   useEffect(() => {
     load();
   }, []);
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 22 } }, /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", marginBottom: 3 } }, "Welcome back, ", currentUser.name.split(" ")[0], " \u{1F44B}"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, currentUser.institution, currentUser.gradeLevel ? ` \xB7 Grade ${currentUser.gradeLevel}` : "", currentUser.section ? ` \u2014 ${currentUser.section}` : "")), loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(StatsSkeleton, { count: 5 }), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, padding: "4px 0" } }, /* @__PURE__ */ React.createElement("div", { className: "skel", style: { height: 14, width: 160, borderRadius: 5 } }), /* @__PURE__ */ React.createElement("div", { className: "skel", style: { height: 13, width: "80%", borderRadius: 5 } }), /* @__PURE__ */ React.createElement("div", { className: "skel", style: { height: 13, width: "60%", borderRadius: 5 } }))), /* @__PURE__ */ React.createElement(StudiesGridSkeleton, { count: 3 })) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "stats" }, /* @__PURE__ */ React.createElement("div", { className: "stat gold" }, /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.doc, null)), /* @__PURE__ */ React.createElement("div", { className: "stat-body" }, /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "My Studies"), /* @__PURE__ */ React.createElement("div", { className: "stat-val" }, myStudies.length), /* @__PURE__ */ React.createElement("div", { className: "stat-sub" }, "Uploaded"))), /* @__PURE__ */ React.createElement("div", { className: "stat teal" }, /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.eye, null)), /* @__PURE__ */ React.createElement("div", { className: "stat-body" }, /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "Total Views"), /* @__PURE__ */ React.createElement("div", { className: "stat-val" }, myStudies.reduce((a, s) => a + (s.viewCount || 0), 0)), /* @__PURE__ */ React.createElement("div", { className: "stat-sub" }, "Across all my studies"))), /* @__PURE__ */ React.createElement("div", { className: "stat blue" }, /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.dl, null)), /* @__PURE__ */ React.createElement("div", { className: "stat-body" }, /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "Downloads"), /* @__PURE__ */ React.createElement("div", { className: "stat-val" }, myStudies.reduce((a, s) => a + (s.downloadCount || 0), 0)), /* @__PURE__ */ React.createElement("div", { className: "stat-sub" }, "Total"))), /* @__PURE__ */ React.createElement("div", { className: "stat pur" }, /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.cite, null)), /* @__PURE__ */ React.createElement("div", { className: "stat-body" }, /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "Citations"), /* @__PURE__ */ React.createElement("div", { className: "stat-val" }, myStudies.reduce((a, s) => a + (s.citationCount || 0), 0)), /* @__PURE__ */ React.createElement("div", { className: "stat-sub" }, "APA copies"))), /* @__PURE__ */ React.createElement("div", { className: "stat slate" }, /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.bm, null)), /* @__PURE__ */ React.createElement("div", { className: "stat-body" }, /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "Bookmarks"), /* @__PURE__ */ React.createElement("div", { className: "stat-val" }, favorites.length), /* @__PURE__ */ React.createElement("div", { className: "stat-sub" }, "Saved studies")))), /* @__PURE__ */ React.createElement(WeeklyHighlightsCard, { onOpenStudy: async (s) => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 22 } }, /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", marginBottom: 3 } }, "Welcome back, ", currentUser.name.split(" ")[0], " \u{1F44B}"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, currentUser.institution, currentUser.gradeLevel ? ` \xB7 Grade ${currentUser.gradeLevel}` : "", currentUser.section ? ` \u2014 ${currentUser.section}` : "")), loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(StatsSkeleton, { count: 5 }), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, padding: "4px 0" } }, /* @__PURE__ */ React.createElement("div", { className: "skel", style: { height: 14, width: 160, borderRadius: 5 } }), /* @__PURE__ */ React.createElement("div", { className: "skel", style: { height: 13, width: "80%", borderRadius: 5 } }), /* @__PURE__ */ React.createElement("div", { className: "skel", style: { height: 13, width: "60%", borderRadius: 5 } }))), /* @__PURE__ */ React.createElement(StudiesGridSkeleton, { count: 3 })) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "stats" },
+  /* My Studies card — clickable, navigates to My Stats */
+  /* @__PURE__ */ React.createElement("div", { className: "stat gold", "data-clickable": "true", onClick: () => { window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'my-stats'})); }, "data-tip": "View all your uploads in detail" },
+    /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.doc, null)),
+    /* @__PURE__ */ React.createElement("div", { className: "stat-body" },
+      /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "My Studies"),
+      /* @__PURE__ */ React.createElement("div", { className: "stat-val stat-val-anim" }, myStudies.length),
+      /* @__PURE__ */ React.createElement("div", { className: "stat-sub" }, "Uploaded · tap for details")
+    )
+  ),
+  /* Total Views card */
+  /* @__PURE__ */ React.createElement("div", { className: "stat teal", "data-clickable": "true", onClick: () => { window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'my-stats'})); }, "data-tip": "See which studies are getting the most views" },
+    /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.eye, null)),
+    /* @__PURE__ */ React.createElement("div", { className: "stat-body" },
+      /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "Total Views"),
+      /* @__PURE__ */ React.createElement("div", { className: "stat-val stat-val-anim" }, myStudies.reduce((a, s) => a + (s.viewCount || 0), 0)),
+      /* @__PURE__ */ React.createElement("div", { className: "stat-sub" }, "Across all my studies")
+    )
+  ),
+  /* Downloads card */
+  /* @__PURE__ */ React.createElement("div", { className: "stat blue", "data-clickable": "true", onClick: () => { window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'my-stats'})); }, "data-tip": "View download breakdown per study" },
+    /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.dl, null)),
+    /* @__PURE__ */ React.createElement("div", { className: "stat-body" },
+      /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "Downloads"),
+      /* @__PURE__ */ React.createElement("div", { className: "stat-val stat-val-anim" }, myStudies.reduce((a, s) => a + (s.downloadCount || 0), 0)),
+      /* @__PURE__ */ React.createElement("div", { className: "stat-sub" }, "Total")
+    )
+  ),
+  /* Citations card */
+  /* @__PURE__ */ React.createElement("div", { className: "stat pur", "data-clickable": "true", onClick: () => { window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'my-stats'})); }, "data-tip": "See citation count per study" },
+    /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.cite, null)),
+    /* @__PURE__ */ React.createElement("div", { className: "stat-body" },
+      /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "Citations"),
+      /* @__PURE__ */ React.createElement("div", { className: "stat-val stat-val-anim" }, myStudies.reduce((a, s) => a + (s.citationCount || 0), 0)),
+      /* @__PURE__ */ React.createElement("div", { className: "stat-sub" }, "APA copies")
+    )
+  ),
+  /* Bookmarks card */
+  /* @__PURE__ */ React.createElement("div", { className: "stat slate" },
+    /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.bm, null)),
+    /* @__PURE__ */ React.createElement("div", { className: "stat-body" },
+      /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "Bookmarks"),
+      /* @__PURE__ */ React.createElement("div", { className: "stat-val stat-val-anim" }, favorites.length),
+      /* @__PURE__ */ React.createElement("div", { className: "stat-sub" }, "Saved studies")
+    )
+  )
+), /* @__PURE__ */ React.createElement(WeeklyHighlightsCard, { onOpenStudy: async (s) => {
     const snap = await db.collection("studies").doc(s.id).get();
     if (snap.exists) {
       const d = __spreadValues({ id: snap.id }, snap.data());
@@ -8529,8 +8950,35 @@ function MiniBar({ value, max, color }) {
   const pct = max > 0 ? Math.round(value / max * 100) : 0;
   return /* @__PURE__ */ React.createElement("div", { style: { height: 6, background: "var(--border)", borderRadius: 99, overflow: "hidden", flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { height: "100%", width: `${pct}%`, background: color || "var(--gold)", borderRadius: 99, transition: "width .5s ease" } }));
 }
-function StatPill({ label, value, color }) {
-  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, padding: "10px 14px", borderRadius: 8, background: "var(--surface)", border: "1px solid var(--border)", flex: "1 1 90px", minWidth: 80 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.6px", color: "var(--muted)" } }, label), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-display)", fontSize: "1.5rem", fontWeight: 700, color: color || "var(--ink)", lineHeight: 1.1 } }, value));
+function StatPill({ label, value, color, icon, onClick, trend, sub }) {
+  const [hov, setHov] = React.useState(false);
+  const isClickable = !!onClick;
+  return React.createElement("div", {
+    onClick: onClick,
+    onMouseEnter: () => setHov(true),
+    onMouseLeave: () => setHov(false),
+    style: {
+      display: "flex", flexDirection: "column", gap: 3,
+      padding: "12px 14px", borderRadius: 10,
+      background: hov && isClickable ? `color-mix(in srgb, ${color||'var(--gold)'} 8%, var(--surface))` : "var(--surface)",
+      border: `1.5px solid ${hov && isClickable ? (color||'var(--gold)') : 'var(--border)'}`,
+      flex: "1 1 90px", minWidth: 80,
+      cursor: isClickable ? "pointer" : "default",
+      transition: "all 0.18s ease",
+      transform: hov && isClickable ? "translateY(-2px)" : "none",
+      boxShadow: hov && isClickable ? `0 4px 16px ${color||'var(--gold)'}22` : "none",
+      position: "relative", overflow: "hidden",
+    }
+  },
+    icon && React.createElement("span", { style: { fontSize: "1.1rem", lineHeight: 1, marginBottom: 1 } }, icon),
+    React.createElement("div", { style: { fontSize: "0.62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.6px", color: "var(--muted)" } }, label),
+    React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 6 } },
+      React.createElement("div", { style: { fontFamily: "var(--font-display)", fontSize: "1.5rem", fontWeight: 700, color: color || "var(--ink)", lineHeight: 1.1 } }, value),
+      trend != null && React.createElement("span", { style: { fontSize: "0.62rem", fontWeight: 700, color: trend > 0 ? "var(--green)" : trend < 0 ? "var(--red)" : "var(--muted)" } }, trend > 0 ? "↑" : trend < 0 ? "↓" : "—")
+    ),
+    sub && React.createElement("div", { style: { fontSize: "0.62rem", color: "var(--muted)", marginTop: 1 } }, sub),
+    isClickable && React.createElement("div", { style: { position: "absolute", bottom: 6, right: 8, fontSize: "0.6rem", color: color || "var(--muted)", opacity: hov ? 0.9 : 0, transition: "opacity .15s", fontWeight: 600 } }, "tap to expand →")
+  );
 }
 function StatAnalysisTool({ currentUser }) {
   const isTeacher = currentUser.role === "admin";
@@ -10611,6 +11059,8 @@ const Sidebar = memo(function Sidebar2({ currentUser, activeTab, setActiveTab, o
     { id: "studies-admin", label: "All Studies", icon: /* @__PURE__ */ React.createElement(Ico.book, null) },
     { id: "categories", label: "Categories", icon: /* @__PURE__ */ React.createElement(Ico.tag, null) },
     { id: "analytics", label: "Analytics", icon: /* @__PURE__ */ React.createElement(Ico.eye, null) },
+    { id: "teacher-analytics", label: "Teacher Dashboard", icon: /* @__PURE__ */ React.createElement(Ico.doc, null) },
+    { id: "approval-workflow", label: "Approval Queue", icon: /* @__PURE__ */ React.createElement(Ico.chk, null) },
     { id: "grade-overview", label: "Grade Overview", icon: /* @__PURE__ */ React.createElement(Ico.doc, null) },
     { id: "audit-log", label: "Audit Log", icon: /* @__PURE__ */ React.createElement(Ico.settings, null) },
     { id: "stat-analysis", label: "Statistical Analysis", icon: /* @__PURE__ */ React.createElement(Ico.search, null) },
@@ -10622,6 +11072,8 @@ const Sidebar = memo(function Sidebar2({ currentUser, activeTab, setActiveTab, o
   const studentNav = [
     { id: "dashboard", label: "Dashboard", icon: /* @__PURE__ */ React.createElement(Ico.home, null) },
     { id: "my-stats", label: "My Stats", icon: /* @__PURE__ */ React.createElement(Ico.eye, null) },
+    { id: "reading-progress", label: "Reading Progress", icon: /* @__PURE__ */ React.createElement(Ico.book, null) },
+    { id: "notif-center", label: "Notifications", icon: /* @__PURE__ */ React.createElement(Ico.bell, null) },
     { id: "stat-analysis", label: "Statistical Analysis", icon: /* @__PURE__ */ React.createElement(Ico.search, null) },
     { id: "repository", label: "Browse Studies", icon: /* @__PURE__ */ React.createElement(Ico.book, null) },
     { id: "recognized", label: "Recognized Studies", icon: /* @__PURE__ */ React.createElement(Ico.award, null) },
@@ -11726,6 +12178,17 @@ function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+  // ── Listen for programmatic navigation (e.g. from clickable stat cards) ──
+  useEffect(() => {
+    const navHandler = (e) => {
+      if (e.detail) {
+        setActiveTab(e.detail);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    };
+    window.addEventListener("sabnahis:nav", navHandler);
+    return () => window.removeEventListener("sabnahis:nav", navHandler);
+  }, []);
   useEffect(() => {
     let unsub = () => {
     };
@@ -11774,7 +12237,7 @@ function App() {
       }
     };
   }, []);
-  const titles = { dashboard: "Dashboard", users: "User Management", analytics: "Class Analytics", "grade-overview": "Grade Overview", announcements: "Announcements", "studies-admin": "Manage Studies", categories: "Manage Categories", "audit-log": "Audit Log", repository: "Research Repository", chatbot: "AI Research Assistant", recognized: "Recognized Studies", "my-stats": "My Stats", "stat-analysis": "Statistical Analysis" };
+  const titles = { dashboard: "Dashboard", users: "User Management", analytics: "Class Analytics", "grade-overview": "Grade Overview", announcements: "Announcements", "studies-admin": "Manage Studies", categories: "Manage Categories", "audit-log": "Audit Log", repository: "Research Repository", chatbot: "AI Research Assistant", recognized: "Recognized Studies", "my-stats": "My Stats", "stat-analysis": "Statistical Analysis", "teacher-analytics": "Teacher Dashboard", "approval-workflow": "Approval Queue", "reading-progress": "Reading Progress", "notif-center": "Notifications" };
   if (!authChecked || !loaderDone) {
     if (authChecked && !loaderDone) {
       if (typeof window.sabnahisLoaderDone === "function") {
@@ -11835,6 +12298,14 @@ function App() {
         return /* @__PURE__ */ React.createElement(AnnouncementsPage, { currentUser });
       case "chatbot":
         return /* @__PURE__ */ React.createElement(ChatPage, { currentUser });
+      case "reading-progress":
+        return !isAdmin ? /* @__PURE__ */ React.createElement(ReadingProgressPage, { currentUser }) : null;
+      case "notif-center":
+        return !isAdmin ? /* @__PURE__ */ React.createElement(NotifCenterPage, { currentUser }) : null;
+      case "teacher-analytics":
+        return isAdmin ? /* @__PURE__ */ React.createElement(TeacherAnalyticsDashboard, { currentUser }) : null;
+      case "approval-workflow":
+        return isAdmin ? /* @__PURE__ */ React.createElement(ApprovalWorkflowPage, { currentUser }) : null;
       default:
         return null;
     }
@@ -11950,6 +12421,830 @@ function App() {
     }
   ));
 }
+
+// Wrapper components for StudyDetailModal injection
+function StudyAbstractCritiqueSection({ study }) {
+  const [show, setShow] = React.useState(false);
+  if (!study?.abstract) return null;
+  return React.createElement("div", { style: { marginTop: 6 } },
+    !show && React.createElement("button", {
+      className: "btn btn-ol btn-sm",
+      onClick: () => setShow(true),
+      style: { color: "var(--purple)", borderColor: "var(--purple)" }
+    }, "🤖 AI Critique Abstract"),
+    show && React.createElement(AbstractCritique, { abstract: study.abstract, onClose: () => setShow(false) })
+  );
+}
+
+function StudyRevisionDiffSection({ studyId, currentStudy }) {
+  const [prev, setPrev] = React.useState(null);
+  const [loaded, setLoaded] = React.useState(false);
+  React.useEffect(() => {
+    if (!studyId || loaded) return;
+    setLoaded(true);
+    db.collection("studies").doc(studyId).collection("revisions")
+      .orderBy("archivedAt", "desc").limit(1).get()
+      .then(snap => { if (!snap.empty) setPrev({ id: snap.docs[0].id, ...snap.docs[0].data() }); })
+      .catch(() => {});
+  }, [studyId]);
+  if (!prev) return null;
+  return React.createElement(RevisionDiffView, { current: currentStudy, previous: prev });
+}
+
+// ══════════════════════════════════════════
+// AIAbstractCritiqueInline — button+panel for upload form
+// ══════════════════════════════════════════
+function AIAbstractCritiqueInline({ abstract }) {
+  const [show, setShow] = React.useState(false);
+  if (!abstract || abstract.trim().length < 50) return null;
+  return React.createElement("div", { style: { marginTop: 8 } },
+    !show && React.createElement("button", {
+      type: "button", onClick: () => setShow(true),
+      style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: "var(--radius)", border: "1.5px solid var(--purple)", background: "var(--purple-light)", color: "var(--purple)", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }
+    }, "🤖 AI Critique Abstract"),
+    show && React.createElement(AbstractCritique, { abstract, onClose: () => setShow(false) })
+  );
+}
+
+// ══════════════════════════════════════════
+// FEATURE: READING PROGRESS PAGE
+// ══════════════════════════════════════════
+function ReadingProgressPage({ currentUser }) {
+  const { useState, useEffect } = React;
+  const [studies, setStudies] = React.useState([]);
+  const [progress, setProgress] = React.useState({});
+  const [loading, setLoading] = React.useState(true);
+  const [filter, setFilter] = React.useState("all");
+
+  const PROGRESS_KEY = "sabnahis_read_progress_" + currentUser.id;
+
+  const loadProgress = () => {
+    try { return JSON.parse(localStorage.getItem(PROGRESS_KEY) || "{}"); }
+    catch(e) { return {}; }
+  };
+  const saveProgress = (p) => {
+    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); } catch(e) {}
+  };
+
+  React.useEffect(() => {
+    setLoading(true);
+    const p = loadProgress();
+    setProgress(p);
+    API.getAllStudies().then(all => {
+      setStudies(all);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const setStatus = (id, status) => {
+    const next = { ...progress, [id]: { ...progress[id], status, updatedAt: new Date().toISOString() } };
+    setProgress(next);
+    saveProgress(next);
+  };
+
+  const pct = (id) => progress[id] ? (progress[id].scrollPct || 0) : 0;
+
+  const counts = { all: studies.length, reading: 0, completed: 0, want: 0 };
+  studies.forEach(s => {
+    const st = progress[s.id] && progress[s.id].status;
+    if (st === "reading") counts.reading++;
+    if (st === "completed") counts.completed++;
+    if (st === "want") counts.want++;
+  });
+
+  const filtered = filter === "all" ? studies : studies.filter(s => (progress[s.id] && progress[s.id].status) === filter);
+
+  const STATUS_LABELS = { reading: { label: "In Progress", color: "var(--blue)", bg: "var(--blue-light)", icon: "📖" },
+    completed: { label: "Completed", color: "var(--green)", bg: "var(--green-light)", icon: "✅" },
+    want: { label: "Want to Read", color: "var(--gold)", bg: "var(--gold-bg)", icon: "🔖" } };
+
+  const completedCount = Object.values(progress).filter(p => p.status === "completed").length;
+  const inProgressCount = Object.values(progress).filter(p => p.status === "reading").length;
+  const wantCount = Object.values(progress).filter(p => p.status === "want").length;
+
+  return React.createElement("div", null,
+    React.createElement("div", { className: "page-hd", style: { marginBottom: 20 } },
+      React.createElement("div", null,
+        React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", marginBottom: 3 } }, "📚 Reading Progress"),
+        React.createElement("p", { className: "muted" }, "Track what you've read, what you're reading, and what's next.")),
+    ),
+    React.createElement("div", { className: "stats", style: { marginBottom: 18 } },
+      [
+        { label: "Completed", val: completedCount, icon: "✅", color: "teal" },
+        { label: "In Progress", val: inProgressCount, icon: "📖", color: "blue" },
+        { label: "Want to Read", val: wantCount, icon: "🔖", color: "gold" },
+        { label: "Total Studies", val: studies.length, icon: "📄", color: "purple" }
+      ].map(s => React.createElement("div", { key: s.label, className: `stat ${s.color}` },
+        React.createElement("div", { className: "stat-icon" }, s.icon),
+        React.createElement("div", { className: "stat-body" },
+          React.createElement("div", { className: "stat-lbl" }, s.label),
+          React.createElement("div", { className: "stat-val" }, s.val))))
+    ),
+    React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 } },
+      [["all","📋 All"],["reading","📖 In Progress"],["completed","✅ Completed"],["want","🔖 Want to Read"]]
+        .map(([v,l]) => React.createElement("button", { key: v, onClick: () => setFilter(v),
+          style: { padding: "6px 14px", borderRadius: 99, fontSize: "0.78rem", fontWeight: 600, cursor: "pointer",
+            border: `1.5px solid ${filter===v?"var(--gold)":"var(--border)"}`,
+            background: filter===v?"var(--gold-bg)":"var(--surface)",
+            color: filter===v?"var(--gold)":"var(--muted)", transition: "all .15s" }}, l,
+          filter === v && v !== "all" ? ` (${counts[v]})` : ""))
+    ),
+    loading ? React.createElement("div", { className: "muted", style:{textAlign:"center",padding:32} }, "Loading studies…") :
+    filtered.length === 0 ? React.createElement("div", { style:{textAlign:"center",padding:32,color:"var(--muted)"} }, "No studies in this category yet.") :
+    React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
+      filtered.map(s => {
+        const st = progress[s.id] && progress[s.id].status;
+        const meta = st ? STATUS_LABELS[st] : null;
+        return React.createElement("div", { key: s.id, className: "card", style: { padding: "14px 18px" } },
+          React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" } },
+            React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+              React.createElement("div", { style: { fontWeight: 600, fontSize: "0.95rem", color: "var(--ink)", marginBottom: 3 } }, s.title),
+              React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)", display: "flex", gap: 10, flexWrap: "wrap" } },
+                React.createElement("span", null, "✍️ ", (s.authors||[]).slice(0,2).join(", ")),
+                React.createElement("span", null, "📅 ", s.year),
+                React.createElement("span", null, "🏷️ ", (s.categories||[]).join(", "))
+              )
+            ),
+            React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" } },
+              meta && React.createElement("span", { style: { background: meta.bg, color: meta.color, fontSize: "0.72rem", fontWeight: 600, padding: "3px 10px", borderRadius: 99, border: `1px solid ${meta.color}` } }, meta.icon, " ", meta.label),
+              ["want","reading","completed"].map(v => React.createElement("button", { key: v, onClick: () => setStatus(s.id, st===v ? null : v),
+                style: { padding: "5px 10px", borderRadius: 6, fontSize: "0.72rem", fontWeight: 600, cursor: "pointer",
+                  border: `1.5px solid ${st===v ? STATUS_LABELS[v].color : "var(--border)"}`,
+                  background: st===v ? STATUS_LABELS[v].bg : "var(--surface)",
+                  color: st===v ? STATUS_LABELS[v].color : "var(--muted)", transition: "all .15s" }},
+                STATUS_LABELS[v].icon, " ", STATUS_LABELS[v].label))
+            )
+          )
+        );
+      })
+    )
+  );
+}
+
+// ══════════════════════════════════════════
+// FEATURE: NOTIFICATION CENTER PAGE (STUDENT)
+// ══════════════════════════════════════════
+function NotifCenterPage({ currentUser }) {
+  const [notifs, setNotifs] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [filter, setFilter] = React.useState("all");
+
+  const load = async () => {
+    setLoading(true);
+    const n = await API.getNotifications(currentUser.id, 50);
+    setNotifs(n);
+    setLoading(false);
+  };
+  React.useEffect(() => { load(); }, []);
+
+  const markRead = async (id) => {
+    await API.markNotificationRead(currentUser.id, id);
+    setNotifs(prev => prev.map(n => n.id===id ? {...n, read:true} : n));
+  };
+  const markAll = async () => {
+    await API.markAllNotificationsRead(currentUser.id);
+    setNotifs(prev => prev.map(n => ({...n, read:true})));
+  };
+  const dismiss = async (id) => {
+    await API.deleteNotification(currentUser.id, id);
+    setNotifs(prev => prev.filter(n => n.id!==id));
+  };
+
+  const ICONS = { feedback:"📝", coauthor_tag:"🤝", revision_request:"✏️", announcement:"📢", badge:"🏅", default:"🔔" };
+  const filtered = filter==="all" ? notifs : filter==="unread" ? notifs.filter(n=>!n.read) : notifs.filter(n=>n.read);
+  const unreadCount = notifs.filter(n=>!n.read).length;
+
+  const fmtRel = (iso) => {
+    const d = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(d/60000);
+    if (m<1) return "just now"; if (m<60) return `${m}m ago`;
+    const h = Math.floor(m/60); if (h<24) return `${h}h ago`;
+    return `${Math.floor(h/24)}d ago`;
+  };
+
+  return React.createElement("div", null,
+    React.createElement("div", { className:"page-hd", style:{marginBottom:20} },
+      React.createElement("div", null,
+        React.createElement("h2", { style:{fontFamily:"var(--font-display)",fontSize:"var(--text-2xl)",marginBottom:3} }, "🔔 Notification Center"),
+        React.createElement("p", { className:"muted" }, `${unreadCount} unread · ${notifs.length} total`)),
+      unreadCount>0 && React.createElement("button", { className:"btn btn-ol btn-sm", onClick:markAll }, "✓ Mark all read")
+    ),
+    React.createElement("div", { style:{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"} },
+      [["all","All"],["unread","Unread"],["read","Read"]].map(([v,l]) =>
+        React.createElement("button", { key:v, onClick:()=>setFilter(v),
+          style:{padding:"6px 14px",borderRadius:99,fontSize:"0.78rem",fontWeight:600,cursor:"pointer",
+            border:`1.5px solid ${filter===v?"var(--gold)":"var(--border)"}`,
+            background:filter===v?"var(--gold-bg)":"var(--surface)",
+            color:filter===v?"var(--gold)":"var(--muted)",transition:"all .15s"}},
+          l, v==="unread"&&unreadCount>0?` (${unreadCount})`:""
+        ))
+    ),
+    loading ? React.createElement("div",{className:"muted",style:{textAlign:"center",padding:32}},"Loading…") :
+    filtered.length===0 ? React.createElement("div",{style:{textAlign:"center",padding:40,color:"var(--muted)"}}, "🎉 You're all caught up!") :
+    React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+      filtered.map(n => React.createElement("div",{key:n.id,
+        style:{display:"flex",alignItems:"flex-start",gap:12,padding:"14px 16px",
+          background:n.read?"var(--surface)":"var(--gold-bg)",
+          border:`1.5px solid ${n.read?"var(--border)":"var(--gold)"}`,
+          borderRadius:"var(--radius)",transition:"all .15s",cursor:"pointer"},
+        onClick:()=>!n.read&&markRead(n.id)},
+        React.createElement("div",{style:{fontSize:"1.3rem",flexShrink:0,marginTop:1}}, ICONS[n.type]||ICONS.default),
+        React.createElement("div",{style:{flex:1,minWidth:0}},
+          React.createElement("div",{style:{fontWeight:n.read?400:700,fontSize:"0.9rem",color:"var(--ink)",marginBottom:2}},n.title),
+          n.body&&React.createElement("div",{style:{fontSize:"0.8rem",color:"var(--ink-3)",marginBottom:4,lineHeight:1.5}},n.body),
+          React.createElement("div",{style:{fontSize:"0.68rem",color:"var(--muted)"}},fmtRel(n.createdAt))
+        ),
+        React.createElement("div",{style:{display:"flex",gap:6,flexShrink:0}},
+          !n.read&&React.createElement("button",{className:"btn btn-ol btn-sm",onClick:e=>{e.stopPropagation();markRead(n.id)}},"✓"),
+          React.createElement("button",{className:"btn btn-ol btn-sm",onClick:e=>{e.stopPropagation();dismiss(n.id)},style:{color:"var(--red)",borderColor:"var(--red)"}},"✕")
+        )
+      ))
+    )
+  );
+}
+
+// ══════════════════════════════════════════
+// FEATURE: APPROVAL WORKFLOW PAGE (ADMIN)
+// ══════════════════════════════════════════
+function ApprovalWorkflowPage({ currentUser }) {
+  const [queue, setQueue] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [filter, setFilter] = React.useState("pending");
+  const [acting, setActing] = React.useState({});
+  const [notes, setNotes] = React.useState({});
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const snap = await db.collection("pendingReviews").orderBy("createdAt","desc").limit(60).get();
+      setQueue(snap.docs.map(d => ({id:d.id,...d.data()})));
+    } catch(e) { toast.err("Failed to load queue."); }
+    setLoading(false);
+  };
+  React.useEffect(()=>{ load(); },[]);
+
+  const approve = async (item) => {
+    setActing(a=>({...a,[item.id]:"approving"}));
+    try {
+      await db.collection("pendingReviews").doc(item.id).update({
+        status:"approved", reviewedBy:currentUser.id, reviewedByName:currentUser.name,
+        reviewedAt:new Date().toISOString(), adminNote: notes[item.id]||""
+      });
+      if (item.studyId) {
+        await db.collection("studies").doc(item.studyId).update({approvalStatus:"approved"}).catch(()=>{});
+        await API.createNotification(item.submittedByUid||"", {
+          type:"feedback", title:"✅ Your study was approved",
+          body:`"${item.studyTitle}" has been approved and is now live in the repository.`,
+          link:item.studyId
+        }).catch(()=>{});
+      }
+      setQueue(prev=>prev.map(q=>q.id===item.id?{...q,status:"approved"}:q));
+      toast.ok("✅ Study approved and researcher notified.");
+    } catch(e){ toast.err(e.message); }
+    setActing(a=>({...a,[item.id]:null}));
+  };
+
+  const reject = async (item) => {
+    const note = notes[item.id]||"";
+    if (!note.trim()) { toast.err("Please add a rejection note before rejecting."); return; }
+    setActing(a=>({...a,[item.id]:"rejecting"}));
+    try {
+      await db.collection("pendingReviews").doc(item.id).update({
+        status:"rejected", reviewedBy:currentUser.id, reviewedByName:currentUser.name,
+        reviewedAt:new Date().toISOString(), adminNote:note
+      });
+      if (item.studyId) {
+        await db.collection("studies").doc(item.studyId).update({approvalStatus:"rejected"}).catch(()=>{});
+        await API.createNotification(item.submittedByUid||"", {
+          type:"revision_request", title:"⚠️ Study returned for revision",
+          body:`"${item.studyTitle}" needs changes: ${note}`, link:item.studyId
+        }).catch(()=>{});
+      }
+      setQueue(prev=>prev.map(q=>q.id===item.id?{...q,status:"rejected"}:q));
+      toast.ok("Study returned with feedback.");
+    } catch(e){ toast.err(e.message); }
+    setActing(a=>({...a,[item.id]:null}));
+  };
+
+  const fmtDate = d=>d?new Date(d).toLocaleDateString("en-PH",{year:"numeric",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
+  const pending = queue.filter(q=>q.status==="pending").length;
+  const filtered = filter==="all"?queue:queue.filter(q=>q.status===filter);
+
+  const StatusBadge = ({status}) => {
+    const map = {pending:["var(--gold)","var(--gold-bg)","⏳"],approved:["var(--green)","var(--green-light)","✅"],rejected:["var(--red)","var(--red-light)","❌"]};
+    const [c,bg,ic] = map[status]||map.pending;
+    return React.createElement("span",{style:{background:bg,color:c,fontSize:"0.7rem",fontWeight:700,padding:"3px 10px",borderRadius:99,border:`1px solid ${c}`}},ic," ",status);
+  };
+
+  return React.createElement("div",null,
+    React.createElement("div",{className:"page-hd",style:{marginBottom:20}},
+      React.createElement("div",null,
+        React.createElement("h2",{style:{fontFamily:"var(--font-display)",fontSize:"var(--text-2xl)",marginBottom:3}},"📬 Approval Queue"),
+        React.createElement("p",{className:"muted"},`${pending} pending review · ${queue.length} total submissions`)),
+      React.createElement("button",{className:"btn btn-ol btn-sm",onClick:load},"↻ Refresh")
+    ),
+    React.createElement("div",{className:"stats",style:{marginBottom:18}},
+      [{label:"Pending",val:queue.filter(q=>q.status==="pending").length,icon:"⏳",color:"gold"},
+       {label:"Approved",val:queue.filter(q=>q.status==="approved").length,icon:"✅",color:"teal"},
+       {label:"Returned",val:queue.filter(q=>q.status==="rejected").length,icon:"❌",color:"red"},
+       {label:"Total",val:queue.length,icon:"📋",color:"blue"}
+      ].map(s=>React.createElement("div",{key:s.label,className:`stat ${s.color}`},
+        React.createElement("div",{className:"stat-icon"},s.icon),
+        React.createElement("div",{className:"stat-body"},
+          React.createElement("div",{className:"stat-lbl"},s.label),
+          React.createElement("div",{className:"stat-val"},s.val))))
+    ),
+    React.createElement("div",{style:{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}},
+      [["pending","⏳ Pending"],["approved","✅ Approved"],["rejected","❌ Returned"],["all","📋 All"]]
+        .map(([v,l])=>React.createElement("button",{key:v,onClick:()=>setFilter(v),
+          style:{padding:"6px 14px",borderRadius:99,fontSize:"0.78rem",fontWeight:600,cursor:"pointer",
+            border:`1.5px solid ${filter===v?"var(--gold)":"var(--border)"}`,
+            background:filter===v?"var(--gold-bg)":"var(--surface)",
+            color:filter===v?"var(--gold)":"var(--muted)",transition:"all .15s"}},l))
+    ),
+    loading?React.createElement("div",{className:"muted",style:{textAlign:"center",padding:32}},"Loading queue…"):
+    filtered.length===0?React.createElement("div",{style:{textAlign:"center",padding:40,color:"var(--muted)"}},"🎉 Queue is empty!"):
+    React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
+      filtered.map(item=>React.createElement("div",{key:item.id,className:"card",style:{padding:0,overflow:"hidden",
+        borderLeft:`4px solid ${item.status==="approved"?"var(--green)":item.status==="rejected"?"var(--red)":"var(--gold)"}`}},
+        React.createElement("div",{style:{padding:"14px 18px"}},
+          React.createElement("div",{style:{display:"flex",alignItems:"flex-start",gap:12,flexWrap:"wrap",marginBottom:10}},
+            React.createElement("div",{style:{flex:1,minWidth:0}},
+              React.createElement("div",{style:{fontWeight:700,fontSize:"0.95rem",color:"var(--ink)",marginBottom:3}},item.studyTitle||"Untitled"),
+              React.createElement("div",{style:{fontSize:"0.72rem",color:"var(--muted)",display:"flex",gap:10,flexWrap:"wrap"}},
+                React.createElement("span",null,"👤 ",item.submittedBy||"Unknown"),
+                React.createElement("span",null,"📅 ",fmtDate(item.createdAt)),
+                item.categories&&React.createElement("span",null,"🏷️ ",(item.categories||[]).join(", "))
+              )
+            ),
+            React.createElement(StatusBadge,{status:item.status})
+          ),
+          item.status==="pending"&&React.createElement("div",null,
+            React.createElement("div",{style:{marginBottom:8}},
+              React.createElement("label",{style:{fontSize:"0.72rem",fontWeight:600,color:"var(--muted)",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.5px"}},"Admin Note (required for rejection)"),
+              React.createElement("textarea",{value:notes[item.id]||"",
+                onChange:e=>setNotes(n=>({...n,[item.id]:e.target.value})),
+                placeholder:"Add feedback, comments, or rejection reason…",
+                style:{width:"100%",minHeight:60,padding:"8px 12px",borderRadius:"var(--radius)",
+                  border:"1.5px solid var(--border)",background:"var(--surface)",
+                  color:"var(--ink)",fontSize:"0.85rem",fontFamily:"var(--font-body)",resize:"vertical"}})
+            ),
+            React.createElement("div",{style:{display:"flex",gap:8}},
+              React.createElement("button",{className:"btn btn-teal",
+                onClick:()=>approve(item),disabled:acting[item.id]},
+                acting[item.id]==="approving"?"Approving…":"✅ Approve"),
+              React.createElement("button",{className:"btn btn-red",
+                onClick:()=>reject(item),disabled:acting[item.id]},
+                acting[item.id]==="rejecting"?"Returning…":"❌ Return for Revision")
+            )
+          ),
+          (item.status!=="pending"&&item.adminNote)&&React.createElement("div",{style:{
+            marginTop:8,padding:"8px 12px",background:"var(--surface)",borderRadius:"var(--radius)",
+            fontSize:"0.8rem",color:"var(--ink-3)",borderLeft:"3px solid var(--border)"}},
+            React.createElement("strong",null,"Note: "),item.adminNote),
+          item.reviewedByName&&React.createElement("div",{style:{fontSize:"0.68rem",color:"var(--muted)",marginTop:6}},
+            "Reviewed by ",item.reviewedByName," · ",fmtDate(item.reviewedAt))
+        )
+      ))
+    )
+  );
+}
+
+// ══════════════════════════════════════════
+// FEATURE: TEACHER ANALYTICS DASHBOARD
+// ══════════════════════════════════════════
+function TeacherAnalyticsDashboard({ currentUser }) {
+  const [data, setData] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [tab, setTab] = React.useState("overview");
+  const [templates, setTemplates] = React.useState(()=>{
+    try { return JSON.parse(localStorage.getItem("sabnahis_feedback_templates")||"[]"); }
+    catch(e){ return []; }
+  });
+  const [newTpl, setNewTpl] = React.useState({label:"",text:""});
+  const [showTplForm, setShowTplForm] = React.useState(false);
+
+  const saveTemplates = (t) => {
+    setTemplates(t);
+    try { localStorage.setItem("sabnahis_feedback_templates", JSON.stringify(t)); } catch(e){}
+  };
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [allStudies, allStudents] = await Promise.all([API.getAllStudies(), API.getUsers({role:"student",status:""})]);
+      const myGraded = allStudies.filter(s=>s.teacherFeedback && s.teacherFeedback.teacherId===currentUser.id);
+      const gradeDist = {};
+      myGraded.forEach(s=>{ const g=(s.teacherGrade||"?")[0]; gradeDist[g]=(gradeDist[g]||0)+1; });
+      const avgScore = myGraded.length ? Math.round(myGraded.reduce((a,s)=>a+(s.teacherScore||0),0)/myGraded.length) : 0;
+      const ungraded = allStudies.filter(s=>!s.teacherGrade).length;
+      const bySection = {};
+      myGraded.forEach(s=>{
+        const sec = s.uploaderSection||"Unknown";
+        if (!bySection[sec]) bySection[sec]={count:0,scores:[],grades:{}};
+        bySection[sec].count++;
+        bySection[sec].scores.push(s.teacherScore||0);
+        const g=(s.teacherGrade||"?")[0]; bySection[sec].grades[g]=(bySection[sec].grades[g]||0)+1;
+      });
+      const recentActivity = allStudies.filter(s=>s.teacherFeedback&&s.teacherFeedback.teacherId===currentUser.id)
+        .sort((a,b)=>new Date(b.teacherFeedback?.gradedAt||0)-new Date(a.teacherFeedback?.gradedAt||0)).slice(0,8);
+      setData({ myGraded, allStudies, gradeDist, avgScore, ungraded, bySection, recentActivity, totalStudents:allStudents.length });
+    } catch(e){ toast.err("Failed to load analytics."); }
+    setLoading(false);
+  };
+
+  React.useEffect(()=>{ load(); },[]);
+
+  const TabBtn = ({id,label,icon}) => React.createElement("button",{onClick:()=>setTab(id),style:{
+    padding:"8px 16px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:"var(--font-body)",
+    fontSize:"0.82rem",fontWeight:600,background:tab===id?"var(--gold)":"var(--surface)",
+    color:tab===id?"#fff":"var(--muted)",border:`1.5px solid ${tab===id?"var(--gold)":"var(--border)"}`,
+    transition:"all var(--transition)",display:"flex",alignItems:"center",gap:6}},icon," ",label);
+
+  const BarChart = ({data:d, color="var(--gold)", maxVal}) => {
+    const max = maxVal||Math.max(...d.map(x=>x.value),1);
+    return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6}},
+      d.map(({label,value})=>React.createElement("div",{key:label,style:{display:"flex",alignItems:"center",gap:10}},
+        React.createElement("div",{style:{width:80,fontSize:"0.72rem",color:"var(--muted)",textAlign:"right",flexShrink:0,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},label),
+        React.createElement("div",{style:{flex:1,height:20,background:"var(--border)",borderRadius:4,overflow:"hidden"}},
+          React.createElement("div",{style:{height:"100%",width:`${Math.round(value/max*100)}%`,background:color,borderRadius:4,transition:"width .6s ease"}})
+        ),
+        React.createElement("div",{style:{width:28,fontSize:"0.75rem",fontWeight:700,color,fontFamily:"var(--font-mono)"}},value)
+      ))
+    );
+  };
+
+  if (loading) return React.createElement("div",null, React.createElement(StatsSkeleton,{count:4}), React.createElement(StudiesGridSkeleton,{count:3}));
+  if (!data) return null;
+  const {myGraded,allStudies,gradeDist,avgScore,ungraded,bySection,recentActivity,totalStudents} = data;
+  const gradeOrder = ["A+","A","A-","B+","B","B-","C+","C","C-","D","F"];
+  const gradeColors = {"A":"var(--green)","B":"var(--blue)","C":"var(--gold)","D":"var(--red)","F":"var(--red)"};
+  const fmtDate = d=>d?new Date(d).toLocaleDateString("en-PH",{month:"short",day:"numeric"}):"—";
+
+  return React.createElement("div",null,
+    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:22}},
+      React.createElement("div",null,
+        React.createElement("h2",{style:{fontFamily:"var(--font-display)",fontSize:"var(--text-2xl)",marginBottom:3}},"📊 Teacher Analytics"),
+        React.createElement("p",{className:"muted"},"Your grading activity, class performance, and feedback templates.")),
+      React.createElement("button",{className:"btn btn-ol btn-sm",onClick:load},"↻ Refresh")
+    ),
+    React.createElement("div",{style:{display:"flex",gap:8,flexWrap:"wrap",marginBottom:20}},
+      React.createElement(TabBtn,{id:"overview",label:"Overview",icon:"📊"}),
+      React.createElement(TabBtn,{id:"sections",label:"By Section",icon:"🏫"}),
+      React.createElement(TabBtn,{id:"grades",label:"Grade Distribution",icon:"📈"}),
+      React.createElement(TabBtn,{id:"templates",label:"Feedback Templates",icon:"📝"})
+    ),
+
+    tab==="overview"&&React.createElement("div",null,
+      React.createElement("div",{className:"stats",style:{marginBottom:18}},
+        [{label:"Studies Graded",val:myGraded.length,icon:"✅",color:"teal"},
+         {label:"Avg Score",val:`${avgScore}/100`,icon:"⭐",color:"gold"},
+         {label:"Ungraded",val:ungraded,icon:"⏳",color:"red"},
+         {label:"Total Students",val:totalStudents,icon:"👥",color:"blue"}
+        ].map(s=>React.createElement("div",{key:s.label,className:`stat ${s.color}`},
+          React.createElement("div",{className:"stat-icon"},s.icon),
+          React.createElement("div",{className:"stat-body"},
+            React.createElement("div",{className:"stat-lbl"},s.label),
+            React.createElement("div",{className:"stat-val"},s.val))))
+      ),
+      React.createElement("div",{className:"card",style:{marginBottom:16}},
+        React.createElement("div",{className:"card-hd",style:{marginBottom:12}},
+          React.createElement("span",{className:"card-title"},"🕐 Recent Grading Activity")),
+        recentActivity.length===0?React.createElement("div",{style:{color:"var(--muted)",fontSize:"0.85rem"}},"No graded studies yet."):
+        React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+          recentActivity.map(s=>React.createElement("div",{key:s.id,style:{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:"1px solid var(--border)"}},
+            React.createElement("span",{style:{background:"var(--teal-light)",color:"var(--teal)",fontWeight:700,fontSize:"0.78rem",padding:"2px 9px",borderRadius:99}},s.teacherGrade),
+            React.createElement("div",{style:{flex:1,minWidth:0}},
+              React.createElement("div",{style:{fontWeight:500,fontSize:"0.88rem",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},s.title),
+              React.createElement("div",{style:{fontSize:"0.7rem",color:"var(--muted)"}},s.uploadedByName||"—"," · ",fmtDate(s.teacherFeedback?.gradedAt))
+            ),
+            s.teacherScore!=null&&React.createElement("span",{style:{fontFamily:"var(--font-mono)",fontSize:"0.82rem",fontWeight:700,color:"var(--gold)"}},s.teacherScore,"/100")
+          ))
+        )
+      )
+    ),
+
+    tab==="sections"&&React.createElement("div",null,
+      Object.keys(bySection).length===0?React.createElement("div",{style:{color:"var(--muted)",textAlign:"center",padding:40}},"No graded studies with section data yet."):
+      Object.entries(bySection).map(([sec,info])=>{
+        const avg = info.scores.length ? Math.round(info.scores.reduce((a,b)=>a+b,0)/info.scores.length) : 0;
+        return React.createElement("div",{key:sec,className:"card",style:{marginBottom:12}},
+          React.createElement("div",{className:"card-hd",style:{marginBottom:10}},
+            React.createElement("span",{className:"card-title"},"🏫 Section: ",sec),
+            React.createElement("span",{style:{fontSize:"0.72rem",color:"var(--muted)"}},info.count," studies · avg ",avg,"/100")
+          ),
+          React.createElement(BarChart,{data:gradeOrder.filter(g=>info.grades[g[0]]).map(g=>({label:g,value:info.grades[g[0]]||0})),color:"var(--blue)"}),
+          React.createElement("div",{style:{height:8,background:"var(--border)",borderRadius:99,overflow:"hidden",marginTop:12}},
+            React.createElement("div",{style:{height:"100%",width:`${avg}%`,background:avg>=75?"var(--green)":avg>=60?"var(--gold)":"var(--red)",borderRadius:99}})
+          ),
+          React.createElement("div",{style:{fontSize:"0.7rem",color:"var(--muted)",marginTop:4}},"Average score: ",avg,"/100")
+        );
+      })
+    ),
+
+    tab==="grades"&&React.createElement("div",null,
+      React.createElement("div",{className:"card",style:{marginBottom:16}},
+        React.createElement("div",{className:"card-hd",style:{marginBottom:12}},
+          React.createElement("span",{className:"card-title"},"📈 Grade Distribution (My Gradings)")),
+        React.createElement(BarChart,{
+          data:gradeOrder.filter(g=>gradeDist[g[0]]).map(g=>({label:g,value:gradeDist[g[0]]||0})),
+          color:"var(--gold)"
+        }),
+        React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap",marginTop:16}},
+          Object.entries(gradeDist).map(([g,n])=>React.createElement("div",{key:g,style:{
+            padding:"10px 14px",background:`${gradeColors[g]||"var(--gold)"}22`,
+            border:`1.5px solid ${gradeColors[g]||"var(--gold)"}`,borderRadius:"var(--radius)",textAlign:"center",minWidth:60}},
+            React.createElement("div",{style:{fontWeight:700,fontSize:"1.2rem",color:gradeColors[g]||"var(--gold)"}},[g]),
+            React.createElement("div",{style:{fontSize:"0.72rem",color:"var(--muted)",marginTop:2}},n," study",n!==1?"s":"")
+          ))
+        )
+      )
+    ),
+
+    tab==="templates"&&React.createElement("div",null,
+      React.createElement("div",{className:"card",style:{marginBottom:16}},
+        React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}},
+          React.createElement("div",{className:"card-title"},"📝 Feedback Templates"),
+          React.createElement("button",{className:"btn btn-gold btn-sm",onClick:()=>setShowTplForm(s=>!s)},showTplForm?"Cancel":"+ New Template")
+        ),
+        showTplForm&&React.createElement("div",{style:{background:"var(--gold-bg)",border:"1.5px solid var(--gold)",borderRadius:"var(--radius)",padding:"14px 16px",marginBottom:14}},
+          React.createElement("div",{className:"fg",style:{marginBottom:10}},
+            React.createElement("label",null,"Template Label"),
+            React.createElement("input",{value:newTpl.label,onChange:e=>setNewTpl(t=>({...t,label:e.target.value})),placeholder:"e.g. Strong Methodology"})
+          ),
+          React.createElement("div",{className:"fg",style:{marginBottom:10}},
+            React.createElement("label",null,"Feedback Text"),
+            React.createElement("textarea",{value:newTpl.text,onChange:e=>setNewTpl(t=>({...t,text:e.target.value})),
+              placeholder:"Write the reusable feedback text here…",style:{minHeight:80}})
+          ),
+          React.createElement("button",{className:"btn btn-gold",onClick:()=>{
+            if(!newTpl.label.trim()||!newTpl.text.trim()){toast.err("Label and text required.");return;}
+            saveTemplates([...templates,{id:Date.now(),...newTpl}]);
+            setNewTpl({label:"",text:""});setShowTplForm(false);toast.ok("Template saved!");
+          }},"Save Template")
+        ),
+        templates.length===0?React.createElement("div",{style:{color:"var(--muted)",fontSize:"0.85rem",textAlign:"center",padding:24}},
+          "No templates yet. Create one above to reuse common feedback."):
+        React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+          templates.map(tpl=>React.createElement("div",{key:tpl.id,style:{padding:"12px 14px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:"var(--radius)"}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}},
+              React.createElement("div",{style:{fontWeight:600,fontSize:"0.88rem",color:"var(--ink)"}},tpl.label),
+              React.createElement("div",{style:{display:"flex",gap:6}},
+                React.createElement("button",{className:"btn btn-ol btn-sm",onClick:()=>{
+                  navigator.clipboard.writeText(tpl.text).then(()=>toast.ok("Copied!")).catch(()=>{});
+                }},"📋 Copy"),
+                React.createElement("button",{className:"btn btn-ol btn-sm",style:{color:"var(--red)",borderColor:"var(--red)"},onClick:()=>{
+                  saveTemplates(templates.filter(t=>t.id!==tpl.id));toast.info("Template deleted.");
+                }},"✕")
+              )
+            ),
+            React.createElement("div",{style:{fontSize:"0.82rem",color:"var(--ink-3)",lineHeight:1.55}},tpl.text)
+          ))
+        )
+      )
+    )
+  );
+}
+
+// ══════════════════════════════════════════
+// FEATURE: STUDY IMPACT TIMELINE CHART
+// Injected into StudyDetailModal via window hook
+// ══════════════════════════════════════════
+function StudyImpactTimeline({ studyId }) {
+  const [logs, setLogs] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [tab, setTab] = React.useState("views");
+
+  React.useEffect(()=>{
+    API.getStudyLogs(studyId).then(l=>{ setLogs(l); setLoading(false); }).catch(()=>setLoading(false));
+  },[studyId]);
+
+  if (loading) return React.createElement("div",{style:{color:"var(--muted)",fontSize:"0.82rem",padding:"10px 0"}},"Loading impact data…");
+  if (!logs) return null;
+
+  const TABS = [["views","👁 Views","var(--teal)"],["downloads","⬇ Downloads","var(--blue)"],["citations","📋 Citations","var(--purple)"]];
+  const current = logs[tab]||[];
+
+  const grouped = {};
+  current.forEach(e=>{
+    const d = e.timestamp ? new Date(e.timestamp).toLocaleDateString("en-PH",{month:"short",day:"numeric"}) : "Unknown";
+    grouped[d]=(grouped[d]||0)+1;
+  });
+  const entries = Object.entries(grouped).slice(-14);
+  const maxVal = Math.max(...entries.map(([,v])=>v),1);
+
+  const activeColor = TABS.find(([id])=>id===tab)?.[2]||"var(--gold)";
+
+  return React.createElement("div",{style:{marginTop:18,borderTop:"1px solid var(--border)",paddingTop:16}},
+    React.createElement("div",{style:{fontSize:"0.72rem",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.8px",color:"var(--muted)",marginBottom:10}},"📈 Impact Timeline"),
+    React.createElement("div",{style:{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}},
+      TABS.map(([id,label,color])=>React.createElement("button",{key:id,onClick:()=>setTab(id),style:{
+        padding:"5px 12px",borderRadius:99,fontSize:"0.72rem",fontWeight:600,cursor:"pointer",
+        border:`1.5px solid ${tab===id?color:"var(--border)"}`,
+        background:tab===id?`${color}22`:"var(--surface)",
+        color:tab===id?color:"var(--muted)",transition:"all .15s"}},label," (",logs[id]?.length||0,")"))
+    ),
+    entries.length===0?React.createElement("div",{style:{color:"var(--muted)",fontSize:"0.82rem",fontStyle:"italic"}},"No ",tab," recorded yet."):
+    React.createElement("div",null,
+      React.createElement("div",{style:{display:"flex",alignItems:"flex-end",gap:4,height:80,marginBottom:4}},
+        entries.map(([date,val])=>React.createElement("div",{key:date,style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}},
+          React.createElement("div",{style:{
+            width:"100%",borderRadius:"3px 3px 0 0",
+            height:`${Math.round(val/maxVal*100)*0.7}px`,
+            minHeight:4,
+            background:activeColor,opacity:0.85,transition:"height .4s ease"}}),
+          val>1&&React.createElement("div",{style:{fontSize:"0.55rem",color:activeColor,fontWeight:700}},val)
+        ))
+      ),
+      React.createElement("div",{style:{display:"flex",gap:4}},
+        entries.map(([date])=>React.createElement("div",{key:date,style:{flex:1,fontSize:"0.52rem",color:"var(--muted)",textAlign:"center",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}},date))
+      ),
+      React.createElement("div",{style:{marginTop:10,fontSize:"0.72rem",color:"var(--muted)",display:"flex",gap:16}},
+        React.createElement("span",null,"Total: ",React.createElement("strong",{style:{color:"var(--ink)"}},logs[tab]?.length||0)),
+        React.createElement("span",null,"Last 14 days shown")
+      )
+    )
+  );
+}
+
+// ══════════════════════════════════════════
+// FEATURE: AI ABSTRACT CRITIQUE (via Groq)
+// Injected in upload modal & study detail
+// ══════════════════════════════════════════
+function AbstractCritique({ abstract, onClose }) {
+  const [result, setResult] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  const run = async () => {
+    if (!abstract || abstract.trim().length < 50) { setError("Abstract too short to critique (min 50 chars)."); return; }
+    setLoading(true); setError(""); setResult(null);
+    const key = (typeof getGroqKey === "function" && getGroqKey()) || localStorage.getItem("sabnahis_groq_key") || "";
+    if (!key) { setError("No Groq API key set. Ask your teacher to add one in AI Assistant."); setLoading(false); return; }
+    try {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":`Bearer ${key}`},
+        body:JSON.stringify({
+          model:"llama-3.3-70b-versatile",
+          max_tokens:900,
+          messages:[{role:"system",content:`You are a rigorous academic research advisor reviewing student abstracts for an STE (Science, Technology, Engineering) high school research portal. Your feedback must be structured, specific, and constructive. Always respond in this exact JSON format:
+{
+  "overall": "A sentence overall assessment",
+  "score": <number 1-10>,
+  "strengths": ["strength1", "strength2"],
+  "weaknesses": ["weakness1", "weakness2"],
+  "suggestions": ["specific suggestion1", "specific suggestion2", "specific suggestion3"],
+  "missing": ["element1 that's missing from a good abstract"],
+  "verdict": "ready|needs-minor-revision|needs-major-revision"
+}
+Respond ONLY with JSON. No markdown, no extra text.`},
+            {role:"user",content:`Critique this abstract:\n\n${abstract.trim()}`}]
+        })
+      });
+      const d = await res.json();
+      const text = (d.content||d.choices?.[0]?.message?.content||"").replace(/```json|```/g,"").trim();
+      const parsed = JSON.parse(text);
+      setResult(parsed);
+    } catch(e){ setError("Failed to get critique. Make sure Groq is connected in AI Assistant."); }
+    setLoading(false);
+  };
+
+  React.useEffect(()=>{ run(); },[]);
+
+  const VERDICT_META = {
+    "ready":["var(--green)","var(--green-light)","✅","Ready to submit"],
+    "needs-minor-revision":["var(--gold)","var(--gold-bg)","📝","Minor revision needed"],
+    "needs-major-revision":["var(--red)","var(--red-light)","⚠️","Major revision needed"]
+  };
+
+  return React.createElement("div",{style:{marginTop:14,borderTop:"1px solid var(--border)",paddingTop:14}},
+    React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}},
+      React.createElement("div",{style:{fontSize:"0.72rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.8px",color:"var(--purple)"}},
+        "🤖 AI Abstract Critique (Groq)"),
+      onClose&&React.createElement("button",{onClick:onClose,style:{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:"0.85rem"}},"✕")
+    ),
+    loading&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,padding:"14px 0",color:"var(--muted)",fontSize:"0.85rem"}},
+      React.createElement("span",{className:"spin"}), "Analyzing abstract with Groq AI…"),
+    error&&React.createElement("div",{style:{padding:"10px 14px",background:"var(--red-light)",border:"1px solid var(--red)",borderRadius:"var(--radius)",fontSize:"0.82rem",color:"var(--red)"}},error),
+    result&&React.createElement("div",null,
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12,marginBottom:14,flexWrap:"wrap"}},
+        result.verdict&&React.createElement("div",{style:{
+          padding:"6px 14px",borderRadius:99,fontSize:"0.78rem",fontWeight:700,
+          background:VERDICT_META[result.verdict]?.[1]||"var(--surface)",
+          color:VERDICT_META[result.verdict]?.[0]||"var(--muted)",
+          border:`1.5px solid ${VERDICT_META[result.verdict]?.[0]||"var(--border)"}`}},
+          (VERDICT_META[result.verdict]?.[2]||"")," ",(VERDICT_META[result.verdict]?.[3]||result.verdict)),
+        result.score!=null&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+          React.createElement("span",{style:{fontSize:"0.72rem",color:"var(--muted)"}},result.score>7?"Quality:":"Score:"),
+          React.createElement("div",{style:{display:"flex",gap:3}},
+            [1,2,3,4,5,6,7,8,9,10].map(i=>React.createElement("div",{key:i,style:{
+              width:10,height:10,borderRadius:"50%",
+              background:i<=result.score?(result.score>=8?"var(--green)":result.score>=6?"var(--gold)":"var(--red)"):"var(--border)"}}))
+          ),
+          React.createElement("span",{style:{fontSize:"0.85rem",fontWeight:700,fontFamily:"var(--font-mono)",color:"var(--ink)"}},result.score,"/10")
+        )
+      ),
+      result.overall&&React.createElement("p",{style:{fontSize:"0.88rem",color:"var(--ink-3)",lineHeight:1.6,marginBottom:12,fontStyle:"italic"}},"\u201C",result.overall,"\u201D"),
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}},
+        result.strengths?.length>0&&React.createElement("div",{style:{background:"var(--green-light)",border:"1px solid var(--green)",borderRadius:"var(--radius)",padding:"10px 12px"}},
+          React.createElement("div",{style:{fontSize:"0.68rem",fontWeight:700,textTransform:"uppercase",color:"var(--green)",marginBottom:6}},
+            "💪 Strengths"),
+          result.strengths.map((s,i)=>React.createElement("div",{key:i,style:{fontSize:"0.8rem",color:"var(--ink)",marginBottom:3,display:"flex",gap:6}},
+            React.createElement("span",{style:{color:"var(--green)",flexShrink:0}},"✓"),s))
+        ),
+        result.weaknesses?.length>0&&React.createElement("div",{style:{background:"var(--red-light)",border:"1px solid var(--red)",borderRadius:"var(--radius)",padding:"10px 12px"}},
+          React.createElement("div",{style:{fontSize:"0.68rem",fontWeight:700,textTransform:"uppercase",color:"var(--red)",marginBottom:6}},
+            "⚠️ Weaknesses"),
+          result.weaknesses.map((w,i)=>React.createElement("div",{key:i,style:{fontSize:"0.8rem",color:"var(--ink)",marginBottom:3,display:"flex",gap:6}},
+            React.createElement("span",{style:{color:"var(--red)",flexShrink:0}},"✗"),w))
+        )
+      ),
+      result.suggestions?.length>0&&React.createElement("div",{style:{background:"var(--purple-light)",border:"1px solid var(--purple)",borderRadius:"var(--radius)",padding:"10px 12px",marginBottom:10}},
+        React.createElement("div",{style:{fontSize:"0.68rem",fontWeight:700,textTransform:"uppercase",color:"var(--purple)",marginBottom:6}},"💡 Suggestions"),
+        result.suggestions.map((s,i)=>React.createElement("div",{key:i,style:{fontSize:"0.8rem",color:"var(--ink)",marginBottom:4,display:"flex",gap:8}},
+          React.createElement("span",{style:{color:"var(--purple)",fontWeight:700,flexShrink:0}},i+1+"."),s))
+      ),
+      result.missing?.length>0&&React.createElement("div",{style:{background:"var(--gold-bg)",border:"1px solid var(--gold)",borderRadius:"var(--radius)",padding:"10px 12px"}},
+        React.createElement("div",{style:{fontSize:"0.68rem",fontWeight:700,textTransform:"uppercase",color:"var(--gold)",marginBottom:6}},"📋 Missing Elements"),
+        result.missing.map((m,i)=>React.createElement("div",{key:i,style:{fontSize:"0.8rem",color:"var(--ink)",marginBottom:3,display:"flex",gap:6}},
+          React.createElement("span",{style:{color:"var(--gold)",flexShrink:0}},"•"),m))
+      )
+    )
+  );
+}
+
+// ══════════════════════════════════════════
+// FEATURE: REVISION DIFF VIEW
+// Shown in study detail to compare versions
+// ══════════════════════════════════════════
+function RevisionDiffView({ current, previous }) {
+  const [showDiff, setShowDiff] = React.useState(false);
+  if (!previous) return null;
+
+  const diffWords = (oldText, newText) => {
+    const oldWords = (oldText||"").split(/\s+/);
+    const newWords = (newText||"").split(/\s+/);
+    const oldSet = new Set(oldWords);
+    const newSet = new Set(newWords);
+    const added = newWords.filter(w=>!oldSet.has(w));
+    const removed = oldWords.filter(w=>!newSet.has(w));
+    const result = newWords.map(w => ({
+      word: w,
+      status: !oldSet.has(w) ? "added" : "unchanged"
+    }));
+    removed.forEach(w => result.push({word:w,status:"removed"}));
+    return {result, addedCount:added.length, removedCount:removed.length, totalNew:newWords.length, totalOld:oldWords.length};
+  };
+
+  const titleChanged = current.title !== previous.title;
+  const abstractChanged = current.abstract !== previous.abstract;
+
+  return React.createElement("div",{style:{marginTop:14,borderTop:"1px solid var(--border)",paddingTop:14}},
+    React.createElement("button",{className:"btn btn-ol btn-sm",onClick:()=>setShowDiff(s=>!s)},
+      showDiff?"▲ Hide Revision Diff":"🔍 Compare with Previous Version (v"+((previous.version||1))+")"),
+    showDiff&&React.createElement("div",{style:{marginTop:12}},
+      React.createElement("div",{style:{display:"flex",gap:8,marginBottom:12}},
+        React.createElement("div",{style:{padding:"4px 10px",borderRadius:99,fontSize:"0.72rem",fontWeight:600,background:"var(--green-light)",color:"var(--green)",border:"1px solid var(--green)"}},"+ Added"),
+        React.createElement("div",{style:{padding:"4px 10px",borderRadius:99,fontSize:"0.72rem",fontWeight:600,background:"var(--red-light)",color:"var(--red)",border:"1px solid var(--red)"}},"− Removed"),
+        React.createElement("div",{style:{padding:"4px 10px",borderRadius:99,fontSize:"0.72rem",fontWeight:600,background:"var(--surface)",color:"var(--muted)",border:"1px solid var(--border)"}},"= Unchanged")
+      ),
+      titleChanged&&React.createElement("div",{style:{marginBottom:14}},
+        React.createElement("div",{style:{fontSize:"0.72rem",fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:6}},"Title"),
+        React.createElement("div",{style:{padding:"8px 12px",background:"var(--red-light)",borderRadius:"var(--radius)",fontSize:"0.82rem",color:"var(--red)",textDecoration:"line-through",marginBottom:4}},previous.title),
+        React.createElement("div",{style:{padding:"8px 12px",background:"var(--green-light)",borderRadius:"var(--radius)",fontSize:"0.82rem",color:"var(--green)"}},current.title)
+      ),
+      abstractChanged&&React.createElement("div",null,
+        React.createElement("div",{style:{fontSize:"0.72rem",fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:8}},"Abstract Changes"),
+        (()=>{
+          const {addedCount,removedCount,totalNew,totalOld} = diffWords(previous.abstract, current.abstract);
+          return React.createElement("div",{style:{marginBottom:8,display:"flex",gap:10,fontSize:"0.72rem"}},
+            React.createElement("span",{style:{color:"var(--green)",fontWeight:600}},"+",addedCount," words added"),
+            React.createElement("span",{style:{color:"var(--red)",fontWeight:600}},"-",removedCount," words removed"),
+            React.createElement("span",{style:{color:"var(--muted)"}},"v",previous.version||1,": ",totalOld," words → v",current.version||1,": ",totalNew," words")
+          );
+        })(),
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+          React.createElement("div",{style:{background:"var(--red-light)",border:"1px solid var(--red)",borderRadius:"var(--radius)",padding:"12px 14px"}},
+            React.createElement("div",{style:{fontSize:"0.65rem",fontWeight:700,color:"var(--red)",textTransform:"uppercase",marginBottom:8}},"v"+(previous.version||1)+" (Previous)"),
+            React.createElement("div",{style:{fontSize:"0.8rem",lineHeight:1.6,color:"var(--ink)"}},previous.abstract)
+          ),
+          React.createElement("div",{style:{background:"var(--green-light)",border:"1px solid var(--green)",borderRadius:"var(--radius)",padding:"12px 14px"}},
+            React.createElement("div",{style:{fontSize:"0.65rem",fontWeight:700,color:"var(--green)",textTransform:"uppercase",marginBottom:8}},"v"+(current.version||1)+" (Current)"),
+            React.createElement("div",{style:{fontSize:"0.8rem",lineHeight:1.6,color:"var(--ink)"}},current.abstract)
+          )
+        )
+      ),
+      !titleChanged&&!abstractChanged&&React.createElement("div",{style:{color:"var(--muted)",fontSize:"0.82rem",fontStyle:"italic"}},"No content changes detected between versions.")
+    )
+  );
+}
+
+// Expose components globally for inline usage
+window.StudyImpactTimeline = StudyImpactTimeline;
+window.AbstractCritique = AbstractCritique;
+window.RevisionDiffView = RevisionDiffView;
+
 ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(App, null));
 
 </script>
@@ -12040,5 +13335,1037 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   };
 })();
 </script>
+
+<script>
+// ── Streak flame enhancer ──────────────────────────────────────────
+// After React renders, upgrade all .streak-flame elements:
+// 1. Wrap them in .streak-flame-wrap for ember particle pseudo-elements
+// 2. Add tier-specific animation class based on their glow color
+// 3. Add multiple layered ember <span> particles for a richer fire effect
+// 4. Repeat on a MutationObserver so newly-mounted flames get upgraded too
+(function() {
+  var TIER_COLORS = {
+    '#f0883e': 'orange', 'rgba(240,136,62': 'orange',
+    '#e0b830': 'yellow', 'rgba(224,184,48': 'yellow',
+    '#e6493f': 'red',    'rgba(230,73,63':  'red',
+    '#9b65e0': 'purple', 'rgba(155,101,224':'purple',
+    '#3b82d4': 'blue',   'rgba(59,130,212': 'blue',
+  };
+
+  function detectTier(el) {
+    var style = el.getAttribute('style') || '';
+    for (var key in TIER_COLORS) {
+      if (style.indexOf(key) !== -1) return TIER_COLORS[key];
+    }
+    // Check computed filter
+    var computed = window.getComputedStyle(el).filter || '';
+    if (computed.indexOf('rgb(59') !== -1) return 'blue';
+    if (computed.indexOf('rgb(155') !== -1) return 'purple';
+    if (computed.indexOf('rgb(230') !== -1 || computed.indexOf('rgb(192') !== -1) return 'red';
+    if (computed.indexOf('rgb(224') !== -1 || computed.indexOf('rgb(201') !== -1) return 'yellow';
+    if (computed.indexOf('rgb(240') !== -1 || computed.indexOf('rgb(248') !== -1) return 'orange';
+    return null;
+  }
+
+  // Create ember spark elements
+  function makeEmber(delay, xDrift, size, color) {
+    var e = document.createElement('span');
+    e.style.cssText = [
+      'position:absolute',
+      'pointer-events:none',
+      'border-radius:50%',
+      'width:' + size + 'px',
+      'height:' + size + 'px',
+      'background:' + color,
+      'left:' + (40 + Math.random() * 20) + '%',
+      'bottom:60%',
+      'opacity:0',
+      'animation:flameEmber ' + (1.6 + Math.random() * 1.2) + 's ease-out infinite',
+      'animation-delay:' + delay + 's',
+      '--xd:' + xDrift + 'px',
+    ].join(';');
+    return e;
+  }
+
+  // Ember keyframes injected once
+  var emberStyleInjected = false;
+  function injectEmberStyle() {
+    if (emberStyleInjected) return;
+    emberStyleInjected = true;
+    var s = document.createElement('style');
+    s.textContent = [
+      '@keyframes flameEmber {',
+      '  0%   { transform:translate(0,0) scale(1);    opacity:0; }',
+      '  12%  { opacity:1; }',
+      '  50%  { transform:translate(var(--xd,0px),-18px) scale(0.65); opacity:0.7; }',
+      '  100% { transform:translate(calc(var(--xd,0px)*1.4),-32px) scale(0.15); opacity:0; }',
+      '}',
+      // Shimmer halo for high-tier flames
+      '@keyframes flameHalo {',
+      '  0%,100% { box-shadow: 0 0 0 0 rgba(255,160,0,0); }',
+      '  50%     { box-shadow: 0 0 12px 4px rgba(255,160,0,0.22); }',
+      '}',
+    ].join('\n');
+    document.head.appendChild(s);
+  }
+
+  var emberColors = {
+    orange: ['#ffcc44','#ff9922','#ffaa33'],
+    yellow: ['#ffe566','#ffd422','#ffbb44'],
+    red:    ['#ff7733','#ff4422','#ff9955'],
+    purple: ['#cc88ff','#aa66ee','#dd99ff'],
+    blue:   ['#66aaff','#4488ee','#88ccff'],
+  };
+
+  function upgradeFlame(el) {
+    if (el.dataset.flameUpgraded) return;
+    // Skip flames inside the topbar pill — keep it calm
+    var _anc = el.parentNode;
+    while (_anc && _anc !== document.body) {
+      if (_anc.classList && _anc.classList.contains('tb-pill')) return;
+      _anc = _anc.parentNode;
+    }
+    el.dataset.flameUpgraded = '1';
+    injectEmberStyle();
+
+    var parent = el.parentNode;
+    if (!parent) return;
+
+    // Wrap in .streak-flame-wrap if not already
+    var wrap;
+    if (parent.classList && parent.classList.contains('streak-flame-wrap')) {
+      wrap = parent;
+    } else {
+      wrap = document.createElement('span');
+      wrap.className = 'streak-flame-wrap';
+      wrap.style.cssText = 'position:relative;display:inline-flex;align-items:center;justify-content:center;';
+      parent.insertBefore(wrap, el);
+      wrap.appendChild(el);
+    }
+
+    // Add tier class
+    var tier = detectTier(el);
+    if (tier) {
+      el.classList.add('streak-flame-' + tier);
+      // Add ember sparks
+      var colors = emberColors[tier] || emberColors.orange;
+      var count = tier === 'blue' ? 5 : tier === 'purple' ? 4 : tier === 'red' ? 4 : 3;
+      for (var i = 0; i < count; i++) {
+        var xd = (Math.random() - 0.5) * 14;
+        var sz = 2 + Math.random() * 2.5;
+        var col = colors[i % colors.length];
+        var delay = (i * 0.45) % 2.0;
+        wrap.appendChild(makeEmber(delay, xd, sz, col));
+      }
+    }
+  }
+
+  function upgradeAll() {
+    document.querySelectorAll('.streak-flame').forEach(upgradeFlame);
+  }
+
+  // Run after React mounts (React renders async after DOMContentLoaded)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(upgradeAll, 600); });
+  } else {
+    setTimeout(upgradeAll, 600);
+  }
+
+  // Watch for new flames rendered by React navigation
+  var obs = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      m.addedNodes.forEach(function(node) {
+        if (node.nodeType !== 1) return;
+        if (node.classList && node.classList.contains('streak-flame')) upgradeFlame(node);
+        node.querySelectorAll && node.querySelectorAll('.streak-flame').forEach(upgradeFlame);
+      });
+    });
+  });
+  document.addEventListener('DOMContentLoaded', function() {
+    obs.observe(document.body, { childList: true, subtree: true });
+    // Also periodically re-check for style changes (tier upgrades)
+    setInterval(function() {
+      document.querySelectorAll('.streak-flame[data-flame-upgraded]').forEach(function(el) {
+        var tier = detectTier(el);
+        if (tier && !el.classList.contains('streak-flame-' + tier)) {
+          ['orange','yellow','red','purple','blue'].forEach(function(t){ el.classList.remove('streak-flame-'+t); });
+          el.classList.add('streak-flame-' + tier);
+        }
+      });
+    }, 2000);
+
+    // ── Wire up streak-circle hover on big 54px flame circle containers ──
+    var TIER_MAP = {
+      orange: { color:'#f0883e', glow:'rgba(240,136,62,0.55)' },
+      yellow: { color:'#e0b830', glow:'rgba(224,184,48,0.55)' },
+      red:    { color:'#e6493f', glow:'rgba(230,73,63,0.55)'  },
+      purple: { color:'#9b65e0', glow:'rgba(155,101,224,0.55)'},
+      blue:   { color:'#3b82d4', glow:'rgba(59,130,212,0.55)' },
+    };
+    // Default fallback glow when no tier detected yet
+    var DEFAULT_GLOW = { color:'#9b65e0', glow:'rgba(155,101,224,0.55)' };
+
+    function upgradeCircles() {
+      // Strategy: find every element whose inline style sets borderRadius to 50%
+      // AND that contains a 🔥 somewhere inside it. That's the circle.
+      document.querySelectorAll('*').forEach(function(el) {
+        if (el.dataset.circleUpgraded) return;
+        var s = el.style;
+        if (!s) return;
+        // Must have border-radius 50% (React sets it as "50%")
+        if (s.borderRadius !== '50%') return;
+        // Must contain a fire emoji text node or .streak-flame child
+        var txt = el.textContent || '';
+        if (txt.indexOf('🔥') === -1) return;
+        // Exclude very small ones (topbar pill is ~28px, tier badges ~30px — circle is 54px)
+        var w = parseInt(s.width) || 0;
+        if (w > 0 && w < 44) return;
+
+        el.dataset.circleUpgraded = '1';
+        el.classList.add('streak-circle');
+
+        // Detect tier from border color inline style
+        var tierKey = null;
+        var borderVal = s.borderColor || s.border || '';
+        for (var t in TIER_MAP) {
+          if (borderVal.indexOf(TIER_MAP[t].color) !== -1) { tierKey = t; break; }
+        }
+        // Fallback: check flame child class
+        if (!tierKey) {
+          var fl = el.querySelector('.streak-flame');
+          if (fl) {
+            ['blue','purple','red','yellow','orange'].forEach(function(t) {
+              if (!tierKey && fl.classList.contains('streak-flame-' + t)) tierKey = t;
+            });
+          }
+        }
+        var tv = tierKey ? TIER_MAP[tierKey] : DEFAULT_GLOW;
+        el.style.setProperty('--sk-color', tv.color);
+        el.style.setProperty('--sk-glow',  tv.glow);
+      });
+
+      // Tier badge row — small column divs that have 🔥 as first child span
+      document.querySelectorAll('div').forEach(function(el) {
+        if (el.dataset.tierBadge) return;
+        if (!el.children || el.children.length < 2) return;
+        var first = el.children[0];
+        if (!first || first.textContent.trim() !== '🔥') return;
+        var s = el.style;
+        // Must be a column flex with padding (the tier badge cell)
+        if (!s || !s.padding) return;
+        el.dataset.tierBadge = '1';
+        el.classList.add('streak-tier-badge');
+        first.classList.add('streak-tier-emoji');
+      });
+    }
+    setTimeout(upgradeCircles, 800);
+    setInterval(upgradeCircles, 2500);
+
+    // streak pill upgrade removed — topbar pill stays calm
+  });
+})();
+</script>
+
+<style>
+/* ══════════════════════════════════════════
+   BADGE EARNED POPUP
+══════════════════════════════════════════ */
+#badge-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+}
+#badge-popup-overlay.active {
+  pointer-events: all;
+  opacity: 1;
+}
+
+/* Dark blurred backdrop */
+#badge-popup-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#badge-popup-overlay.active #badge-popup-backdrop { opacity: 1; }
+
+/* The card */
+#badge-popup-card {
+  position: relative;
+  z-index: 1;
+  background: var(--white, #1a1a2e);
+  border: 2px solid var(--bp-color, #e0b830);
+  border-radius: 24px;
+  padding: 40px 48px 36px;
+  text-align: center;
+  min-width: 320px;
+  max-width: 420px;
+  box-shadow:
+    0 0 0 4px var(--bp-glow, rgba(224,184,48,0.25)),
+    0 0 40px 12px var(--bp-glow, rgba(224,184,48,0.15)),
+    0 24px 60px rgba(0,0,0,0.5);
+  transform: scale(0.4) translateY(40px);
+  opacity: 0;
+  transition:
+    transform 0.45s cubic-bezier(.34,1.56,.64,1),
+    opacity   0.3s ease;
+}
+#badge-popup-overlay.active #badge-popup-card {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+/* Dismiss shrink */
+#badge-popup-overlay.dismiss #badge-popup-card {
+  transform: scale(0.85) translateY(20px);
+  opacity: 0;
+  transition: transform 0.25s ease-in, opacity 0.2s ease-in;
+}
+#badge-popup-overlay.dismiss #badge-popup-backdrop {
+  opacity: 0;
+  transition: opacity 0.25s ease-in;
+}
+
+/* Badge icon bounces in */
+#badge-popup-icon {
+  font-size: 5rem;
+  line-height: 1;
+  display: block;
+  margin-bottom: 12px;
+  animation: badgeIconEntry 0.6s cubic-bezier(.34,1.56,.64,1) 0.2s both;
+  filter: drop-shadow(0 0 18px var(--bp-glow, rgba(224,184,48,0.7)));
+}
+@keyframes badgeIconEntry {
+  0%   { transform: scale(0) rotate(-25deg); opacity: 0; }
+  60%  { transform: scale(1.18) rotate(5deg); opacity: 1; }
+  80%  { transform: scale(0.95) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+#badge-popup-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--bp-color, #e0b830);
+  margin-bottom: 6px;
+  opacity: 0;
+  animation: badgeFadeUp 0.4s ease 0.45s both;
+}
+#badge-popup-title {
+  font-size: 1.7rem;
+  font-weight: 800;
+  font-family: var(--font-display, serif);
+  color: var(--ink, #fff);
+  margin-bottom: 6px;
+  opacity: 0;
+  animation: badgeFadeUp 0.4s ease 0.55s both;
+}
+#badge-popup-desc {
+  font-size: 0.88rem;
+  color: var(--muted, #aaa);
+  margin-bottom: 28px;
+  opacity: 0;
+  animation: badgeFadeUp 0.4s ease 0.63s both;
+}
+@keyframes badgeFadeUp {
+  0%   { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+#badge-popup-btn {
+  display: inline-block;
+  padding: 11px 32px;
+  background: var(--bp-color, #e0b830);
+  color: #fff;
+  border: none;
+  border-radius: 99px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 18px var(--bp-glow, rgba(224,184,48,0.4));
+  transition: transform 0.15s, box-shadow 0.15s;
+  opacity: 0;
+  animation: badgeFadeUp 0.4s ease 0.72s both;
+}
+#badge-popup-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 24px var(--bp-glow, rgba(224,184,48,0.55));
+}
+
+/* Confetti particles */
+.bp-confetti {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Shine sweep across card */
+#badge-popup-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.07) 50%, transparent 70%);
+  animation: badgeShine 1.8s ease 0.5s infinite;
+  pointer-events: none;
+}
+@keyframes badgeShine {
+  0%   { transform: translateX(-100%); }
+  40%  { transform: translateX(200%); }
+  100% { transform: translateX(200%); }
+}
+
+/* Pulsing ring around card */
+#badge-popup-ring {
+  position: absolute;
+  inset: -12px;
+  border-radius: 32px;
+  border: 2px solid var(--bp-color, #e0b830);
+  opacity: 0;
+  pointer-events: none;
+  animation: badgeRingPulse 1.6s ease 0.6s infinite;
+}
+@keyframes badgeRingPulse {
+  0%   { inset: -6px;  opacity: 0.6; }
+  100% { inset: -22px; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #badge-popup-card, #badge-popup-icon,
+  #badge-popup-eyebrow, #badge-popup-title,
+  #badge-popup-desc, #badge-popup-btn { animation: none; opacity: 1; transform: none; }
+}
+</style>
+
+<!-- Badge earned popup -->
+<div id="badge-popup-overlay" role="dialog" aria-modal="true" aria-label="Badge earned">
+  <div id="badge-popup-backdrop"></div>
+  <div id="badge-popup-card">
+    <div id="badge-popup-ring"></div>
+    <span id="badge-popup-icon">🏅</span>
+    <div id="badge-popup-eyebrow">New Badge Unlocked!</div>
+    <div id="badge-popup-title">Badge Name</div>
+    <div id="badge-popup-desc">Keep reading to unlock even more badges.</div>
+    <button id="badge-popup-btn" onclick="closeBadgePopup()">Awesome! 🎉</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  // Badge color map (matches READING_BADGES in app)
+  var BADGE_COLORS = {
+    // Try to derive from icon/label, fallback to gold
+    default: { color: '#e0b830', glow: 'rgba(224,184,48,0.45)' },
+    green:   { color: '#22c55e', glow: 'rgba(34,197,94,0.45)'  },
+    teal:    { color: '#14b8a6', glow: 'rgba(20,184,166,0.45)' },
+    blue:    { color: '#3b82f6', glow: 'rgba(59,130,246,0.45)' },
+    purple:  { color: '#9b65e0', glow: 'rgba(155,101,224,0.45)'},
+    gold:    { color: '#e0b830', glow: 'rgba(224,184,48,0.45)' },
+    red:     { color: '#ef4444', glow: 'rgba(239,68,68,0.45)'  },
+  };
+
+  // Confetti colours
+  var CONFETTI_COLORS = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff922b','#fff'];
+
+  function spawnConfetti(card, color) {
+    var count = 38;
+    for (var i = 0; i < count; i++) {
+      (function(i) {
+        var el = document.createElement('div');
+        el.className = 'bp-confetti';
+        var size = 6 + Math.random() * 7;
+        var col = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+        var startX = 30 + Math.random() * 40; // % from left
+        var startY = 30 + Math.random() * 40;
+        var angle  = Math.random() * 360;
+        var dist   = 80 + Math.random() * 160;
+        var tx = Math.cos(angle * Math.PI/180) * dist;
+        var ty = Math.sin(angle * Math.PI/180) * dist - 60;
+        var rot = (Math.random() - 0.5) * 720;
+        var delay = Math.random() * 0.35;
+        var dur   = 0.7 + Math.random() * 0.6;
+        el.style.cssText = [
+          'width:' + size + 'px',
+          'height:' + size + 'px',
+          'background:' + col,
+          'border-radius:' + (Math.random() > 0.5 ? '50%' : '2px'),
+          'left:' + startX + '%',
+          'top:' + startY + '%',
+          'position:absolute',
+          'pointer-events:none',
+          'z-index:10',
+        ].join(';');
+        card.appendChild(el);
+        // Animate via WAAPI
+        el.animate([
+          { transform: 'translate(0,0) rotate(0deg)', opacity: 1 },
+          { transform: 'translate(' + tx + 'px,' + ty + 'px) rotate(' + rot + 'deg)', opacity: 0 }
+        ], { duration: dur * 1000, delay: delay * 1000, easing: 'cubic-bezier(.25,.46,.45,.94)', fill: 'forwards' });
+      })(i);
+    }
+    // Clean up after animation
+    setTimeout(function() {
+      card.querySelectorAll('.bp-confetti').forEach(function(c){ c.remove(); });
+    }, 1800);
+  }
+
+  window.showBadgePopup = function(badge) {
+    var overlay = document.getElementById('badge-popup-overlay');
+    var card    = document.getElementById('badge-popup-card');
+    var icon    = document.getElementById('badge-popup-icon');
+    var title   = document.getElementById('badge-popup-title');
+    var desc    = document.getElementById('badge-popup-desc');
+
+    if (!overlay) return;
+
+    // Set content
+    icon.textContent  = badge.icon  || '🏅';
+    title.textContent = badge.label || 'New Badge';
+    desc.textContent  = badge.desc  || 'Keep reading to unlock even more badges!';
+
+    // Resolve CSS var colors at runtime
+    function resolveColor(c) {
+      if (!c) return '#e0b830';
+      if (c.indexOf('var(') === 0) {
+        var m = c.match(/var\(([^)]+)\)/);
+        if (m) { var v = getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim(); if (v) return v; }
+      }
+      return c;
+    }
+    function hexToGlow(h) {
+      if (!h || h[0] !== '#' || h.length < 7) return 'rgba(224,184,48,0.45)';
+      var r = parseInt(h.slice(1,3),16), g = parseInt(h.slice(3,5),16), b = parseInt(h.slice(5,7),16);
+      if (isNaN(r)) return 'rgba(224,184,48,0.45)';
+      return 'rgba('+r+','+g+','+b+',0.45)';
+    }
+    // Set theme color
+    var tc = resolveColor(badge.color) || '#e0b830';
+    var tg = badge.glow || hexToGlow(tc);
+    overlay.style.setProperty('--bp-color', tc);
+    overlay.style.setProperty('--bp-glow',  tg);
+
+    // Reset animations by re-cloning the card
+    var fresh = card.cloneNode(true);
+    card.parentNode.replaceChild(fresh, card);
+    // Re-wire close btn
+    fresh.querySelector('#badge-popup-btn').addEventListener('click', closeBadgePopup);
+
+    // Show
+    overlay.classList.remove('dismiss');
+    overlay.classList.add('active');
+
+    // Trap focus
+    overlay.querySelector('#badge-popup-btn') && overlay.querySelector('#badge-popup-btn').focus();
+
+    // Confetti after card pops in
+    setTimeout(function() { spawnConfetti(fresh, tc); }, 380);
+
+    // Auto-dismiss after 6s
+    var autoTimer = setTimeout(closeBadgePopup, 6000);
+    overlay._autoTimer = autoTimer;
+  };
+
+  window.closeBadgePopup = function() {
+    var overlay = document.getElementById('badge-popup-overlay');
+    if (!overlay) return;
+    if (overlay._autoTimer) clearTimeout(overlay._autoTimer);
+    overlay.classList.add('dismiss');
+    setTimeout(function() {
+      overlay.classList.remove('active', 'dismiss');
+    }, 300);
+  };
+
+  // Close on backdrop click
+  document.addEventListener('click', function(e) {
+    var overlay = document.getElementById('badge-popup-overlay');
+    if (!overlay || !overlay.classList.contains('active')) return;
+    if (e.target === document.getElementById('badge-popup-backdrop')) {
+      closeBadgePopup();
+    }
+  });
+
+  // Close on Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeBadgePopup();
+  });
+})();
+</script>
+
+<style>
+/* ══════════════════════════════════════════════════════
+   MY STATS — FUN OVERHAUL
+══════════════════════════════════════════════════════ */
+
+/* ── Page header glow ── */
+.msp-header {
+  position: relative;
+  margin-bottom: 24px;
+}
+.msp-title {
+  font-size: 2rem !important;
+  background: linear-gradient(120deg, var(--gold), var(--teal), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: mspTitleShimmer 4s ease infinite;
+  background-size: 200% auto;
+}
+@keyframes mspTitleShimmer {
+  0%   { background-position: 0% center; }
+  50%  { background-position: 100% center; }
+  100% { background-position: 0% center; }
+}
+.msp-subtitle { font-size: 0.88rem; color: var(--muted); margin-top: 2px; }
+
+/* ── XP bar ── */
+.msp-xp-bar-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: mspFadeIn .5s ease both;
+}
+.msp-xp-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.msp-xp-level {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.msp-xp-badge {
+  background: linear-gradient(135deg, var(--gold), #ff922b);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 3px 10px;
+  border-radius: 99px;
+  letter-spacing: 0.5px;
+}
+.msp-xp-label { font-size: 0.82rem; font-weight: 700; color: var(--ink); }
+.msp-xp-pts { font-size: 0.75rem; color: var(--muted); }
+.msp-xp-track {
+  height: 10px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+  position: relative;
+}
+.msp-xp-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--gold), #ff922b, var(--teal));
+  background-size: 200% auto;
+  width: 0%;
+  transition: width 1.2s cubic-bezier(.34,1.1,.64,1);
+  animation: mspXpShimmer 2s linear infinite;
+  position: relative;
+}
+@keyframes mspXpShimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+.msp-xp-fill::after {
+  content: '';
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 16px;
+  background: rgba(255,255,255,0.35);
+  border-radius: 99px;
+  filter: blur(3px);
+}
+.msp-xp-next { font-size: 0.7rem; color: var(--muted); text-align: right; }
+
+/* ── Stat pills ── */
+.msp-stat {
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  transition:
+    transform .2s cubic-bezier(.34,1.56,.64,1),
+    box-shadow .2s ease,
+    border-color .2s ease;
+  border-radius: 10px !important;
+}
+.msp-stat::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--msp-color, var(--gold)) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity .25s ease;
+  pointer-events: none;
+  border-radius: 10px;
+}
+.msp-stat:hover {
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18), 0 0 0 2px var(--msp-color, var(--gold));
+  border-color: var(--msp-color, var(--gold)) !important;
+  z-index: 2;
+}
+.msp-stat:hover::before { opacity: 0.07; }
+.msp-stat:hover .msp-val { transform: scale(1.1); }
+.msp-val {
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1);
+  display: inline-block;
+  transform-origin: left center;
+}
+/* Pop animation on first load */
+@keyframes mspStatPop {
+  0%   { opacity: 0; transform: translateY(12px) scale(.9); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Fun stat icons ── */
+.msp-stat-icon {
+  font-size: 1.1rem;
+  margin-bottom: 4px;
+  display: block;
+  line-height: 1;
+}
+
+/* ── Motivational banner ── */
+.msp-motive {
+  background: linear-gradient(120deg, rgba(var(--gold-rgb,201,162,39),.12), rgba(var(--teal-rgb,20,184,166),.08));
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: mspFadeIn .6s ease .3s both;
+}
+.msp-motive-icon { font-size: 1.4rem; flex-shrink: 0; }
+.msp-motive-text { font-size: 0.85rem; color: var(--ink-3); font-style: italic; line-height: 1.4; }
+.msp-motive-text strong { color: var(--gold); font-style: normal; }
+
+/* ── Animated card entrance ── */
+@keyframes mspFadeIn {
+  0%   { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.msp-card-animate {
+  animation: mspFadeIn .5s ease both;
+}
+
+/* ── Impact bar inside Best Study card ── */
+.msp-impact-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.msp-impact-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.msp-impact-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  width: 76px;
+  flex-shrink: 0;
+}
+.msp-impact-track {
+  flex: 1;
+  height: 8px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.msp-impact-fill {
+  height: 100%;
+  border-radius: 99px;
+  width: 0%;
+  transition: width 1s cubic-bezier(.34,1.1,.64,1) .4s;
+}
+.msp-impact-val {
+  font-size: 0.75rem;
+  font-weight: 700;
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Counters ── */
+.msp-countup { display: inline; }
+
+/* ── Scroll reveal ── */
+.msp-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity .5s ease, transform .5s ease;
+}
+.msp-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msp-stat, .msp-xp-fill, .msp-impact-fill { transition: none; animation: none; }
+  .msp-title { animation: none; -webkit-text-fill-color: var(--ink); }
+  .msp-reveal { opacity: 1; transform: none; }
+}
+</style>
+
+<script>
+(function() {
+  // ── Count-up animation ──────────────────────────────────
+  function countUp(el, target, duration) {
+    var start = 0, startTime = null;
+    function step(ts) {
+      if (!startTime) startTime = ts;
+      var prog = Math.min((ts - startTime) / duration, 1);
+      var ease = 1 - Math.pow(1 - prog, 3); // cubic ease-out
+      el.textContent = Math.round(ease * target);
+      if (prog < 1) requestAnimationFrame(step);
+      else el.textContent = target;
+    }
+    requestAnimationFrame(step);
+  }
+
+  // ── XP system ──────────────────────────────────────────
+  // XP formula: 10/study uploaded + 5/view + 8/download + 15/citation + 3/read + 2/bookmark + 20/streak
+  function calcXP(stats) {
+    return (stats.uploads * 10) + (stats.views * 5) + (stats.downloads * 8) +
+           (stats.citations * 15) + (stats.reads * 3) + (stats.bookmarks * 2) +
+           (stats.streak * 20) + (stats.coauthored * 8);
+  }
+  var LEVELS = [
+    { min: 0,    label: 'Rookie Researcher',    emoji: '🌱' },
+    { min: 50,   label: 'Curious Learner',       emoji: '📖' },
+    { min: 120,  label: 'Rising Scholar',        emoji: '🔬' },
+    { min: 250,  label: 'Research Explorer',     emoji: '🧭' },
+    { min: 450,  label: 'Dedicated Analyst',     emoji: '📊' },
+    { min: 700,  label: 'Knowledge Hunter',      emoji: '🏹' },
+    { min: 1000, label: 'Science Champion',      emoji: '🏆' },
+    { min: 1500, label: 'STE Legend',            emoji: '⭐' },
+  ];
+  function getLevel(xp) {
+    var lvl = LEVELS[0], next = LEVELS[1];
+    for (var i = 0; i < LEVELS.length; i++) {
+      if (xp >= LEVELS[i].min) { lvl = LEVELS[i]; next = LEVELS[i+1] || null; }
+    }
+    return { lvl: lvl, next: next };
+  }
+
+  // ── Motivational quotes ────────────────────────────────
+  var QUOTES = [
+    { text: 'Every great study started with a single question.', icon: '💡' },
+    { text: 'Your research is making an impact — keep going!', icon: '🚀' },
+    { text: 'Knowledge shared is knowledge multiplied.', icon: '✨' },
+    { text: 'Science is not a destination — it's a journey.', icon: '🧭' },
+    { text: 'The more you read, the more you discover.', icon: '📚' },
+    { text: 'Consistency builds greatness. Keep that streak alive!', icon: '🔥' },
+    { text: 'One citation at a time, you're changing minds.', icon: '💬' },
+  ];
+
+  // ── Main enhancer ──────────────────────────────────────
+  var enhanced = false;
+  function enhanceMyStats() {
+    // Only run on My Stats page
+    var h2 = document.querySelector('h2');
+    if (!h2 || h2.textContent.indexOf('My Stats') === -1) return;
+    if (enhanced) return;
+
+    // Collect stat pills grid
+    var pillGrid = null;
+    document.querySelectorAll('div[style]').forEach(function(el) {
+      var s = el.style;
+      if (s.gap === '10px' && s.marginBottom === '18px' && el.children.length >= 7) pillGrid = el;
+    });
+    if (!pillGrid) return;
+    enhanced = true;
+
+    // ── Style the page title ──
+    var titleWrap = h2.closest('div');
+    if (titleWrap) titleWrap.classList.add('msp-header');
+    h2.classList.add('msp-title');
+
+    // ── Collect stat values from pills ──
+    var pills = Array.from(pillGrid.children);
+    var vals = pills.map(function(p) {
+      var num = p.querySelector('[style*="1.5rem"]');
+      return num ? (parseInt(num.textContent) || 0) : 0;
+    });
+    // pills order: uploads, coauthored, views, downloads, citations, reads, bookmarks, streak, bestStreak
+    var stats = {
+      uploads: vals[0]||0, coauthored: vals[1]||0, views: vals[2]||0,
+      downloads: vals[3]||0, citations: vals[4]||0, reads: vals[5]||0,
+      bookmarks: vals[6]||0, streak: vals[7]||0
+    };
+    var xp = calcXP(stats);
+    var lv = getLevel(xp);
+
+    // ── Enhance each stat pill ──
+    var ICONS = ['📄','🤝','👁️','⬇️','📋','📖','🔖','🔥','🏅'];
+    var COLORS = ['var(--gold)','var(--teal)','var(--teal)','var(--blue)','var(--purple)','var(--green)','var(--ink-3)','#f0883e','var(--gold)'];
+    pills.forEach(function(pill, i) {
+      pill.classList.add('msp-stat');
+      pill.style.setProperty('--msp-color', COLORS[i] || 'var(--gold)');
+      pill.style.animation = 'mspStatPop .4s ease ' + (i * 0.055) + 's both';
+
+      // Add icon above label
+      var labelEl = pill.querySelector('[style*="uppercase"]');
+      if (labelEl && !pill.querySelector('.msp-stat-icon')) {
+        var ico = document.createElement('span');
+        ico.className = 'msp-stat-icon';
+        ico.textContent = ICONS[i] || '📌';
+        pill.insertBefore(ico, pill.firstChild);
+      }
+
+      // Wrap value for scale animation
+      var valEl = pill.querySelector('[style*="1.5rem"]');
+      if (valEl && !valEl.classList.contains('msp-val')) {
+        valEl.classList.add('msp-val');
+        var orig = parseInt(valEl.textContent) || 0;
+        valEl.textContent = '0';
+        countUp(valEl, orig, 900 + i * 80);
+      }
+    });
+
+    // ── Inject XP bar above pills ──
+    var xpPct = lv.next ? Math.round(((xp - lv.lvl.min) / (lv.next.min - lv.lvl.min)) * 100) : 100;
+    var xpBar = document.createElement('div');
+    xpBar.className = 'msp-xp-bar-wrap';
+    xpBar.innerHTML =
+      '<div class="msp-xp-top">' +
+        '<div class="msp-xp-level">' +
+          '<span class="msp-xp-badge">' + lv.lvl.emoji + ' Level ' + (LEVELS.indexOf(lv.lvl)+1) + '</span>' +
+          '<span class="msp-xp-label">' + lv.lvl.label + '</span>' +
+        '</div>' +
+        '<span class="msp-xp-pts">' + xp.toLocaleString() + ' XP</span>' +
+      '</div>' +
+      '<div class="msp-xp-track"><div class="msp-xp-fill" id="msp-xp-fill"></div></div>' +
+      '<div class="msp-xp-next">' + (lv.next ? (lv.next.min - xp) + ' XP to ' + lv.next.emoji + ' ' + lv.next.label : '🌟 Max level reached!') + '</div>';
+    pillGrid.parentNode.insertBefore(xpBar, pillGrid);
+    setTimeout(function() {
+      var fill = document.getElementById('msp-xp-fill');
+      if (fill) fill.style.width = xpPct + '%';
+    }, 300);
+
+    // ── Inject motivational quote ──
+    var q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+    var motive = document.createElement('div');
+    motive.className = 'msp-motive';
+    motive.innerHTML = '<span class="msp-motive-icon">' + q.icon + '</span><span class="msp-motive-text">' + q.text + '</span>';
+    pillGrid.parentNode.insertBefore(motive, pillGrid.nextSibling);
+
+    // ── Animate cards below pills on scroll ──
+    var cards = document.querySelectorAll('.card');
+    cards.forEach(function(card, i) {
+      card.classList.add('msp-reveal');
+      card.style.transitionDelay = (i * 0.07) + 's';
+    });
+    var revealObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          revealObserver.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1 });
+    cards.forEach(function(c) { revealObserver.observe(c); });
+
+    // ── Impact bars in Best Study card ──
+    // Find the Best Study card by its gold left-border
+    setTimeout(function() {
+      var bestCard = null;
+      document.querySelectorAll('.card').forEach(function(c) {
+        if (c.style.borderLeft && c.style.borderLeft.indexOf('gold') !== -1) bestCard = c;
+      });
+      if (!bestCard) return;
+      // Get stats from existing spans
+      var spans = bestCard.querySelectorAll('span[style*="fontWeight: 600"]');
+      if (spans.length < 3) return;
+      var bViews = parseInt(spans[0].textContent) || 0;
+      var bDls   = parseInt(spans[1].textContent) || 0;
+      var bCites = parseInt(spans[2].textContent) || 0;
+      var maxVal = Math.max(bViews, bDls, bCites, 1);
+
+      var impactRows = [
+        { label: '👁 Views',     val: bViews, color: 'var(--teal)',   pct: Math.round((bViews/maxVal)*100) },
+        { label: '⬇ Downloads', val: bDls,   color: 'var(--blue)',   pct: Math.round((bDls/maxVal)*100)   },
+        { label: '📋 Citations', val: bCites, color: 'var(--purple)', pct: Math.round((bCites/maxVal)*100) },
+      ];
+      var wrap = document.createElement('div');
+      wrap.className = 'msp-impact-row';
+      impactRows.forEach(function(row) {
+        var item = document.createElement('div');
+        item.className = 'msp-impact-item';
+        item.innerHTML =
+          '<span class="msp-impact-label">' + row.label + '</span>' +
+          '<div class="msp-impact-track"><div class="msp-impact-fill" style="background:' + row.color + '" data-pct="' + row.pct + '"></div></div>' +
+          '<span class="msp-impact-val" style="color:' + row.color + '">' + row.val + '</span>';
+        wrap.appendChild(item);
+      });
+      bestCard.appendChild(wrap);
+      // Animate fills
+      setTimeout(function() {
+        wrap.querySelectorAll('.msp-impact-fill').forEach(function(f) {
+          f.style.width = f.dataset.pct + '%';
+        });
+      }, 200);
+    }, 600);
+
+    // ── Hover tooltip on XP badge ──
+    var xpBadgeEl = document.querySelector('.msp-xp-badge');
+    if (xpBadgeEl) {
+      xpBadgeEl.title =
+        'Uploads: ' + stats.uploads + ' × 10 = ' + (stats.uploads*10) + ' XP
+' +
+        'Views: ' + stats.views + ' × 5 = ' + (stats.views*5) + ' XP
+' +
+        'Downloads: ' + stats.downloads + ' × 8 = ' + (stats.downloads*8) + ' XP
+' +
+        'Citations: ' + stats.citations + ' × 15 = ' + (stats.citations*15) + ' XP
+' +
+        'Studies Read: ' + stats.reads + ' × 3 = ' + (stats.reads*3) + ' XP
+' +
+        'Streak: ' + stats.streak + ' × 20 = ' + (stats.streak*20) + ' XP
+' +
+        'Total: ' + xp + ' XP';
+      xpBadgeEl.style.cursor = 'help';
+    }
+  }
+
+  // Run after React renders, and on tab switches
+  setTimeout(enhanceMyStats, 900);
+  setInterval(function() {
+    // Reset if we navigate away and back
+    if (document.querySelector('h2') && document.querySelector('h2').textContent.indexOf('My Stats') !== -1) {
+      if (!enhanced) enhanceMyStats();
+    } else {
+      enhanced = false; // reset so it re-runs when we come back
+    }
+  }, 800);
+})();
+</script>
+
 </body>
 </html>
+<!-- STREAK PILL STYLES APPENDED -->
