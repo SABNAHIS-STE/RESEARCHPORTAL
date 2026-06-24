@@ -53,7 +53,7 @@
 
   var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>'
     + '<meta name="viewport" content="width=device-width,initial-scale=1"/>'
-    + '<title>Certificate Verification — SABNAHIS</title>'
+    + '<title>Certificate Verification — E-Tuklas STE Portal</title>'
     + '<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>'
     + '<style>'
     + '*{box-sizing:border-box;margin:0;padding:0}'
@@ -88,13 +88,13 @@
     + '<div class="hd">'
     + '<div class="hd-badge"><span class="hd-badge-dot"></span><span class="hd-badge-text">Verified Certificate</span></div>'
     + '<div class="hd-icon">🎓</div>'
-    + '<div class="hd-title">SABNAHIS STE Research Portal</div>'
+    + '<div class="hd-title">E-Tuklas STE Portal</div>'
     + '<div class="hd-sub">Certificate of Academic Recognition</div>'
     + '</div>'
     + '<div class="body">'
     + '<div class="verified-banner">'
     + '<div class="verified-icon">✅</div>'
-    + '<div class="verified-text"><strong>Certificate Verified</strong>This certificate is authentic and was issued by the SABNAHIS STE Research Portal.</div>'
+    + '<div class="verified-text"><strong>Certificate Verified</strong>This certificate is authentic and was issued by the E-Tuklas STE Portal.</div>'
     + '</div>'
     + '<div class="section-label">Research Title</div>'
     + '<div class="study-title">&ldquo;' + title.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '&rdquo;</div>'
@@ -115,7 +115,7 @@
     + '<div class="meta-item"><div class="section-label">Grade Level</div><div class="meta-value">'+gradeLevel.replace(/</g,'&lt;')+'</div></div>'
     + '<div class="meta-item"><div class="section-label">Section</div><div class="meta-value">'+section.replace(/</g,'&lt;')+'</div></div>'
     + '</div>'
-    + '<div class="footer-note">This certificate was digitally issued by the SABNAHIS STE Research Portal.<br>Scanning this QR code confirms its authenticity.<div class="cert-id">Certificate ID: '+certId+'</div></div>'
+    + '<div class="footer-note">This certificate was digitally issued by the E-Tuklas STE Portal.<br>Scanning this QR code confirms its authenticity.<div class="cert-id">Certificate ID: '+certId+'</div></div>'
     + '</div></div>'
     + '</body></html>';
 
@@ -149,7 +149,7 @@
 <meta name="theme-color" content="#0d0f14"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<title>SABNAHIS STE Research Portal</title>
+<title>E-Tuklas STE Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&family=Hanken+Grotesk:wght@600;700&family=Geist:wght@400;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -1237,12 +1237,14 @@ textarea { resize: vertical; min-height: 90px; }
   padding: clamp(14px,3vw,20px);
   display: flex; align-items:flex-start; gap: 13px;
   transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
-  position: relative; overflow: hidden;
+  position: relative;
 }
 .stat::after {
   content:''; position:absolute; inset:0;
   background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%);
   pointer-events:none;
+  border-radius: inherit;
+  overflow: hidden;
 }
 .stat:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
 .stat.gold:hover  { box-shadow: 0 8px 28px rgba(201,162,39,0.18),  var(--shadow); border-color: rgba(201,162,39,0.4); }
@@ -1279,14 +1281,6 @@ textarea { resize: vertical; min-height: 90px; }
 .stat[data-clickable="true"] { cursor: pointer; }
 .stat[data-clickable="true"]:hover { transform: translateY(-4px) !important; }
 .stat[data-clickable="true"]:active { transform: scale(0.97); }
-.stat[data-clickable="true"]::before {
-  content: "tap to expand →";
-  position: absolute; bottom: 7px; right: 10px;
-  font-size: 0.58rem; font-weight: 600; color: var(--muted);
-  opacity: 0; transition: opacity .2s;
-  pointer-events: none; font-family: var(--font-body);
-}
-.stat[data-clickable="true"]:hover::before { opacity: 0.8; }
 
 /* Count-up animation for stat values */
 @keyframes statCountIn { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -2030,8 +2024,9 @@ tr { transition: background .1s; }
 /* Layout */
 .chat-layout {
   display: flex;
-  height: calc(100vh - var(--topbar-h) - clamp(14px,4vw,26px) * 2 - 80px);
+  flex: 1;
   min-height: 520px;
+  max-height: calc(100vh - var(--topbar-h) - clamp(14px,4vw,26px) * 2 - 80px);
   gap: 16px;
 }
 .chat-main {
@@ -2154,6 +2149,7 @@ tr { transition: background .1s; }
 .cm-src.gemini { background:var(--blue-light); color:var(--blue); }
 .cm-src.groq   { background:var(--green-light); color:var(--green); }
 .cm-src.local  { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
+[data-theme="dark"] .cm-src.groq { background: rgba(39,168,98,0.15); color: var(--green); }
 
 /* Typing indicator */
 .typing { display:flex; gap:4px; padding:6px 4px; align-items:center; }
@@ -2523,7 +2519,8 @@ tr { transition: background .1s; }
   /* Chat mobile */
   .chat-sidebar { display:none; }
   .chat-layout {
-    height: calc(100dvh - var(--mob-header-h) - var(--mob-nav-h) - var(--safe-top) - var(--safe-bottom) - clamp(12px,3vw,18px) * 2 - 70px);
+    flex: 1;
+    max-height: calc(100dvh - var(--mob-header-h) - var(--mob-nav-h) - var(--safe-top) - var(--safe-bottom) - clamp(12px,3vw,18px) * 2 - 70px);
     min-height: 340px;
     gap: 0;
   }
@@ -3197,12 +3194,12 @@ tr { transition: background .1s; }
   <header style="position:fixed;top:0;width:100%;z-index:40;display:flex;justify-content:space-between;align-items:center;padding:24px 64px;background:rgba(17,19,24,0.1);backdrop-filter:blur(4px);">
     <div style="display:flex;align-items:center;gap:16px;">
       <span class="material-symbols-outlined" style="color:#d4af37;font-variation-settings:'FILL' 1;">biotech</span>
-      <h1 style="font-family:'Hanken Grotesk',sans-serif;font-size:24px;font-weight:600;color:#d4af37;letter-spacing:-0.05em;text-transform:uppercase;margin:0;">SABNAHIS STE</h1>
+      <h1 style="font-family:'Hanken Grotesk',sans-serif;font-size:24px;font-weight:600;color:#d4af37;letter-spacing:-0.05em;text-transform:uppercase;margin:0;">E-Tuklas STE</h1>
     </div>
   </header>
   <!-- Main Terminal -->
-  <main style="position:relative;z-index:10;width:100%;max-width:896px;padding:0 16px;">
-    <div class="glass-terminal" style="border-radius:8px;overflow:hidden;display:flex;flex-direction:column;border-color:rgba(212,175,55,0.3);box-shadow:0 0 40px rgba(212,175,55,0.05);">
+  <main style="position:relative;z-index:10;width:100%;max-width:896px;padding:80px 16px 16px;display:flex;align-items:center;justify-content:center;">
+    <div class="glass-terminal" style="width:100%;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;border-color:rgba(212,175,55,0.3);box-shadow:0 0 40px rgba(212,175,55,0.05);">
       <div class="scan-line"></div>
       <!-- Terminal Header -->
       <div style="padding:16px 24px;border-bottom:1px solid rgba(67,73,87,0.3);display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.3);">
@@ -3214,12 +3211,12 @@ tr { transition: background .1s; }
         <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(208,197,175,0.6);letter-spacing:0.15em;text-transform:uppercase;">SECURE_TERMINAL_V4.5.1</span>
       </div>
       <!-- Content Area -->
-      <div style="padding:40px;display:flex;flex-direction:row;align-items:center;gap:48px;">
+      <div style="padding:40px;display:flex;flex-direction:row;align-items:stretch;gap:48px;">
         <!-- DNA Container -->
-        <div style="width:50%;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;flex-shrink:0;">
+        <div style="width:50%;min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;flex-shrink:0;">
           <div style="position:absolute;inset:0;background:rgba(212,175,55,0.05);border-radius:9999px;filter:blur(80px);"></div>
-          <div style="position:relative;width:100%;height:100%;border:1px solid rgba(212,175,55,0.1);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);">
-            <div id="rls-dna-canvas" style="width:100%;height:100%;cursor:grab;"></div>
+          <div style="position:relative;width:100%;height:100%;min-height:320px;border:1px solid rgba(212,175,55,0.1);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);">
+            <div id="rls-dna-canvas" style="width:100%;height:100%;min-height:320px;cursor:grab;"></div>
             <div style="position:absolute;bottom:16px;left:16px;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);padding:6px 12px;border-radius:9999px;border:1px solid rgba(212,175,55,0.2);pointer-events:none;">
               <span class="material-symbols-outlined" style="color:#d4af37;font-size:16px;">gesture</span>
               <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#e2e2e8;text-transform:uppercase;letter-spacing:0.1em;">3D HELIX ACTIVE</span>
@@ -3295,65 +3292,78 @@ tr { transition: background .1s; }
     <div>BUFFER: OPTIMIZED</div>
   </div>
   <!-- Three.js DNA Helix -->
-  <script src="https://ajax.googleapis.com/ajax/libs/threejs/r125/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.125.2/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script>
   (function waitForThree() {
     if (typeof THREE === 'undefined') { setTimeout(waitForThree, 50); return; }
     var container = document.getElementById('rls-dna-canvas');
     if (!container) return;
 
-    // Container can report 0x0 on first paint (flex layout not settled yet).
-    // Fall back to sane defaults so the renderer + camera aren't degenerate,
-    // and re-sync once real dimensions are available.
     function getSize() {
-      var w = container.clientWidth || 320;
-      var h = container.clientHeight || 320;
+      var w = container.offsetWidth || container.clientWidth || 320;
+      var h = container.offsetHeight || container.clientHeight || 320;
       return { w: w, h: h };
     }
 
     var size = getSize();
     var scene = new THREE.Scene();
-    var camera = new THREE.PerspectiveCamera(50, size.w / size.h, 0.1, 1000);
+    var camera = new THREE.PerspectiveCamera(50, size.w / Math.max(size.h, 1), 0.1, 1000);
     var renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(size.w, size.h);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;';
     container.appendChild(renderer.domElement);
-    var controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true; controls.dampingFactor = 0.05;
-    controls.autoRotate = true; controls.autoRotateSpeed = 2.2;
-    controls.enableZoom = false;
+
     var gold = 0xd4af37, charcoal = 0x434957;
-    var dnaGroup = new THREE.Group(); scene.add(dnaGroup);
+    var dnaGroup = new THREE.Group();
+    scene.add(dnaGroup);
+
     var sphereGeom = new THREE.SphereGeometry(0.12, 16, 16);
-    var lineMat = new THREE.LineBasicMaterial({ color: gold, transparent: true, opacity: 0.2 });
-    var points = 40, radius = 2.4, heightStep = 0.28, angleStep = 0.32;
+    var lineMat = new THREE.LineBasicMaterial({ color: gold, transparent: true, opacity: 0.35 });
+    var points = 40, radius = 2.2, heightStep = 0.28, angleStep = 0.32;
+
     for (var i = 0; i < points; i++) {
-      var y = (i - points / 2) * heightStep, angle = i * angleStep;
+      var y = (i - points / 2) * heightStep;
+      var angle = i * angleStep;
       var xA = Math.cos(angle) * radius, zA = Math.sin(angle) * radius;
-      var sA = new THREE.Mesh(sphereGeom, new THREE.MeshPhongMaterial({ color: gold, emissive: gold, emissiveIntensity: 0.6, shininess: 120 }));
-      sA.position.set(xA, y, zA); dnaGroup.add(sA);
+      var matA = new THREE.MeshPhongMaterial({ color: gold, emissive: gold, emissiveIntensity: 0.6, shininess: 120 });
+      var sA = new THREE.Mesh(sphereGeom, matA);
+      sA.position.set(xA, y, zA);
+      dnaGroup.add(sA);
+
       var xB = Math.cos(angle + Math.PI) * radius, zB = Math.sin(angle + Math.PI) * radius;
-      var sB = new THREE.Mesh(sphereGeom, new THREE.MeshPhongMaterial({ color: charcoal, emissive: charcoal, emissiveIntensity: 0.1, shininess: 80 }));
-      sB.position.set(xB, y, zB); dnaGroup.add(sB);
+      var matB = new THREE.MeshPhongMaterial({ color: charcoal, emissive: charcoal, emissiveIntensity: 0.15, shininess: 80 });
+      var sB = new THREE.Mesh(sphereGeom, matB);
+      sB.position.set(xB, y, zB);
+      dnaGroup.add(sB);
+
       if (i % 2 === 0) {
-        var lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(xA,y,zA), new THREE.Vector3(xB,y,zB)]);
+        var pts = [new THREE.Vector3(xA, y, zA), new THREE.Vector3(xB, y, zB)];
+        var lg = new THREE.BufferGeometry().setFromPoints(pts);
         dnaGroup.add(new THREE.Line(lg, lineMat));
       }
     }
-    scene.add(new THREE.PointLight(0xffffff, 1.5, 100)).position.set(5, 10, 5);
-    scene.add(new THREE.AmbientLight(0x404040, 0.6));
+
+    var pl = new THREE.PointLight(0xffffff, 1.5, 100);
+    pl.position.set(5, 10, 5);
+    scene.add(pl);
+    scene.add(new THREE.AmbientLight(0x606060, 0.8));
+
     camera.position.z = 12;
+
+    var autoRotateY = 0;
+    var isDragging = false, lastX = 0;
+    renderer.domElement.addEventListener('mousedown', function(e) { isDragging = true; lastX = e.clientX; });
+    window.addEventListener('mouseup', function() { isDragging = false; });
+    window.addEventListener('mousemove', function(e) {
+      if (isDragging) { dnaGroup.rotation.y += (e.clientX - lastX) * 0.01; lastX = e.clientX; }
+    });
 
     var clock = new THREE.Clock();
     function animate() {
       requestAnimationFrame(animate);
-      var dt = clock.getDelta();
-      // Manual continuous spin as a guaranteed fallback, independent of
-      // OrbitControls' autoRotate (which relies on controls.update() ticking
-      // at a stable rate to look smooth).
-      dnaGroup.rotation.y += dt * 0.5;
-      controls.update();
+      if (!isDragging) dnaGroup.rotation.y += clock.getDelta() * 0.5;
+      else clock.getDelta(); // drain delta while dragging
       renderer.render(scene, camera);
     }
 
@@ -3365,9 +3375,7 @@ tr { transition: background .1s; }
       renderer.setSize(s.w, s.h);
     }
     window.addEventListener('resize', resync);
-    // Re-check size shortly after mount in case layout settles late
-    setTimeout(resync, 100);
-    setTimeout(resync, 500);
+    [100, 300, 600, 1000, 1800].forEach(function(ms) { setTimeout(resync, ms); });
 
     animate();
   })();
@@ -5078,6 +5086,9 @@ const API = {
     await db.collection("stat_analyses").doc(id).delete();
   }
 };
+// Expose API globally so vanilla-JS enhancement scripts (My Stats, activity log modal)
+// can call API.getStudyLogs etc. without depending on the React module scope.
+window.API = API;
 function fmtAPA(name) {
   if (!name) return "";
   const p = name.trim().split(/\s+/);
@@ -5236,7 +5247,7 @@ Structure: Purpose \u2192 Methods \u2192 Key Findings \u2192 Significance \u2192
 5. Suggest novel angles that combine existing repository themes
 6. Consider local/Filipino context where appropriate`
   };
-  return `You are a highly intelligent academic research copilot for the SABNAHIS STE Research Portal \u2014 a Science, Technology, and Engineering institutional repository for Filipino students.
+  return `You are a highly intelligent academic research copilot for the E-Tuklas STE Portal \u2014 a Science, Technology, and Engineering institutional repository for Filipino students.
 
 CURRENT MODE: ${((_a = AI_MODES[mode]) == null ? void 0 : _a.label) || "General"}
 MODE INSTRUCTIONS:
@@ -5326,7 +5337,7 @@ async function callAI(query, history, studies, mode = "general") {
         temperature: 0.7
       })
     });
-    if (!res.ok && res.status !== 400) {
+    if (!res.ok) {
       const errText = await res.text().catch(() => res.statusText);
       console.error("Groq HTTP error:", res.status, errText);
       if (res.status === 401) toast.err("Groq: Invalid API key. Check your key in Settings.");
@@ -5353,7 +5364,7 @@ function buildLocalResponse(query, all, mode) {
   const relevant = findRelevant(query, all, 4);
   if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|kumusta|magandang)/.test(q)) {
     const gaps2 = detectResearchGaps(all);
-    return { text: `Hello! \u{1F44B} I'm your **SABNAHIS STE Research Assistant**.
+    return { text: `Hello! \u{1F44B} I'm your **E-Tuklas STE Research Assistant**.
 
 I can help you with:
 \u2022 \u{1F4D6} **Define any STEM concept** \u2014 photosynthesis, algorithms, DNA replication, and more
@@ -6416,7 +6427,7 @@ function AuthPage({ onLogin }) {
     /* @__PURE__ */ React.createElement("div", { className: "auth-topbar" },
       /* @__PURE__ */ React.createElement("div", { className: "auth-topbar-brand" },
         /* @__PURE__ */ React.createElement("span", { style: { fontSize: "16px" } }, "\u{1F6E1}\uFE0F"),
-        /* @__PURE__ */ React.createElement("span", { className: "auth-topbar-title" }, "RESEARCH_NODE \u00B7 SABNAHIS")
+        /* @__PURE__ */ React.createElement("span", { className: "auth-topbar-title" }, "RESEARCH_NODE \u00B7 E-Tuklas STE Portal")
       ),
       /* @__PURE__ */ React.createElement("div", { className: "auth-topbar-status" },
         /* @__PURE__ */ React.createElement("span", { className: "dot" }),
@@ -6425,7 +6436,7 @@ function AuthPage({ onLogin }) {
     ),
     /* @__PURE__ */ React.createElement("div", { className: "auth-bootlog" },
       /* @__PURE__ */ React.createElement("p", null, "> BOOT_SEQUENCE: OK"),
-      /* @__PURE__ */ React.createElement("p", null, "> KERNEL_LOAD: SABNAHIS_RESEARCH"),
+      /* @__PURE__ */ React.createElement("p", null, "> KERNEL_LOAD: E-TUKLAS_RESEARCH"),
       /* @__PURE__ */ React.createElement("p", null, "> RENDER_ENGINE: THREE_WEBGL"),
       /* @__PURE__ */ React.createElement("p", null, "> DEPTH_FIELD: ANALYZING"),
       /* @__PURE__ */ React.createElement("p", null, "> DATA_VOID: INITIALIZED"),
@@ -6453,8 +6464,8 @@ function AuthPage({ onLogin }) {
           /* @__PURE__ */ React.createElement("img", { src: "LOGO.png", alt: "Logo 1", style: { width: "34px", height: "34px", objectFit: "contain", borderRadius: "6px" } }),
           /* @__PURE__ */ React.createElement("img", { src: "LOGO2.png", alt: "Logo 2", style: { width: "34px", height: "34px", objectFit: "contain", borderRadius: "6px" } })
         ),
-        /* @__PURE__ */ React.createElement("h1", null, "SABNAHIS", /* @__PURE__ */ React.createElement("span", null, "STE Research Portal")),
-        /* @__PURE__ */ React.createElement("p", null, "Research Repository for SABNAHIS STE Students")
+        /* @__PURE__ */ React.createElement("h1", null, "E-Tuklas", /* @__PURE__ */ React.createElement("span", null, "STE Portal")),
+        /* @__PURE__ */ React.createElement("p", null, "Research Repository for E-Tuklas STE Students")
       ),
       /* @__PURE__ */ React.createElement("div", { className: "auth-card" },
         err && /* @__PURE__ */ React.createElement("div", { className: "al al-err", role: "alert" }, err),
@@ -6483,7 +6494,7 @@ function AuthPage({ onLogin }) {
           ),
           /* @__PURE__ */ React.createElement("div", { className: "fg" },
             /* @__PURE__ */ React.createElement("label", { htmlFor: "reg-inst" }, "School / Institution"),
-            /* @__PURE__ */ React.createElement("input", { id: "reg-inst", placeholder: "SABNAHIS", value: form.institution, onChange: (e) => sf("institution", e.target.value) })
+            /* @__PURE__ */ React.createElement("input", { id: "reg-inst", placeholder: "E-Tuklas STE Portal", value: form.institution, onChange: (e) => sf("institution", e.target.value) })
           ),
           /* @__PURE__ */ React.createElement("div", { className: "fr" },
             /* @__PURE__ */ React.createElement("div", { className: "fg" },
@@ -6528,7 +6539,7 @@ function AuthPage({ onLogin }) {
         )
       )
     ),
-    /* @__PURE__ */ React.createElement("div", { className: "auth-footer" }, "\u00A9 ", (/* @__PURE__ */ new Date()).getFullYear(), " INSTITUTIONAL RESEARCH NODE \u00B7 SABNAHIS STE \u00B7 ALL RIGHTS RESERVED"),
+    /* @__PURE__ */ React.createElement("div", { className: "auth-footer" }, "\u00A9 ", (/* @__PURE__ */ new Date()).getFullYear(), " INSTITUTIONAL RESEARCH NODE \u00B7 E-TUKLAS STE PORTAL \u00B7 ALL RIGHTS RESERVED"),
     showForgot && /* @__PURE__ */ React.createElement(ForgotModal, { onClose: () => setShowForgot(false) })
   );
 }
@@ -6864,7 +6875,7 @@ function generateCertificate(study, feedback, currentUser) {
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.text("SABNAHIS STE RESEARCH PORTAL", W / 2, 20, { align: "center" });
+    doc.text("E-TUKLAS STE PORTAL", W / 2, 20, { align: "center" });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(201, 162, 39);
@@ -6952,7 +6963,7 @@ function generateCertificate(study, feedback, currentUser) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.setTextColor(180, 180, 180);
-    doc.text("This certificate is an official recognition issued by SABNAHIS STE Research Portal. Unauthorized reproduction is prohibited.", W / 2, H - 15, { align: "center" });
+    doc.text("This certificate is an official recognition issued by E-Tuklas STE Portal. Unauthorized reproduction is prohibited.", W / 2, H - 15, { align: "center" });
     try {
       const certId = "CERT-" + (study.id || study.studyId || "X").slice(-6).toUpperCase()
         + "-" + ((feedback.gradedAt ? new Date(feedback.gradedAt).getTime().toString(36) : Date.now().toString(36)).toUpperCase());
@@ -6962,7 +6973,7 @@ function generateCertificate(study, feedback, currentUser) {
       // Assumes name is "Firstname Middlename(s) Lastname" or "Firstname Lastname"
       const authorLine = allAuthors.map(fmtName).join(", ").slice(0, 80);
       const qrText = [
-        "SABNAHIS CERT",
+        "E-TUKLAS CERT",
         certId,
         authorLine,
         "GRADE:" + (feedback.grade || "N/A") + " " + (feedback.totalScore != null ? feedback.totalScore + "/100" : ""),
@@ -8160,7 +8171,7 @@ function ChatPage({ currentUser }) {
         citations: [],
         time: now(),
         source: "local",
-        text: `Hello! \u{1F44B} I'm your **SABNAHIS STE Research Assistant** \u2014 powered by Groq AI.
+        text: `Hello! \u{1F44B} I'm your **E-Tuklas STE Research Assistant** \u2014 powered by Groq AI.
 
 I function as a **smart research copilot**, not just a keyword search. I can:
 
@@ -8219,7 +8230,7 @@ I have **${s.length}** ${s.length === 1 ? "study" : "studies"} loaded. Use the *
   };
   const clearChat = () => {
     var _a2;
-    setMsgs([{ id: Date.now(), role: "bot", citations: [], time: now(), source: "local", text: `Chat cleared. **${studies.length}** studies loaded. Mode: **${(_a2 = AI_MODES[mode]) == null ? void 0 : _a2.label}**.
+    setMsgs([{ id: Date.now(), role: "bot", citations: [], time: now(), source: "local", text: `Chat cleared. **${studies.length}** studies loaded. Mode: **${AI_MODES[mode]?.label ?? mode}**.
 
 What would you like to explore?` }]);
     setHistory([]);
@@ -8669,7 +8680,7 @@ function MyStatsPage({ currentUser }) {
   const maxDls = Math.max(...myStudies.map(s=>s.downloadCount||0), 1);
   const maxCites = Math.max(...myStudies.map(s=>s.citationCount||0), 1);
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
-    myStudies.map((s) => React.createElement("div", { key: s.id, className: "mstats-study-row", onClick: () => setHistoryStudy(s) },
+    myStudies.map((s) => React.createElement("div", { key: s.id, className: "mstats-study-row", "data-id": s.id, onClick: () => setHistoryStudy(s) },
       React.createElement("div", { style: { flex: 1, minWidth: 0 } },
         React.createElement("div", { style: { fontWeight: 500, fontSize: "0.85rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.title),
         React.createElement("div", { style: { fontSize: "0.68rem", color: "var(--muted)", marginTop: 2, display: "flex", gap: 6, flexWrap: "wrap" } },
@@ -8899,7 +8910,7 @@ function StudentDash({ currentUser }) {
   }, []);
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 22 } }, /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", marginBottom: 3 } }, "Welcome back, ", currentUser.name.split(" ")[0], " \u{1F44B}"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, currentUser.institution, currentUser.gradeLevel ? ` \xB7 Grade ${currentUser.gradeLevel}` : "", currentUser.section ? ` \u2014 ${currentUser.section}` : "")), loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(StatsSkeleton, { count: 5 }), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, padding: "4px 0" } }, /* @__PURE__ */ React.createElement("div", { className: "skel", style: { height: 14, width: 160, borderRadius: 5 } }), /* @__PURE__ */ React.createElement("div", { className: "skel", style: { height: 13, width: "80%", borderRadius: 5 } }), /* @__PURE__ */ React.createElement("div", { className: "skel", style: { height: 13, width: "60%", borderRadius: 5 } }))), /* @__PURE__ */ React.createElement(StudiesGridSkeleton, { count: 3 })) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "stats" },
   /* My Studies card — clickable, navigates to My Stats */
-  /* @__PURE__ */ React.createElement("div", { className: "stat gold", "data-clickable": "true", onClick: () => { window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'my-stats'})); }, "data-tip": "View all your uploads in detail" },
+  /* @__PURE__ */ React.createElement("div", { className: "stat gold", "data-clickable": "true", onClick: () => { window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'my-stats'})); } },
     /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.doc, null)),
     /* @__PURE__ */ React.createElement("div", { className: "stat-body" },
       /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "My Studies"),
@@ -8908,7 +8919,7 @@ function StudentDash({ currentUser }) {
     )
   ),
   /* Total Views card */
-  /* @__PURE__ */ React.createElement("div", { className: "stat teal", "data-clickable": "true", onClick: () => { window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'my-stats'})); }, "data-tip": "See which studies are getting the most views" },
+  /* @__PURE__ */ React.createElement("div", { className: "stat teal", "data-clickable": "true", onClick: () => { window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'my-stats'})); } },
     /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.eye, null)),
     /* @__PURE__ */ React.createElement("div", { className: "stat-body" },
       /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "Total Views"),
@@ -8917,7 +8928,7 @@ function StudentDash({ currentUser }) {
     )
   ),
   /* Downloads card */
-  /* @__PURE__ */ React.createElement("div", { className: "stat blue", "data-clickable": "true", onClick: () => { window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'my-stats'})); }, "data-tip": "View download breakdown per study" },
+  /* @__PURE__ */ React.createElement("div", { className: "stat blue", "data-clickable": "true", onClick: () => { window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'my-stats'})); } },
     /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.dl, null)),
     /* @__PURE__ */ React.createElement("div", { className: "stat-body" },
       /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "Downloads"),
@@ -8926,7 +8937,7 @@ function StudentDash({ currentUser }) {
     )
   ),
   /* Citations card */
-  /* @__PURE__ */ React.createElement("div", { className: "stat pur", "data-clickable": "true", onClick: () => { window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'my-stats'})); }, "data-tip": "See citation count per study" },
+  /* @__PURE__ */ React.createElement("div", { className: "stat pur", "data-clickable": "true", onClick: () => { window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'my-stats'})); } },
     /* @__PURE__ */ React.createElement("div", { className: "stat-icon" }, /* @__PURE__ */ React.createElement(Ico.cite, null)),
     /* @__PURE__ */ React.createElement("div", { className: "stat-body" },
       /* @__PURE__ */ React.createElement("div", { className: "stat-lbl" }, "Citations"),
@@ -9143,7 +9154,7 @@ function StatPill({ label, value, color, icon, onClick, trend, sub }) {
     icon && React.createElement("span", { style: { fontSize: "1.1rem", lineHeight: 1, marginBottom: 1 } }, icon),
     React.createElement("div", { style: { fontSize: "0.62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.6px", color: "var(--muted)" } }, label),
     React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 6 } },
-      React.createElement("div", { style: { fontFamily: "var(--font-display)", fontSize: "1.5rem", fontWeight: 700, color: color || "var(--ink)", lineHeight: 1.1 } }, value),
+      React.createElement("div", { "data-stat-val": true, style: { fontFamily: "var(--font-display)", fontSize: "1.5rem", fontWeight: 700, color: color || "var(--ink)", lineHeight: 1.1 } }, value),
       trend != null && React.createElement("span", { style: { fontSize: "0.62rem", fontWeight: 700, color: trend > 0 ? "var(--green)" : trend < 0 ? "var(--red)" : "var(--muted)" } }, trend > 0 ? "↑" : trend < 0 ? "↓" : "—")
     ),
     sub && React.createElement("div", { style: { fontSize: "0.62rem", color: "var(--muted)", marginTop: 1 } }, sub),
@@ -10829,7 +10840,7 @@ function RecognizedStudiesPage({ currentUser, isAdmin }) {
     const rs = RANK_STYLES[idx] || { border: "var(--border)", trophy: "\u{1F3C6}", rankBg: "var(--surface)", rankColor: "var(--muted)", rankLabel: `#${idx + 1}` };
     const awardCount = group.awards.length;
     return /* @__PURE__ */ React.createElement("div", { key: group.title, className: "card", style: { position: "relative", borderLeft: `4px solid ${rs.border}`, transition: "box-shadow var(--transition)" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 14, right: 14, display: "flex", gap: 6, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 99, background: rs.rankBg, color: rs.rankColor, border: `1.5px solid ${rs.border}`, fontSize: "var(--text-xs)", fontWeight: 700, whiteSpace: "nowrap" } }, rs.trophy, " ", awardCount, " award", awardCount !== 1 ? "s" : ""), isAdmin && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { className: "btn btn-teal btn-sm", onClick: () => openAddAward(group), "data-tip": "Add another award to this study", "aria-label": `Add award to ${group.title}`, style: { display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.plus, null), " Award"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => openEdit(__spreadProps(__spreadValues({}, group.awards[0]), { title: group.title, authors: group.authors, category: group.category || "", institution: group.institution || "", description: group.description || "", year: group.awards[0].year, id: group.awards[0].id })), "data-tip": "Edit latest entry", "aria-label": `Edit ${group.title}` }, /* @__PURE__ */ React.createElement(Ico.edit, null)), /* @__PURE__ */ React.createElement("button", { className: "btn btn-red btn-sm", onClick: () => setDeleteConfirm(group.awards[0].id), "data-tip-pos": "left", "data-tip": "Delete latest entry", "aria-label": `Delete ${group.title}` }, /* @__PURE__ */ React.createElement(Ico.trash, null)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 14, flexWrap: "wrap", paddingRight: isAdmin ? 160 : 80 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 46, height: 46, borderRadius: 10, background: rs.rankBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", flexShrink: 0, border: `1.5px solid ${rs.border}` } }, rs.trophy), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 200 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "var(--text-xs)", fontWeight: 700, color: rs.rankColor, marginBottom: 3, letterSpacing: "0.04em" } }, rs.rankLabel, " \xB7 RANK"), /* @__PURE__ */ React.createElement("h3", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--ink)", marginBottom: 4, lineHeight: 1.3 } }, group.title), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "var(--text-sm)", color: "var(--slate)", marginBottom: 8 } }, "By: ", /* @__PURE__ */ React.createElement("strong", null, group.authors)), group.category && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 99, background: "var(--purple-light)", color: "var(--purple)", border: "1.5px solid var(--purple)", fontSize: "var(--text-xs)", fontWeight: 600 } }, "\u{1F3F7}\uFE0F ", group.category)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5, marginBottom: group.description || group.institution ? 10 : 0 } }, group.awards.map((aw, i) => /* @__PURE__ */ React.createElement("div", { key: aw.id, style: { display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 11px", borderRadius: 99, background: "var(--gold-bg)", color: "var(--gold)", border: "1.5px solid var(--gold)", fontSize: "var(--text-xs)", fontWeight: 700 } }, "\u{1F947} ", aw.award), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "var(--text-xs)", color: "var(--muted)" } }, aw.year), isAdmin && /* @__PURE__ */ React.createElement("button", { className: "btn btn-red btn-sm", style: { padding: "2px 8px", fontSize: "0.65rem", minHeight: 24 }, onClick: () => setDeleteConfirm(aw.id), "aria-label": `Remove award: ${aw.award}` }, /* @__PURE__ */ React.createElement(Ico.trash, null))))), (group.description || group.institution) && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, group.institution && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, "\u{1F3EB} ", group.institution), group.description && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "var(--text-sm)", color: "var(--slate)", lineHeight: 1.55 } }, group.description)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 10, fontSize: "var(--text-xs)", color: "var(--muted)", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", null, "Added by ", group.addedBy), /* @__PURE__ */ React.createElement("span", null, fmtDate(group.createdAt))))));
-  })), showForm && isAdmin && /* @__PURE__ */ React.createElement(Modal, { title: editId ? "Edit Recognition" : "Add Recognized Study", onClose: () => setShowForm(false), wide: true }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--blue-light)", border: "1px solid var(--blue)", borderRadius: "var(--radius)", marginBottom: 18, fontSize: "var(--text-sm)", color: "var(--blue)" } }, "\u2139\uFE0F Only teachers can add or edit entries. This listing is visible to all users."), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Study Title *"), /* @__PURE__ */ React.createElement("input", { placeholder: "Full title of the recognized research study", value: form.title, onChange: (e) => sf("title", e.target.value), autoFocus: true })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Author(s) * ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)" } }, "(comma-separated)")), /* @__PURE__ */ React.createElement("input", { placeholder: "e.g. Juan dela Cruz, Maria Santos", value: form.authors, onChange: (e) => sf("authors", e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Award / Recognition *"), /* @__PURE__ */ React.createElement("input", { placeholder: "e.g. Best Research Paper \u2013 Regional Science Fair 2024", value: form.award, onChange: (e) => sf("award", e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "fr" }, /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Year"), /* @__PURE__ */ React.createElement("input", { type: "number", min: "1900", max: "2099", value: form.year, onChange: (e) => sf("year", e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Category"), /* @__PURE__ */ React.createElement("select", { value: form.category, onChange: (e) => sf("category", e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 None \u2014"), cats.map((c) => /* @__PURE__ */ React.createElement("option", { key: c, value: c }, c))))), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Institution / Organization"), /* @__PURE__ */ React.createElement("input", { placeholder: "e.g. SABNAHIS", value: form.institution, onChange: (e) => sf("institution", e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Description ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)" } }, "(optional)")), /* @__PURE__ */ React.createElement("textarea", { placeholder: "Brief description of the recognition or study significance\u2026", value: form.description, onChange: (e) => sf("description", e.target.value), style: { minHeight: 80 } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 4 } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: () => setShowForm(false) }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: submit, disabled: saving }, saving ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), "Saving\u2026") : editId ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.chk, null), " Save Changes") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.plus, null), " Add Recognition")))), addAwardFor && isAdmin && /* @__PURE__ */ React.createElement(Modal, { title: "Add Award", onClose: () => setAddAwardFor(null) }, /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 14px", background: "var(--teal-light)", border: "1px solid var(--teal)", borderRadius: "var(--radius)", marginBottom: 16, fontSize: "var(--text-sm)", color: "var(--teal)" } }, "\u{1F3C6} Adding a new award to: ", /* @__PURE__ */ React.createElement("strong", null, addAwardFor.title)), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Award / Recognition *"), /* @__PURE__ */ React.createElement("input", { placeholder: "e.g. 2nd Place \u2013 Division Science Fair 2025", value: awardForm.award, onChange: (e) => setAwardForm((f) => __spreadProps(__spreadValues({}, f), { award: e.target.value })), autoFocus: true })), /* @__PURE__ */ React.createElement("div", { className: "fg", style: { maxWidth: 160 } }, /* @__PURE__ */ React.createElement("label", null, "Year"), /* @__PURE__ */ React.createElement("input", { type: "number", min: "1900", max: "2099", value: awardForm.year, onChange: (e) => setAwardForm((f) => __spreadProps(__spreadValues({}, f), { year: e.target.value })) })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", marginTop: 4 } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: () => setAddAwardFor(null) }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-teal", onClick: submitNewAward, disabled: saving }, saving ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), "Saving\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.plus, null), " Add Award")))), deleteConfirm && /* @__PURE__ */ React.createElement(Modal, { title: "Remove Recognition", onClose: () => setDeleteConfirm(null) }, /* @__PURE__ */ React.createElement("p", { style: { marginBottom: 20, color: "var(--slate)" } }, "Are you sure you want to remove this recognized study entry? This cannot be undone."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: () => setDeleteConfirm(null) }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-red", onClick: () => remove(deleteConfirm) }, /* @__PURE__ */ React.createElement(Ico.trash, null), " Remove"))));
+  })), showForm && isAdmin && /* @__PURE__ */ React.createElement(Modal, { title: editId ? "Edit Recognition" : "Add Recognized Study", onClose: () => setShowForm(false), wide: true }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--blue-light)", border: "1px solid var(--blue)", borderRadius: "var(--radius)", marginBottom: 18, fontSize: "var(--text-sm)", color: "var(--blue)" } }, "\u2139\uFE0F Only teachers can add or edit entries. This listing is visible to all users."), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Study Title *"), /* @__PURE__ */ React.createElement("input", { placeholder: "Full title of the recognized research study", value: form.title, onChange: (e) => sf("title", e.target.value), autoFocus: true })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Author(s) * ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)" } }, "(comma-separated)")), /* @__PURE__ */ React.createElement("input", { placeholder: "e.g. Juan dela Cruz, Maria Santos", value: form.authors, onChange: (e) => sf("authors", e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Award / Recognition *"), /* @__PURE__ */ React.createElement("input", { placeholder: "e.g. Best Research Paper \u2013 Regional Science Fair 2024", value: form.award, onChange: (e) => sf("award", e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "fr" }, /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Year"), /* @__PURE__ */ React.createElement("input", { type: "number", min: "1900", max: "2099", value: form.year, onChange: (e) => sf("year", e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Category"), /* @__PURE__ */ React.createElement("select", { value: form.category, onChange: (e) => sf("category", e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 None \u2014"), cats.map((c) => /* @__PURE__ */ React.createElement("option", { key: c, value: c }, c))))), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Institution / Organization"), /* @__PURE__ */ React.createElement("input", { placeholder: "e.g. E-Tuklas STE Portal", value: form.institution, onChange: (e) => sf("institution", e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Description ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)" } }, "(optional)")), /* @__PURE__ */ React.createElement("textarea", { placeholder: "Brief description of the recognition or study significance\u2026", value: form.description, onChange: (e) => sf("description", e.target.value), style: { minHeight: 80 } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 4 } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: () => setShowForm(false) }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: submit, disabled: saving }, saving ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), "Saving\u2026") : editId ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.chk, null), " Save Changes") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.plus, null), " Add Recognition")))), addAwardFor && isAdmin && /* @__PURE__ */ React.createElement(Modal, { title: "Add Award", onClose: () => setAddAwardFor(null) }, /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 14px", background: "var(--teal-light)", border: "1px solid var(--teal)", borderRadius: "var(--radius)", marginBottom: 16, fontSize: "var(--text-sm)", color: "var(--teal)" } }, "\u{1F3C6} Adding a new award to: ", /* @__PURE__ */ React.createElement("strong", null, addAwardFor.title)), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Award / Recognition *"), /* @__PURE__ */ React.createElement("input", { placeholder: "e.g. 2nd Place \u2013 Division Science Fair 2025", value: awardForm.award, onChange: (e) => setAwardForm((f) => __spreadProps(__spreadValues({}, f), { award: e.target.value })), autoFocus: true })), /* @__PURE__ */ React.createElement("div", { className: "fg", style: { maxWidth: 160 } }, /* @__PURE__ */ React.createElement("label", null, "Year"), /* @__PURE__ */ React.createElement("input", { type: "number", min: "1900", max: "2099", value: awardForm.year, onChange: (e) => setAwardForm((f) => __spreadProps(__spreadValues({}, f), { year: e.target.value })) })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", marginTop: 4 } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: () => setAddAwardFor(null) }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-teal", onClick: submitNewAward, disabled: saving }, saving ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), "Saving\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.plus, null), " Add Award")))), deleteConfirm && /* @__PURE__ */ React.createElement(Modal, { title: "Remove Recognition", onClose: () => setDeleteConfirm(null) }, /* @__PURE__ */ React.createElement("p", { style: { marginBottom: 20, color: "var(--slate)" } }, "Are you sure you want to remove this recognized study entry? This cannot be undone."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: () => setDeleteConfirm(null) }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-red", onClick: () => remove(deleteConfirm) }, /* @__PURE__ */ React.createElement(Ico.trash, null), " Remove"))));
 }
 function AnnouncementsPage({ currentUser }) {
   var _a;
@@ -11262,7 +11273,7 @@ const Sidebar = memo(function Sidebar2({ currentUser, activeTab, setActiveTab, o
       "data-tour": "sidebar-collapse"
     },
     /* @__PURE__ */ React.createElement(Ico.chevsL, null)
-  ), /* @__PURE__ */ React.createElement("div", { className: "sidebar-logo" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement(SchoolLogoZone, { context: "sidebar" }), /* @__PURE__ */ React.createElement("div", { className: "sidebar-logo-text" }, /* @__PURE__ */ React.createElement("h1", null, "SABNAHIS ", /* @__PURE__ */ React.createElement("span", null, "STE Research Portal")), /* @__PURE__ */ React.createElement("p", null, "INNOVATE. ENGINEER. DISCOVER."))), /* @__PURE__ */ React.createElement("button", { className: "sidebar-close-btn", onClick: onClose, "aria-label": "Close sidebar", style: { display: "none" } }, /* @__PURE__ */ React.createElement(Ico.X, null))), /* @__PURE__ */ React.createElement("div", { className: "sidebar-nav" }, /* @__PURE__ */ React.createElement("div", { className: "nav-label", role: "heading", "aria-level": "3" }, isAdmin ? "Teacher Panel" : "Navigation"), nav.map((item) => /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("div", { className: "sidebar-logo" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement(SchoolLogoZone, { context: "sidebar" }), /* @__PURE__ */ React.createElement("div", { className: "sidebar-logo-text" }, /* @__PURE__ */ React.createElement("h1", null, "E-Tuklas ", /* @__PURE__ */ React.createElement("span", null, "STE Portal")), /* @__PURE__ */ React.createElement("p", null, "INNOVATE. ENGINEER. DISCOVER."))), /* @__PURE__ */ React.createElement("button", { className: "sidebar-close-btn", onClick: onClose, "aria-label": "Close sidebar", style: { display: "none" } }, /* @__PURE__ */ React.createElement(Ico.X, null))), /* @__PURE__ */ React.createElement("div", { className: "sidebar-nav" }, /* @__PURE__ */ React.createElement("div", { className: "nav-label", role: "heading", "aria-level": "3" }, isAdmin ? "Teacher Panel" : "Navigation"), nav.map((item) => /* @__PURE__ */ React.createElement(
     "button",
     {
       key: item.id,
@@ -11944,7 +11955,7 @@ function buildTourSteps(isAdmin) {
         id: "welcome",
         center: true,
         title: "Welcome, Teacher! \u{1F44B}",
-        body: "This is your SABNAHIS STE Teacher Panel. Let's walk through every section so you know exactly what each one does. Use the Next button or arrow keys to navigate."
+        body: "This is your E-Tuklas STE Teacher Panel. Let's walk through every section so you know exactly what each one does. Use the Next button or arrow keys to navigate."
       },
       {
         id: "nav-dashboard",
@@ -12061,7 +12072,7 @@ function buildTourSteps(isAdmin) {
     {
       id: "welcome",
       center: true,
-      title: "Welcome to SABNAHIS STE \u{1F44B}",
+      title: "Welcome to E-Tuklas STE Portal \u{1F44B}",
       body: "This is your student research portal. Let's walk through every section so you know exactly what each one does. Use the Next button or arrow keys to navigate."
     },
     {
@@ -12508,7 +12519,7 @@ function App() {
     await API.logout();
     setCurrentUser(null);
     setActiveTab("dashboard");
-  } }))), /* @__PURE__ */ React.createElement("div", { className: "mob-header", role: "banner" }, /* @__PURE__ */ React.createElement("button", { className: "mob-menu-btn", onClick: () => setSidebarOpen((o) => !o), "aria-label": "Open menu", "aria-expanded": sidebarOpen }, /* @__PURE__ */ React.createElement(Ico.menu, null)), /* @__PURE__ */ React.createElement("span", { className: "mob-header-title" }, "SABNAHIS STE"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, alignItems: "center" } }, !isAdmin && /* @__PURE__ */ React.createElement(StreakPill, { currentUser }), !isAdmin && /* @__PURE__ */ React.createElement(BadgesPill, { currentUser }), isAdmin && /* @__PURE__ */ React.createElement(AdminNotifBell, { currentUser, count: studyNotifCount, onCountChange: setStudyNotifCount }), /* @__PURE__ */ React.createElement("button", { className: "theme-toggle", onClick: () => theme !== "light" && toggleTheme(), style: theme === "light" ? { background: "rgba(201,162,39,0.25)", color: "var(--gold-light)", border: "1px solid rgba(201,162,39,0.4)" } : {}, "aria-pressed": theme === "light" }, "\u2600"), /* @__PURE__ */ React.createElement("button", { className: "theme-toggle", onClick: () => theme !== "dark" && toggleTheme(), style: theme === "dark" ? { background: "rgba(201,162,39,0.25)", color: "var(--gold-light)", border: "1px solid rgba(201,162,39,0.4)" } : {}, "aria-pressed": theme === "dark" }, "\u263E"))), /* @__PURE__ */ React.createElement("main", { className: "page page-transition", key: activeTab }, renderPage())), /* @__PURE__ */ React.createElement("nav", { className: "mob-nav", "aria-label": "Mobile navigation" }, /* @__PURE__ */ React.createElement("div", { className: "mob-nav-inner" }, mobNav.map((item) => /* @__PURE__ */ React.createElement(
+  } }))), /* @__PURE__ */ React.createElement("div", { className: "mob-header", role: "banner" }, /* @__PURE__ */ React.createElement("button", { className: "mob-menu-btn", onClick: () => setSidebarOpen((o) => !o), "aria-label": "Open menu", "aria-expanded": sidebarOpen }, /* @__PURE__ */ React.createElement(Ico.menu, null)), /* @__PURE__ */ React.createElement("span", { className: "mob-header-title" }, "E-Tuklas STE Portal"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, alignItems: "center" } }, !isAdmin && /* @__PURE__ */ React.createElement(StreakPill, { currentUser }), !isAdmin && /* @__PURE__ */ React.createElement(BadgesPill, { currentUser }), isAdmin && /* @__PURE__ */ React.createElement(AdminNotifBell, { currentUser, count: studyNotifCount, onCountChange: setStudyNotifCount }), /* @__PURE__ */ React.createElement("button", { className: "theme-toggle", onClick: () => theme !== "light" && toggleTheme(), style: theme === "light" ? { background: "rgba(201,162,39,0.25)", color: "var(--gold-light)", border: "1px solid rgba(201,162,39,0.4)" } : {}, "aria-pressed": theme === "light" }, "\u2600"), /* @__PURE__ */ React.createElement("button", { className: "theme-toggle", onClick: () => theme !== "dark" && toggleTheme(), style: theme === "dark" ? { background: "rgba(201,162,39,0.25)", color: "var(--gold-light)", border: "1px solid rgba(201,162,39,0.4)" } : {}, "aria-pressed": theme === "dark" }, "\u263E"))), /* @__PURE__ */ React.createElement("main", { className: "page page-transition", key: activeTab }, renderPage())), /* @__PURE__ */ React.createElement("nav", { className: "mob-nav", "aria-label": "Mobile navigation" }, /* @__PURE__ */ React.createElement("div", { className: "mob-nav-inner" }, mobNav.map((item) => /* @__PURE__ */ React.createElement(
     "button",
     {
       key: item.id,
@@ -13245,15 +13256,18 @@ function AbstractCritique({ abstract, onClose }) {
   const [result, setResult] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  const abortRef = React.useRef(null);
 
   const run = async () => {
     if (!abstract || abstract.trim().length < 50) { setError("Abstract too short to critique (min 50 chars)."); return; }
     setLoading(true); setError(""); setResult(null);
     const key = (typeof getGroqKey === "function" && getGroqKey()) || localStorage.getItem("sabnahis_groq_key") || "";
     if (!key) { setError("No Groq API key set. Ask your teacher to add one in AI Assistant."); setLoading(false); return; }
+    abortRef.current = new AbortController();
     try {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions",{
         method:"POST",
+        signal: abortRef.current.signal,
         headers:{"Content-Type":"application/json","Authorization":`Bearer ${key}`},
         body:JSON.stringify({
           model:"llama-3.3-70b-versatile",
@@ -13273,14 +13287,21 @@ Respond ONLY with JSON. No markdown, no extra text.`},
         })
       });
       const d = await res.json();
-      const text = (d.content||d.choices?.[0]?.message?.content||"").replace(/```json|```/g,"").trim();
+      if (d.error) throw new Error(d.error.message || "Groq API error");
+      const text = (d.choices?.[0]?.message?.content || "").replace(/```json|```/g,"").trim();
       const parsed = JSON.parse(text);
       setResult(parsed);
-    } catch(e){ setError("Failed to get critique. Make sure Groq is connected in AI Assistant."); }
+    } catch(e){
+      if (e.name === "AbortError") return; // unmounted — don't setState
+      setError("Failed to get critique. Make sure Groq is connected in AI Assistant.");
+    }
     setLoading(false);
   };
 
-  React.useEffect(()=>{ run(); },[]);
+  React.useEffect(()=>{
+    run();
+    return () => { if (abortRef.current) abortRef.current.abort(); };
+  },[]);
 
   const VERDICT_META = {
     "ready":["var(--green)","var(--green-light)","✅","Ready to submit"],
@@ -14076,241 +14097,213 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 
 <style>
 /* ══════════════════════════════════════════════════════
-   MY STATS — FUN OVERHAUL
+   MY STATS — REDESIGN v2
 ══════════════════════════════════════════════════════ */
 
-/* ── Page header glow ── */
-.msp-header {
-  position: relative;
-  margin-bottom: 24px;
-}
-.msp-title {
-  font-size: 2rem !important;
-  background: linear-gradient(120deg, var(--gold), var(--teal), var(--purple));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: mspTitleShimmer 4s ease infinite;
-  background-size: 200% auto;
-}
-@keyframes mspTitleShimmer {
-  0%   { background-position: 0% center; }
-  50%  { background-position: 100% center; }
-  100% { background-position: 0% center; }
-}
-.msp-subtitle { font-size: 0.88rem; color: var(--muted); margin-top: 2px; }
+/* ── Keyframes ── */
+@keyframes mspFadeIn    { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+@keyframes mspStatPop   { from { opacity:0; transform:translateY(12px) scale(.9); } to { opacity:1; transform:none; } }
+@keyframes mspXpShimmer { from { background-position:0% center; } to { background-position:200% center; } }
+@keyframes mspPulseRing { 0%,100%{box-shadow:0 0 0 0 var(--msp-color,var(--gold));} 50%{box-shadow:0 0 0 6px transparent;} }
+@keyframes mspTitleShimmer { 0%,100%{background-position:0% center;} 50%{background-position:100% center;} }
 
-/* ── XP bar ── */
-.msp-xp-bar-wrap {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px 18px;
-  margin-bottom: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  animation: mspFadeIn .5s ease both;
+/* ── Page header ── */
+.msp-header { position:relative; margin-bottom:28px; }
+.msp-title {
+  font-size:2rem !important;
+  background:linear-gradient(110deg,var(--gold) 0%,#ff922b 40%,var(--teal) 80%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text; background-size:200% auto;
+  animation:mspTitleShimmer 5s ease infinite;
 }
-.msp-xp-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+
+/* ── XP HERO BANNER ── */
+.msp-xp-wrap {
+  position:relative; overflow:hidden;
+  background:linear-gradient(135deg,rgba(212,175,55,.12) 0%,rgba(20,184,166,.08) 50%,rgba(139,92,246,.08) 100%);
+  border:1px solid rgba(212,175,55,.25);
+  border-radius:16px;
+  padding:20px 24px 16px;
+  margin-bottom:20px;
+  animation:mspFadeIn .5s ease both;
 }
-.msp-xp-level {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.msp-xp-wrap::before {
+  content:'';
+  position:absolute; inset:0;
+  background:radial-gradient(ellipse 60% 80% at 0% 0%, rgba(212,175,55,.08), transparent);
+  pointer-events:none;
 }
+.msp-xp-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
+.msp-xp-left { display:flex; align-items:center; gap:10px; }
 .msp-xp-badge {
-  background: linear-gradient(135deg, var(--gold), #ff922b);
-  color: #fff;
-  font-weight: 800;
-  font-size: 0.75rem;
-  padding: 3px 10px;
-  border-radius: 99px;
-  letter-spacing: 0.5px;
+  background:linear-gradient(135deg,var(--gold),#ff922b);
+  color:#fff; font-weight:800; font-size:0.78rem;
+  padding:5px 13px; border-radius:99px; letter-spacing:0.4px;
+  box-shadow:0 2px 12px rgba(212,175,55,.35);
+  cursor:help;
 }
-.msp-xp-label { font-size: 0.82rem; font-weight: 700; color: var(--ink); }
-.msp-xp-pts { font-size: 0.75rem; color: var(--muted); }
+.msp-xp-title { font-size:1rem; font-weight:700; color:var(--ink); }
+.msp-xp-sub   { font-size:0.72rem; color:var(--muted); margin-top:1px; }
+.msp-xp-pts   { font-size:1.1rem; font-weight:800; color:var(--gold); }
 .msp-xp-track {
-  height: 10px;
-  background: var(--border);
-  border-radius: 99px;
-  overflow: hidden;
-  position: relative;
+  height:12px; background:var(--border); border-radius:99px;
+  overflow:hidden; position:relative; margin-bottom:6px;
 }
 .msp-xp-fill {
-  height: 100%;
-  border-radius: 99px;
-  background: linear-gradient(90deg, var(--gold), #ff922b, var(--teal));
-  background-size: 200% auto;
-  width: 0%;
-  transition: width 1.2s cubic-bezier(.34,1.1,.64,1);
-  animation: mspXpShimmer 2s linear infinite;
-  position: relative;
-}
-@keyframes mspXpShimmer {
-  0%   { background-position: 0% center; }
-  100% { background-position: 200% center; }
+  height:100%; border-radius:99px; width:0%;
+  background:linear-gradient(90deg,var(--gold),#ff922b,var(--teal));
+  background-size:200% auto;
+  transition:width 1.3s cubic-bezier(.34,1.1,.64,1);
+  animation:mspXpShimmer 2.5s linear infinite;
+  position:relative;
 }
 .msp-xp-fill::after {
-  content: '';
-  position: absolute;
-  right: 0; top: 0; bottom: 0;
-  width: 16px;
-  background: rgba(255,255,255,0.35);
-  border-radius: 99px;
-  filter: blur(3px);
+  content:''; position:absolute; right:0; top:0; bottom:0;
+  width:18px; background:rgba(255,255,255,.4);
+  border-radius:99px; filter:blur(3px);
 }
-.msp-xp-next { font-size: 0.7rem; color: var(--muted); text-align: right; }
+.msp-xp-next { font-size:0.7rem; color:var(--muted); text-align:right; }
 
-/* ── Stat pills ── */
-.msp-stat {
-  position: relative;
-  overflow: hidden;
-  cursor: default;
-  transition:
-    transform .2s cubic-bezier(.34,1.56,.64,1),
-    box-shadow .2s ease,
-    border-color .2s ease;
-  border-radius: 10px !important;
+/* ── HERO STAT CARDS (top 3) ── */
+.msp-hero-grid {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+  margin-bottom:12px;
 }
-.msp-stat::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, var(--msp-color, var(--gold)) 0%, transparent 60%);
-  opacity: 0;
-  transition: opacity .25s ease;
-  pointer-events: none;
-  border-radius: 10px;
+@media(max-width:600px){ .msp-hero-grid { grid-template-columns:1fr; } }
+.msp-hero-card {
+  position:relative; overflow:hidden;
+  border-radius:16px;
+  padding:22px 20px 18px;
+  border:1.5px solid var(--border);
+  background:var(--surface);
+  cursor:pointer;
+  transition:transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .22s ease, border-color .22s ease;
+  animation:mspStatPop .45s ease both;
 }
-.msp-stat:hover {
-  transform: translateY(-4px) scale(1.03);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.18), 0 0 0 2px var(--msp-color, var(--gold));
-  border-color: var(--msp-color, var(--gold)) !important;
-  z-index: 2;
+.msp-hero-card::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg, var(--msp-hc,var(--gold)) 0%, transparent 55%);
+  opacity:.07; pointer-events:none;
 }
-.msp-stat:hover::before { opacity: 0.07; }
-.msp-stat:hover .msp-val { transform: scale(1.1); }
-.msp-val {
-  transition: transform .2s cubic-bezier(.34,1.56,.64,1);
-  display: inline-block;
-  transform-origin: left center;
+.msp-hero-card::after {
+  content:''; position:absolute;
+  top:-40px; right:-40px; width:120px; height:120px;
+  border-radius:50%;
+  background:radial-gradient(circle, var(--msp-hc,var(--gold)) 0%, transparent 70%);
+  opacity:.12; pointer-events:none;
 }
-/* Pop animation on first load */
-@keyframes mspStatPop {
-  0%   { opacity: 0; transform: translateY(12px) scale(.9); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+.msp-hero-card:hover {
+  transform:translateY(-5px) scale(1.02);
+  box-shadow:0 12px 32px rgba(0,0,0,.22), 0 0 0 2px var(--msp-hc,var(--gold));
+  border-color:var(--msp-hc,var(--gold));
+  z-index:2;
 }
+.msp-hero-card-icon {
+  font-size:2rem; line-height:1; margin-bottom:10px; display:block;
+  filter:drop-shadow(0 2px 8px var(--msp-hc,var(--gold)));
+}
+.msp-hero-card-lbl {
+  font-size:0.65rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.8px; color:var(--muted); margin-bottom:4px;
+}
+.msp-hero-card-val {
+  font-size:2.6rem; font-weight:800; line-height:1;
+  color:var(--msp-hc,var(--gold));
+  font-family:var(--font-display,inherit);
+  display:inline-block;
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1);
+}
+.msp-hero-card:hover .msp-hero-card-val { transform:scale(1.08); }
+.msp-hero-card-sub {
+  font-size:0.68rem; color:var(--muted); margin-top:4px;
+}
+.msp-hero-arrow {
+  position:absolute; bottom:12px; right:14px;
+  font-size:0.65rem; font-weight:700;
+  color:var(--msp-hc,var(--gold)); opacity:0;
+  transition:opacity .15s;
+}
+.msp-hero-card:hover .msp-hero-arrow { opacity:1; }
 
-/* ── Fun stat icons ── */
-.msp-stat-icon {
-  font-size: 1.1rem;
-  margin-bottom: 4px;
-  display: block;
-  line-height: 1;
+/* ── SECONDARY STAT GRID ── */
+.msp-sec-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+  gap:10px;
+  margin-bottom:16px;
 }
+.msp-sec-card {
+  position:relative; overflow:hidden;
+  border-radius:12px;
+  padding:14px 14px 12px;
+  border:1.5px solid var(--border);
+  background:var(--surface);
+  cursor:default;
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease, border-color .2s ease;
+  animation:mspStatPop .4s ease both;
+  text-align:center;
+}
+.msp-sec-card[data-click="1"] { cursor:pointer; }
+.msp-sec-card::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg, var(--msp-sc,var(--gold)) 0%, transparent 60%);
+  opacity:0; transition:opacity .22s; pointer-events:none;
+}
+.msp-sec-card:hover { transform:translateY(-3px); border-color:var(--msp-sc,var(--border)); box-shadow:0 6px 20px rgba(0,0,0,.15); }
+.msp-sec-card:hover::before { opacity:.06; }
+.msp-sec-card-icon { font-size:1.4rem; line-height:1; margin-bottom:6px; display:block; }
+.msp-sec-card-lbl  { font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin-bottom:4px; }
+.msp-sec-card-val  {
+  font-size:1.6rem; font-weight:800; line-height:1;
+  color:var(--msp-sc,var(--ink));
+  font-family:var(--font-display,inherit);
+  display:inline-block;
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1);
+}
+.msp-sec-card:hover .msp-sec-card-val { transform:scale(1.1); }
 
 /* ── Motivational banner ── */
 .msp-motive {
-  background: linear-gradient(120deg, rgba(var(--gold-rgb,201,162,39),.12), rgba(var(--teal-rgb,20,184,166),.08));
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--gold);
-  border-radius: 10px;
-  padding: 12px 16px;
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  animation: mspFadeIn .6s ease .3s both;
+  display:flex; align-items:center; gap:12px;
+  background:linear-gradient(120deg,rgba(212,175,55,.1),rgba(20,184,166,.07));
+  border:1px solid var(--border); border-left:3px solid var(--gold);
+  border-radius:12px; padding:13px 18px; margin-bottom:18px;
+  animation:mspFadeIn .6s ease .25s both;
 }
-.msp-motive-icon { font-size: 1.4rem; flex-shrink: 0; }
-.msp-motive-text { font-size: 0.85rem; color: var(--ink-3); font-style: italic; line-height: 1.4; }
-.msp-motive-text strong { color: var(--gold); font-style: normal; }
+.msp-motive-icon { font-size:1.5rem; flex-shrink:0; }
+.msp-motive-text { font-size:0.85rem; color:var(--ink-3); font-style:italic; line-height:1.45; }
+.msp-motive-text strong { color:var(--gold); font-style:normal; }
 
-/* ── Animated card entrance ── */
-@keyframes mspFadeIn {
-  0%   { opacity: 0; transform: translateY(14px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-.msp-card-animate {
-  animation: mspFadeIn .5s ease both;
-}
-
-/* ── Impact bar inside Best Study card ── */
-.msp-impact-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
-.msp-impact-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.msp-impact-label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--muted);
-  width: 76px;
-  flex-shrink: 0;
-}
-.msp-impact-track {
-  flex: 1;
-  height: 8px;
-  background: var(--border);
-  border-radius: 99px;
-  overflow: hidden;
-}
-.msp-impact-fill {
-  height: 100%;
-  border-radius: 99px;
-  width: 0%;
-  transition: width 1s cubic-bezier(.34,1.1,.64,1) .4s;
-}
-.msp-impact-val {
-  font-size: 0.75rem;
-  font-weight: 700;
-  width: 28px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-/* ── Counters ── */
-.msp-countup { display: inline; }
+/* ── Impact bars (Best Study card) ── */
+.msp-impact-row { display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
+.msp-impact-item { display:flex; align-items:center; gap:10px; }
+.msp-impact-label { font-size:0.72rem; font-weight:600; color:var(--muted); width:80px; flex-shrink:0; }
+.msp-impact-track { flex:1; height:8px; background:var(--border); border-radius:99px; overflow:hidden; }
+.msp-impact-fill  { height:100%; border-radius:99px; width:0%; transition:width 1s cubic-bezier(.34,1.1,.64,1) .35s; }
+.msp-impact-val   { font-size:0.75rem; font-weight:700; width:30px; text-align:right; flex-shrink:0; }
 
 /* ── Scroll reveal ── */
-.msp-reveal {
-  opacity: 0;
-  transform: translateY(18px);
-  transition: opacity .5s ease, transform .5s ease;
-}
-.msp-reveal.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
+.msp-reveal { opacity:0; transform:translateY(18px); transition:opacity .5s ease, transform .5s ease; }
+.msp-reveal.visible { opacity:1; transform:none; }
 
-@media (prefers-reduced-motion: reduce) {
-  .msp-stat, .msp-xp-fill, .msp-impact-fill { transition: none; animation: none; }
-  .msp-title { animation: none; -webkit-text-fill-color: var(--ink); }
-  .msp-reveal { opacity: 1; transform: none; }
+@media(prefers-reduced-motion:reduce) {
+  .msp-hero-card, .msp-sec-card, .msp-xp-fill, .msp-impact-fill { transition:none; animation:none; }
+  .msp-title { animation:none; -webkit-text-fill-color:var(--ink); }
+  .msp-reveal { opacity:1; transform:none; }
 }
 </style>
 
 <script>
 (function() {
-  // ── Count-up animation ──────────────────────────────────
+  // ── Count-up ────────────────────────────────────────────
   function countUp(el, target, duration) {
-    var start = 0, startTime = null;
+    var startTime = null;
     function step(ts) {
       if (!startTime) startTime = ts;
       var prog = Math.min((ts - startTime) / duration, 1);
-      var ease = 1 - Math.pow(1 - prog, 3); // cubic ease-out
+      var ease = 1 - Math.pow(1 - prog, 3);
       el.textContent = Math.round(ease * target);
       if (prog < 1) requestAnimationFrame(step);
       else el.textContent = target;
@@ -14319,50 +14312,352 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   }
 
   // ── XP system ──────────────────────────────────────────
-  // XP formula: 10/study uploaded + 5/view + 8/download + 15/citation + 3/read + 2/bookmark + 20/streak
-  function calcXP(stats) {
-    return (stats.uploads * 10) + (stats.views * 5) + (stats.downloads * 8) +
-           (stats.citations * 15) + (stats.reads * 3) + (stats.bookmarks * 2) +
-           (stats.streak * 20) + (stats.coauthored * 8);
+  function calcXP(s) {
+    return s.uploads*10 + s.coauthored*8 + s.views*5 + s.downloads*8 + s.citations*15 + s.reads*3 + s.bookmarks*2 + s.streak*20;
   }
   var LEVELS = [
-    { min: 0,    label: 'Rookie Researcher',    emoji: '🌱' },
-    { min: 50,   label: 'Curious Learner',       emoji: '📖' },
-    { min: 120,  label: 'Rising Scholar',        emoji: '🔬' },
-    { min: 250,  label: 'Research Explorer',     emoji: '🧭' },
-    { min: 450,  label: 'Dedicated Analyst',     emoji: '📊' },
-    { min: 700,  label: 'Knowledge Hunter',      emoji: '🏹' },
-    { min: 1000, label: 'Science Champion',      emoji: '🏆' },
-    { min: 1500, label: 'STE Legend',            emoji: '⭐' },
+    {min:0,    label:'Rookie Researcher',  emoji:'🌱'},
+    {min:50,   label:'Curious Learner',    emoji:'📖'},
+    {min:120,  label:'Rising Scholar',     emoji:'🔬'},
+    {min:250,  label:'Research Explorer',  emoji:'🧭'},
+    {min:450,  label:'Dedicated Analyst',  emoji:'📊'},
+    {min:700,  label:'Knowledge Hunter',   emoji:'🏹'},
+    {min:1000, label:'Science Champion',   emoji:'🏆'},
+    {min:1500, label:'STE Legend',         emoji:'⭐'},
   ];
   function getLevel(xp) {
-    var lvl = LEVELS[0], next = LEVELS[1];
-    for (var i = 0; i < LEVELS.length; i++) {
-      if (xp >= LEVELS[i].min) { lvl = LEVELS[i]; next = LEVELS[i+1] || null; }
-    }
-    return { lvl: lvl, next: next };
+    var lv = LEVELS[0], nx = LEVELS[1];
+    for (var i=0;i<LEVELS.length;i++) { if(xp>=LEVELS[i].min){lv=LEVELS[i];nx=LEVELS[i+1]||null;} }
+    return {lv:lv, nx:nx};
   }
 
   // ── Motivational quotes ────────────────────────────────
   var QUOTES = [
-    { text: 'Every great study started with a single question.', icon: '💡' },
-    { text: 'Your research is making an impact — keep going!', icon: '🚀' },
-    { text: 'Knowledge shared is knowledge multiplied.', icon: '✨' },
-    { text: 'Science is not a destination — it\'s a journey.', icon: '🧭' },
-    { text: 'The more you read, the more you discover.', icon: '📚' },
-    { text: 'Consistency builds greatness. Keep that streak alive!', icon: '🔥' },
-    { text: 'One citation at a time, you\'re changing minds.', icon: '💬' },
+    {text:'Every great study started with a single question.',        icon:'💡'},
+    {text:'Your research is making an impact — keep going!',          icon:'🚀'},
+    {text:'Knowledge shared is knowledge multiplied.',                 icon:'✨'},
+    {text:'Science is not a destination — it\'s a journey.',          icon:'🧭'},
+    {text:'The more you read, the more you discover.',                 icon:'📚'},
+    {text:'Consistency builds greatness. Keep that streak alive!',    icon:'🔥'},
+    {text:'One citation at a time, you\'re changing minds.',           icon:'💬'},
   ];
+
+  // ── Data config ────────────────────────────────────────
+  // Hero (big 3): views, downloads, citations
+  // Secondary: uploads, coauthored, reads, bookmarks, dayStreak, bestStreak
+  var HERO_CFG = [
+    {idx:2, label:'Total Views',    icon:'👁',  color:'var(--teal)',   drillType:'views'},
+    {idx:3, label:'Downloads',      icon:'⬇️',  color:'var(--blue)',   drillType:'downloads'},
+    {idx:4, label:'Citations',      icon:'📋',  color:'var(--purple)', drillType:'citations'},
+  ];
+  var SEC_CFG = [
+    {idx:0, label:'Uploaded',    icon:'📄',  color:'var(--gold)',   drillType:'studies'},
+    {idx:1, label:'Co-authored', icon:'🤝',  color:'var(--teal)',   drillType:'coauthored'},
+    {idx:5, label:'Studies Read',icon:'📖',  color:'var(--green)',  drillType:null},
+    {idx:6, label:'Bookmarks',   icon:'🔖',  color:'var(--ink-3)', drillType:'bookmarks'},
+    {idx:7, label:'Day Streak',  icon:'🔥',  color:'#f0883e',      drillType:null},
+    {idx:8, label:'Best Streak', icon:'🏅',  color:'var(--gold)',   drillType:null},
+  ];
+
+  // ── Activity Log Modal ─────────────────────────────────
+  // Fetches real Firestore logs for all of the user's studies,
+  // merges them by timestamp, and renders a modal overlay.
+
+  var TYPE_META = {
+    views:     { label:'Views',     icon:'👁',  color:'var(--teal)',   key:'views' },
+    downloads: { label:'Downloads', icon:'⬇️',  color:'var(--blue)',   key:'downloads' },
+    citations: { label:'Citations', icon:'📋',  color:'var(--purple)', key:'citations' },
+  };
+
+  function fmtTs(ts) {
+    if (!ts) return '—';
+    var d = new Date(ts);
+    var date = d.toLocaleDateString('en-PH', {year:'numeric',month:'short',day:'numeric'});
+    var time = d.toLocaleTimeString('en-PH', {hour:'2-digit',minute:'2-digit'});
+    return date + ' · ' + time;
+  }
+
+  function fmtRelative(ts) {
+    if (!ts) return '';
+    var diff = Date.now() - ts;
+    var m = Math.floor(diff / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return m + 'm ago';
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + 'h ago';
+    var day = Math.floor(h / 24);
+    if (day < 7) return day + 'd ago';
+    return fmtTs(ts).split(' · ')[0];
+  }
+
+  function initials(name) {
+    if (!name) return '?';
+    return (name||'').split(' ').map(function(w){return w[0]||'';}).filter(Boolean).slice(0,2).join('').toUpperCase();
+  }
+
+  function openActivityLogModal(logType, color, label) {
+    var meta = TYPE_META[logType] || TYPE_META.views;
+
+    // ── Build & mount modal shell immediately ──
+    var overlay = document.createElement('div');
+    overlay.id = 'msp-log-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,15,25,.6);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;backdrop-filter:blur(4px);animation:mspFadeIn .18s ease;';
+
+    var modal = document.createElement('div');
+    modal.style.cssText = 'background:var(--white,#fff);border-radius:18px;border:1.5px solid var(--border,#e2e5f0);box-shadow:0 24px 60px rgba(0,0,0,.28);width:100%;max-width:580px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;animation:mspFadeIn .2s ease;';
+
+    // Header
+    var header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border,#e2e5f0);background:var(--surface,#f9fafb);flex-shrink:0;';
+    header.innerHTML =
+      '<div style="width:36px;height:36px;border-radius:10px;background:'+meta.color+';display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;box-shadow:0 2px 8px '+meta.color+'44;">'+meta.icon+'</div>'
+      +'<div style="flex:1;min-width:0;">'
+        +'<div style="font-weight:700;font-size:0.97rem;color:var(--ink,#0f172a);">'+label+' Log</div>'
+        +'<div id="msp-log-subtitle" style="font-size:0.72rem;color:var(--muted,#7c85a8);">Loading activity across all your studies…</div>'
+      +'</div>'
+      +'<button id="msp-log-close" style="background:none;border:none;cursor:pointer;color:var(--muted,#7c85a8);font-size:1.3rem;padding:4px 8px;border-radius:8px;line-height:1;" aria-label="Close">×</button>';
+
+    // Tab bar
+    var tabBar = document.createElement('div');
+    tabBar.style.cssText = 'display:flex;gap:4px;padding:10px 20px 0;background:var(--surface,#f9fafb);flex-shrink:0;border-bottom:1px solid var(--border,#e2e5f0);';
+
+    var TABS = [
+      {id:'views',     icon:'👁',  label:'Views'},
+      {id:'downloads', icon:'⬇️',  label:'Downloads'},
+      {id:'citations', icon:'📋',  label:'Citations'},
+    ];
+    var activeTab = logType;
+    var tabEls = {};
+    var allLogs = { views:[], downloads:[], citations:[] }; // filled after fetch
+    var studyMap = {};
+
+    function renderTabBar() {
+      tabBar.innerHTML = '';
+      TABS.forEach(function(t) {
+        var btn = document.createElement('button');
+        var isActive = t.id === activeTab;
+        var tm = TYPE_META[t.id];
+        btn.style.cssText = 'flex:1;padding:8px 6px;border:none;border-radius:8px 8px 0 0;cursor:pointer;font-size:0.78rem;font-weight:'+(isActive?'700':'500')+';'
+          +'background:'+(isActive?'var(--white,#fff)':'transparent')+';'
+          +'color:'+(isActive?tm.color:'var(--muted,#7c85a8)')+';'
+          +'border-bottom:'+(isActive?'2px solid '+tm.color:'2px solid transparent')+';'
+          +'transition:all .15s;';
+        var cnt = allLogs[t.id] ? allLogs[t.id].length : '';
+        btn.innerHTML = t.icon+' '+t.label+(cnt!==''?' <span style="background:var(--border,#e2e5f0);color:var(--muted,#7c85a8);border-radius:99px;padding:1px 7px;font-size:0.65rem;font-weight:700;">'+cnt+'</span>':'');
+        btn.addEventListener('click', function() { activeTab = t.id; renderTabBar(); renderBody(); });
+        tabBar.appendChild(btn);
+        tabEls[t.id] = btn;
+      });
+    }
+
+    // Body
+    var body = document.createElement('div');
+    body.style.cssText = 'overflow-y:auto;flex:1;padding:0;';
+
+    function renderBody() {
+      body.innerHTML = '';
+      var list = allLogs[activeTab] || [];
+      var tm = TYPE_META[activeTab];
+
+      if (list.length === 0) {
+        body.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;color:var(--muted,#7c85a8);gap:10px;">'
+          +'<span style="font-size:2rem;">'+tm.icon+'</span>'
+          +'<span style="font-size:0.85rem;">No '+tm.label.toLowerCase()+' yet</span>'
+          +'</div>';
+        return;
+      }
+
+      // Group by day
+      var groups = {};
+      list.forEach(function(entry) {
+        var ts = entry.timestamp;
+        var day = ts ? new Date(ts).toISOString().slice(0,10) : 'unknown';
+        if (!groups[day]) groups[day] = [];
+        groups[day].push(entry);
+      });
+      var sortedDays = Object.keys(groups).sort(function(a,b){return b.localeCompare(a);});
+
+      function fmtDay(key) {
+        if (key==='unknown') return 'Unknown Date';
+        var d = new Date(key+'T00:00:00');
+        var today = new Date(); today.setHours(0,0,0,0);
+        var yest  = new Date(today); yest.setDate(today.getDate()-1);
+        if (d.toDateString()===today.toDateString())     return 'Today — '+d.toLocaleDateString('en-PH',{weekday:'long',month:'long',day:'numeric'});
+        if (d.toDateString()===yest.toDateString())      return 'Yesterday — '+d.toLocaleDateString('en-PH',{weekday:'long',month:'long',day:'numeric'});
+        return d.toLocaleDateString('en-PH',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+      }
+
+      sortedDays.forEach(function(day) {
+        // Day banner
+        var banner = document.createElement('div');
+        banner.style.cssText = 'padding:10px 20px 6px;font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted,#7c85a8);background:var(--surface,#f9fafb);border-bottom:1px solid var(--border,#e2e5f0);position:sticky;top:0;z-index:2;';
+        banner.textContent = fmtDay(day);
+        body.appendChild(banner);
+
+        groups[day].forEach(function(entry) {
+          var row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:1px solid var(--border,#e2e5f0);transition:background .12s;';
+          row.onmouseenter = function(){ row.style.background='var(--surface,#f9fafb)'; };
+          row.onmouseleave = function(){ row.style.background=''; };
+
+          var av = initials(entry.userName);
+          var studyTitle = studyMap[entry.studyId] || entry.studyTitle || 'Unknown Study';
+
+          row.innerHTML =
+            // Avatar
+            '<div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,'+tm.color+','+tm.color+'88);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;color:#fff;">'+av+'</div>'
+            // Info
+            +'<div style="flex:1;min-width:0;">'
+              +'<div style="font-weight:600;font-size:0.85rem;color:var(--ink,#0f172a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(entry.userName||'Unknown User')+'</div>'
+              +'<div style="font-size:0.7rem;color:var(--muted,#7c85a8);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+                +(entry.userEmail||'')+(entry.userEmail&&studyTitle?' · ':'')
+                +'<span style="color:'+tm.color+';font-weight:600;">'+studyTitle+'</span>'
+              +'</div>'
+            +'</div>'
+            // Time
+            +'<div style="flex-shrink:0;text-align:right;">'
+              +'<div style="font-size:0.72rem;color:var(--muted,#7c85a8);">'+fmtRelative(entry.timestamp)+'</div>'
+              +'<div style="font-size:0.62rem;color:var(--muted,#7c85a8);margin-top:1px;">'+(fmtTs(entry.timestamp).split(' · ')[1]||'')+'</div>'
+            +'</div>'
+            // Type badge
+            +'<div style="width:28px;height:28px;border-radius:8px;background:'+tm.color+'18;border:1px solid '+tm.color+'44;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0;">'+tm.icon+'</div>';
+
+          body.appendChild(row);
+        });
+      });
+    }
+
+    // Footer
+    var footer = document.createElement('div');
+    footer.id = 'msp-log-footer';
+    footer.style.cssText = 'padding:10px 20px;border-top:1px solid var(--border,#e2e5f0);font-size:0.7rem;color:var(--muted,#7c85a8);text-align:center;flex-shrink:0;background:var(--surface,#f9fafb);';
+    footer.textContent = 'Fetching logs from all your studies…';
+
+    modal.appendChild(header);
+    modal.appendChild(tabBar);
+    modal.appendChild(body);
+    modal.appendChild(footer);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Initial render
+    renderTabBar();
+    body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:160px;color:var(--muted,#7c85a8);gap:10px;"><span style="font-size:1.3rem;">⏳</span><span style="font-size:0.85rem;">Loading logs…</span></div>';
+
+    // Close handlers
+    document.getElementById('msp-log-close').addEventListener('click', function() {
+      overlay.remove();
+    });
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) overlay.remove();
+    });
+    document.addEventListener('keydown', function escHandler(e) {
+      if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
+    });
+
+    // ── Fetch all study logs in parallel ──
+    // Collect studies from original React state via the pill grid data
+    // We read study IDs from the existing myStudies data stored in pills' onClick handlers
+    // The safest way: grab study IDs from the visible study rows in the page
+    var studyIds = [];
+    document.querySelectorAll('[data-study-id]').forEach(function(el) {
+      var sid = el.getAttribute('data-study-id');
+      if (sid && studyIds.indexOf(sid) === -1) studyIds.push(sid);
+    });
+
+    // Fallback: scrape from study rows in the All My Studies card
+    if (studyIds.length === 0) {
+      document.querySelectorAll('.mstats-study-row, [class*="study-row"]').forEach(function(el) {
+        var sid = el.getAttribute('data-id') || el.dataset.id;
+        if (sid) studyIds.push(sid);
+      });
+    }
+
+    // Second fallback: use window.__mspStudies if we cached it
+    if (studyIds.length === 0 && window.__mspStudies) {
+      studyIds = window.__mspStudies.map(function(s){ return s.id; });
+      window.__mspStudies.forEach(function(s){ studyMap[s.id] = s.title; });
+    }
+
+    if (studyIds.length === 0) {
+      // No IDs found — show helpful message
+      document.getElementById('msp-log-subtitle').textContent = 'Could not detect study IDs. Try opening a study first.';
+      footer.textContent = 'Tip: scroll down to the "All My Studies" section and come back.';
+      renderBody();
+      renderTabBar();
+      return;
+    }
+
+    // Fetch via the exposed API
+    var api = window.API || (window.__API);
+    if (!api || !api.getStudyLogs) {
+      footer.textContent = 'API not available — try refreshing the page.';
+      return;
+    }
+
+    Promise.all(studyIds.map(function(sid) {
+      return api.getStudyLogs(sid).then(function(logs) {
+        return { id: sid, logs: logs };
+      }).catch(function(){ return { id: sid, logs: { views:[], downloads:[], citations:[] } }; });
+    })).then(function(results) {
+      allLogs = { views:[], downloads:[], citations:[] };
+
+      results.forEach(function(result) {
+        var sid = result.id;
+        var title = studyMap[sid] || sid;
+        ['views','downloads','citations'].forEach(function(type) {
+          (result.logs[type]||[]).forEach(function(entry) {
+            allLogs[type].push(Object.assign({}, entry, { studyId: sid, studyTitle: title }));
+          });
+        });
+      });
+
+      // Sort all merged logs newest-first
+      ['views','downloads','citations'].forEach(function(type) {
+        allLogs[type].sort(function(a,b){ return (b.timestamp||0)-(a.timestamp||0); });
+      });
+
+      var total = allLogs.views.length + allLogs.downloads.length + allLogs.citations.length;
+      document.getElementById('msp-log-subtitle').textContent =
+        total + ' total events across ' + studyIds.length + ' stud' + (studyIds.length===1?'y':'ies');
+      footer.textContent = 'Showing latest activity · ' + studyIds.length + ' studies · all times in PH timezone';
+
+      renderTabBar();
+      renderBody();
+    }).catch(function(err) {
+      footer.textContent = 'Error loading logs: ' + (err.message||err);
+      body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted,#7c85a8);">Failed to load activity logs.</div>';
+    });
+  }
+
+  // ── Cache study IDs when MyStats renders ──────────────
+  // Patch the API to intercept getStudies results for the current user
+  (function() {
+    var origGetStudies = window.API && window.API.getStudies;
+    if (!origGetStudies) return;
+    var _orig = origGetStudies;
+    window.API.getStudies = function() {
+      return _orig.apply(window.API, arguments).then(function(result) {
+        if (result && result.data) {
+          result.data.forEach(function(s) {
+            if (s && s.id && !window.__mspStudyMap) window.__mspStudyMap = {};
+            if (s && s.id) { (window.__mspStudies = window.__mspStudies||[]); if(!window.__mspStudies.find(function(x){return x.id===s.id;})) window.__mspStudies.push(s); }
+          });
+        }
+        return result;
+      });
+    };
+  })();
 
   // ── Main enhancer ──────────────────────────────────────
   var enhanced = false;
+
   function enhanceMyStats() {
-    // Only run on My Stats page
     var h2 = document.querySelector('h2');
     if (!h2 || h2.textContent.indexOf('My Stats') === -1) return;
     if (enhanced) return;
 
-    // Collect stat pills grid
+    // Find the original pills grid
     var pillGrid = null;
     document.querySelectorAll('div[style]').forEach(function(el) {
       var s = el.style;
@@ -14371,161 +14666,192 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
     if (!pillGrid) return;
     enhanced = true;
 
-    // ── Style the page title ──
+    // ── Title ──
     var titleWrap = h2.closest('div');
     if (titleWrap) titleWrap.classList.add('msp-header');
     h2.classList.add('msp-title');
 
-    // ── Collect stat values from pills ──
+    // ── Read values from original pills ──
     var pills = Array.from(pillGrid.children);
     var vals = pills.map(function(p) {
-      var num = p.querySelector('[style*="1.5rem"]');
+      var num = p.querySelector('[data-stat-val]');
       return num ? (parseInt(num.textContent) || 0) : 0;
     });
-    // pills order: uploads, coauthored, views, downloads, citations, reads, bookmarks, streak, bestStreak
     var stats = {
-      uploads: vals[0]||0, coauthored: vals[1]||0, views: vals[2]||0,
-      downloads: vals[3]||0, citations: vals[4]||0, reads: vals[5]||0,
-      bookmarks: vals[6]||0, streak: vals[7]||0
+      uploads:vals[0]||0, coauthored:vals[1]||0, views:vals[2]||0,
+      downloads:vals[3]||0, citations:vals[4]||0, reads:vals[5]||0,
+      bookmarks:vals[6]||0, streak:vals[7]||0, bestStreak:vals[8]||0
     };
     var xp = calcXP(stats);
     var lv = getLevel(xp);
+    var xpPct = lv.nx ? Math.round(((xp-lv.lv.min)/(lv.nx.min-lv.lv.min))*100) : 100;
 
-    // ── Enhance each stat pill ──
-    var ICONS = ['📄','🤝','👁️','⬇️','📋','📖','🔖','🔥','🏅'];
-    var COLORS = ['var(--gold)','var(--teal)','var(--teal)','var(--blue)','var(--purple)','var(--green)','var(--ink-3)','#f0883e','var(--gold)'];
-    pills.forEach(function(pill, i) {
-      pill.classList.add('msp-stat');
-      pill.style.setProperty('--msp-color', COLORS[i] || 'var(--gold)');
-      pill.style.animation = 'mspStatPop .4s ease ' + (i * 0.055) + 's both';
+    // Hide original pills grid (we replace it)
+    pillGrid.style.display = 'none';
+    var parent = pillGrid.parentNode;
+    var insertBefore = pillGrid;  // we'll insert new elements before the hidden grid
 
-      // Add icon above label
-      var labelEl = pill.querySelector('[style*="uppercase"]');
-      if (labelEl && !pill.querySelector('.msp-stat-icon')) {
-        var ico = document.createElement('span');
-        ico.className = 'msp-stat-icon';
-        ico.textContent = ICONS[i] || '📌';
-        pill.insertBefore(ico, pill.firstChild);
+    // ── XP Banner ──
+    var xpWrap = document.createElement('div');
+    xpWrap.className = 'msp-xp-wrap';
+    var xpTooltip = 'Uploads: '+stats.uploads+' × 10 = '+(stats.uploads*10)+' XP\n'
+      +'Views: '+stats.views+' × 5 = '+(stats.views*5)+' XP\n'
+      +'Downloads: '+stats.downloads+' × 8 = '+(stats.downloads*8)+' XP\n'
+      +'Citations: '+stats.citations+' × 15 = '+(stats.citations*15)+' XP\n'
+      +'Studies Read: '+stats.reads+' × 3 = '+(stats.reads*3)+' XP\n'
+      +'Streak: '+stats.streak+' × 20 = '+(stats.streak*20)+' XP\n'
+      +'Total: '+xp+' XP';
+    xpWrap.innerHTML =
+      '<div class="msp-xp-top">'
+        +'<div class="msp-xp-left">'
+          +'<span class="msp-xp-badge" title="'+xpTooltip+'">'+lv.lv.emoji+' Level '+(LEVELS.indexOf(lv.lv)+1)+'</span>'
+          +'<div><div class="msp-xp-title">'+lv.lv.label+'</div>'
+          +'<div class="msp-xp-sub">Research rank</div></div>'
+        +'</div>'
+        +'<div class="msp-xp-pts">'+xp.toLocaleString()+' XP</div>'
+      +'</div>'
+      +'<div class="msp-xp-track"><div class="msp-xp-fill" id="msp-xp-fill"></div></div>'
+      +'<div class="msp-xp-next">'+(lv.nx ? (lv.nx.min - xp)+' XP to '+lv.nx.emoji+' '+lv.nx.label : '🌟 Max level reached!')+'</div>';
+    parent.insertBefore(xpWrap, insertBefore);
+    setTimeout(function(){
+      var f=document.getElementById('msp-xp-fill'); if(f) f.style.width=xpPct+'%';
+    }, 350);
+
+    // ── Hero grid (3 big cards) ──
+    var heroGrid = document.createElement('div');
+    heroGrid.className = 'msp-hero-grid';
+    HERO_CFG.forEach(function(cfg, gi) {
+      var val = vals[cfg.idx] || 0;
+      var card = document.createElement('div');
+      card.className = 'msp-hero-card';
+      card.style.setProperty('--msp-hc', cfg.color);
+      card.style.animationDelay = (gi * 0.07) + 's';
+      if (cfg.drillType && val > 0) {
+        card.style.cursor = 'pointer';
+        card.setAttribute('data-drill', cfg.drillType);
       }
-
-      // Wrap value for scale animation
-      var valEl = pill.querySelector('[style*="1.5rem"]');
-      if (valEl && !valEl.classList.contains('msp-val')) {
-        valEl.classList.add('msp-val');
-        var orig = parseInt(valEl.textContent) || 0;
-        valEl.textContent = '0';
-        countUp(valEl, orig, 900 + i * 80);
+      card.innerHTML =
+        '<span class="msp-hero-card-icon">'+cfg.icon+'</span>'
+        +'<div class="msp-hero-card-lbl">'+cfg.label+'</div>'
+        +'<div class="msp-hero-card-val" id="msp-hv-'+gi+'">0</div>'
+        +'<div class="msp-hero-card-sub">'+(cfg.drillType && val>0?'tap to drill down':'all time')+'</div>'
+        +(cfg.drillType && val>0?'<span class="msp-hero-arrow">tap to expand →</span>':'');
+      heroGrid.appendChild(card);
+      // Wire drill-down click → open aggregated activity log modal
+      if (cfg.drillType && val > 0) {
+        (function(logType, cardColor, cardLabel) {
+          card.addEventListener('click', function() {
+            openActivityLogModal(logType, cardColor, cardLabel);
+          });
+        })(cfg.drillType, cfg.color, cfg.label);
       }
+      setTimeout(function(){ countUp(document.getElementById('msp-hv-'+gi), val, 1000+gi*100); }, 200+gi*80);
     });
+    parent.insertBefore(heroGrid, insertBefore);
 
-    // ── Inject XP bar above pills ──
-    var xpPct = lv.next ? Math.round(((xp - lv.lvl.min) / (lv.next.min - lv.lvl.min)) * 100) : 100;
-    var xpBar = document.createElement('div');
-    xpBar.className = 'msp-xp-bar-wrap';
-    xpBar.innerHTML =
-      '<div class="msp-xp-top">' +
-        '<div class="msp-xp-level">' +
-          '<span class="msp-xp-badge">' + lv.lvl.emoji + ' Level ' + (LEVELS.indexOf(lv.lvl)+1) + '</span>' +
-          '<span class="msp-xp-label">' + lv.lvl.label + '</span>' +
-        '</div>' +
-        '<span class="msp-xp-pts">' + xp.toLocaleString() + ' XP</span>' +
-      '</div>' +
-      '<div class="msp-xp-track"><div class="msp-xp-fill" id="msp-xp-fill"></div></div>' +
-      '<div class="msp-xp-next">' + (lv.next ? (lv.next.min - xp) + ' XP to ' + lv.next.emoji + ' ' + lv.next.label : '🌟 Max level reached!') + '</div>';
-    pillGrid.parentNode.insertBefore(xpBar, pillGrid);
-    setTimeout(function() {
-      var fill = document.getElementById('msp-xp-fill');
-      if (fill) fill.style.width = xpPct + '%';
-    }, 300);
+    // ── Secondary grid ──
+    var secGrid = document.createElement('div');
+    secGrid.className = 'msp-sec-grid';
+    SEC_CFG.forEach(function(cfg, si) {
+      var val = vals[cfg.idx] || 0;
+      var card = document.createElement('div');
+      card.className = 'msp-sec-card';
+      card.style.setProperty('--msp-sc', cfg.color);
+      card.style.animationDelay = (si * 0.055) + 's';
+      var canDrill = cfg.drillType && val > 0;
+      if (canDrill) card.setAttribute('data-click','1');
+      card.innerHTML =
+        '<span class="msp-sec-card-icon">'+cfg.icon+'</span>'
+        +'<div class="msp-sec-card-lbl">'+cfg.label+'</div>'
+        +'<div class="msp-sec-card-val" id="msp-sv-'+si+'">0</div>';
+      secGrid.appendChild(card);
+      if (canDrill) {
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', function() {
+          var origPill = pills[cfg.idx];
+          if (origPill) origPill.click();
+        });
+      }      setTimeout(function(){ countUp(document.getElementById('msp-sv-'+si), val, 900+si*80); }, 350+si*60);
+    });
+    parent.insertBefore(secGrid, insertBefore);
 
-    // ── Inject motivational quote ──
+    // ── Motivational quote ──
     var q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
     var motive = document.createElement('div');
     motive.className = 'msp-motive';
-    motive.innerHTML = '<span class="msp-motive-icon">' + q.icon + '</span><span class="msp-motive-text">' + q.text + '</span>';
-    pillGrid.parentNode.insertBefore(motive, pillGrid.nextSibling);
+    motive.innerHTML = '<span class="msp-motive-icon">'+q.icon+'</span><span class="msp-motive-text">'+q.text+'</span>';
+    parent.insertBefore(motive, insertBefore);
+
+    // ── Cache study titles from the DOM (All My Studies rows) ──
+    // This runs after React has rendered the study rows, so we can scrape titles
+    setTimeout(function() {
+      if (!window.__mspStudies || window.__mspStudies.length === 0) {
+        // Scrape from .mstats-study-row elements which have data attributes
+        var studyRows = document.querySelectorAll('.mstats-study-row');
+        studyRows.forEach(function(row) {
+          var sid = row.getAttribute('data-id') || row.dataset.id;
+          var titleEl = row.querySelector('[style*="0.85rem"]') || row.querySelector('[style*="ellipsis"]');
+          if (sid && titleEl) {
+            if (!window.__mspStudies) window.__mspStudies = [];
+            if (!window.__mspStudies.find(function(x){ return x.id===sid; })) {
+              window.__mspStudies.push({ id: sid, title: titleEl.textContent.trim() });
+            }
+          }
+        });
+      }
+    }, 1500);
 
     // ── Animate cards below pills on scroll ──
     var cards = document.querySelectorAll('.card');
-    cards.forEach(function(card, i) {
-      card.classList.add('msp-reveal');
-      card.style.transitionDelay = (i * 0.07) + 's';
+    cards.forEach(function(c, i) {
+      c.classList.add('msp-reveal');
+      c.style.transitionDelay = (i * 0.07) + 's';
     });
-    var revealObserver = new IntersectionObserver(function(entries) {
+    var obs = new IntersectionObserver(function(entries) {
       entries.forEach(function(e) {
-        if (e.isIntersecting) {
-          e.target.classList.add('visible');
-          revealObserver.unobserve(e.target);
-        }
+        if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }
       });
-    }, { threshold: 0.1 });
-    cards.forEach(function(c) { revealObserver.observe(c); });
+    }, {threshold:0.1});
+    cards.forEach(function(c) { obs.observe(c); });
 
     // ── Impact bars in Best Study card ──
-    // Find the Best Study card by its gold left-border
     setTimeout(function() {
       var bestCard = null;
       document.querySelectorAll('.card').forEach(function(c) {
         if (c.style.borderLeft && c.style.borderLeft.indexOf('gold') !== -1) bestCard = c;
       });
       if (!bestCard) return;
-      // Get stats from existing spans
       var spans = bestCard.querySelectorAll('span[style*="fontWeight: 600"]');
       if (spans.length < 3) return;
-      var bViews = parseInt(spans[0].textContent) || 0;
-      var bDls   = parseInt(spans[1].textContent) || 0;
-      var bCites = parseInt(spans[2].textContent) || 0;
-      var maxVal = Math.max(bViews, bDls, bCites, 1);
-
-      var impactRows = [
-        { label: '👁 Views',     val: bViews, color: 'var(--teal)',   pct: Math.round((bViews/maxVal)*100) },
-        { label: '⬇ Downloads', val: bDls,   color: 'var(--blue)',   pct: Math.round((bDls/maxVal)*100)   },
-        { label: '📋 Citations', val: bCites, color: 'var(--purple)', pct: Math.round((bCites/maxVal)*100) },
+      var bV=parseInt(spans[0].textContent)||0, bD=parseInt(spans[1].textContent)||0, bC=parseInt(spans[2].textContent)||0;
+      var mx=Math.max(bV,bD,bC,1);
+      var rows=[
+        {label:'👁 Views',     val:bV, color:'var(--teal)',   pct:Math.round(bV/mx*100)},
+        {label:'⬇ Downloads', val:bD, color:'var(--blue)',   pct:Math.round(bD/mx*100)},
+        {label:'📋 Citations', val:bC, color:'var(--purple)', pct:Math.round(bC/mx*100)},
       ];
-      var wrap = document.createElement('div');
-      wrap.className = 'msp-impact-row';
-      impactRows.forEach(function(row) {
-        var item = document.createElement('div');
-        item.className = 'msp-impact-item';
-        item.innerHTML =
-          '<span class="msp-impact-label">' + row.label + '</span>' +
-          '<div class="msp-impact-track"><div class="msp-impact-fill" style="background:' + row.color + '" data-pct="' + row.pct + '"></div></div>' +
-          '<span class="msp-impact-val" style="color:' + row.color + '">' + row.val + '</span>';
+      var wrap=document.createElement('div'); wrap.className='msp-impact-row';
+      rows.forEach(function(r) {
+        var item=document.createElement('div'); item.className='msp-impact-item';
+        item.innerHTML='<span class="msp-impact-label">'+r.label+'</span>'
+          +'<div class="msp-impact-track"><div class="msp-impact-fill" style="background:'+r.color+'" data-pct="'+r.pct+'"></div></div>'
+          +'<span class="msp-impact-val" style="color:'+r.color+'">'+r.val+'</span>';
         wrap.appendChild(item);
       });
       bestCard.appendChild(wrap);
-      // Animate fills
-      setTimeout(function() {
-        wrap.querySelectorAll('.msp-impact-fill').forEach(function(f) {
-          f.style.width = f.dataset.pct + '%';
-        });
+      setTimeout(function(){
+        wrap.querySelectorAll('.msp-impact-fill').forEach(function(f){ f.style.width=f.dataset.pct+'%'; });
       }, 200);
-    }, 600);
-
-    // ── Hover tooltip on XP badge ──
-    var xpBadgeEl = document.querySelector('.msp-xp-badge');
-    if (xpBadgeEl) {
-      xpBadgeEl.title =
-        'Uploads: ' + stats.uploads + ' × 10 = ' + (stats.uploads*10) + ' XP\n' +
-        'Views: ' + stats.views + ' × 5 = ' + (stats.views*5) + ' XP\n' +
-        'Downloads: ' + stats.downloads + ' × 8 = ' + (stats.downloads*8) + ' XP\n' +
-        'Citations: ' + stats.citations + ' × 15 = ' + (stats.citations*15) + ' XP\n' +
-        'Studies Read: ' + stats.reads + ' × 3 = ' + (stats.reads*3) + ' XP\n' +
-        'Streak: ' + stats.streak + ' × 20 = ' + (stats.streak*20) + ' XP\n' +
-        'Total: ' + xp + ' XP';
-      xpBadgeEl.style.cursor = 'help';
-    }
+    }, 700);
   }
 
-  // Run after React renders, and on tab switches
+  // Run after React renders, reset on navigation
   setTimeout(enhanceMyStats, 900);
   setInterval(function() {
-    // Reset if we navigate away and back
-    if (document.querySelector('h2') && document.querySelector('h2').textContent.indexOf('My Stats') !== -1) {
-      if (!enhanced) enhanceMyStats();
-    } else {
-      enhanced = false; // reset so it re-runs when we come back
-    }
+    var h2 = document.querySelector('h2');
+    var onStats = h2 && h2.textContent.indexOf('My Stats') !== -1;
+    if (onStats) { if (!enhanced) enhanceMyStats(); }
+    else { enhanced = false; }
   }, 800);
 })();
 </script>
