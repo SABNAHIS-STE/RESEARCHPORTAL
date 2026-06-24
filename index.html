@@ -2153,6 +2153,9 @@ tr { transition: background .1s; }
 
 /* Typing indicator */
 .typing { display:flex; gap:4px; padding:6px 4px; align-items:center; }
+.stream-cursor { display:inline-block; width:2px; height:1.1em; background:var(--teal); margin-left:2px; vertical-align:text-bottom; animation:cursorBlink 0.55s step-end infinite; border-radius:1px; opacity:0.9; }
+@keyframes cursorBlink { 0%,100%{opacity:0.9} 50%{opacity:0} }
+@keyframes cursorBlink { 0%,100%{opacity:1} 50%{opacity:0} }
 .dot {
   width: 7px; height: 7px;
   background: var(--purple);
@@ -5302,18 +5305,78 @@ ${conversationContext}` : ""}`;
 }
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 let _groqKeyCache = null;
-const getGroqKey = () => _groqKeyCache || localStorage.getItem("sabnahis_groq_key") || "";
-async function loadGroqKeyFromFirestore() {
-  try {
-    const snap = await db.collection("config").doc("groq").get();
-    if (snap.exists && snap.data().apiKey) {
-      _groqKeyCache = snap.data().apiKey;
-    }
-  } catch (e) {
-  }
+let _groqKeyLoadedAt = 0;          // timestamp of last successful Firestore load
+const GROQ_KEY_TTL = 5 * 60 * 1000; // re-fetch from Firestore if cache is older than 5 min
+const LS_KEY = "sabnahis_groq_key";
+
+const getGroqKey = () => _groqKeyCache || localStorage.getItem(LS_KEY) || "";
+
+// Validate that a string looks like a real Groq key (gsk_ prefix, sufficient length)
+function isValidGroqKey(k) {
+  return typeof k === "string" && k.startsWith("gsk_") && k.length >= 40;
 }
-async function callAI(query, history, studies, mode = "general") {
-  var _a, _b, _c;
+
+// Listeners that want to know when the key changes (e.g. React state setters)
+const _groqKeyListeners = new Set();
+function onGroqKeyChange(fn) { _groqKeyListeners.add(fn); return () => _groqKeyListeners.delete(fn); }
+function _notifyGroqKeyListeners(k) { _groqKeyListeners.forEach((fn) => { try { fn(k); } catch(_){} }); }
+
+async function loadGroqKeyFromFirestore({ force = false } = {}) {
+  // Skip if cache is still fresh (unless forced)
+  const now = Date.now();
+  if (!force && _groqKeyCache && (now - _groqKeyLoadedAt) < GROQ_KEY_TTL) return;
+
+  const MAX_RETRIES = 3;
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const snap = await db.collection("config").doc("groq").get();
+      if (snap.exists && snap.data().apiKey) {
+        const k = snap.data().apiKey;
+        if (isValidGroqKey(k)) {
+          _groqKeyCache = k;
+          _groqKeyLoadedAt = Date.now();
+          // Keep localStorage in sync so offline / page-refresh works
+          localStorage.setItem(LS_KEY, k);
+          _notifyGroqKeyListeners(k);
+          return; // success
+        }
+      } else {
+        // Key was removed from Firestore — clear local copy too
+        if (_groqKeyCache) {
+          _groqKeyCache = null;
+          localStorage.removeItem(LS_KEY);
+          _notifyGroqKeyListeners("");
+        }
+        return;
+      }
+    } catch (e) {
+      lastErr = e;
+      if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 800 * attempt));
+    }
+  }
+  // All retries failed — fall back to localStorage silently
+  const local = localStorage.getItem(LS_KEY);
+  if (local && isValidGroqKey(local) && !_groqKeyCache) {
+    _groqKeyCache = local;
+    _notifyGroqKeyListeners(local);
+  }
+  console.warn("loadGroqKeyFromFirestore: all retries failed, using localStorage fallback.", lastErr);
+}
+
+// Re-sync when the tab regains focus (user might have saved key in another tab/session)
+if (typeof window !== "undefined") {
+  window.addEventListener("focus", () => loadGroqKeyFromFirestore({ force: true }));
+  // Also sync when another tab writes to localStorage
+  window.addEventListener("storage", (e) => {
+    if (e.key === LS_KEY) {
+      const k = e.newValue || "";
+      _groqKeyCache = isValidGroqKey(k) ? k : null;
+      _notifyGroqKeyListeners(k);
+    }
+  });
+}
+async function callAI(query, history, studies, mode = "general", onToken) {
   const recent = history.slice(-6).map((m) => `${m.role === "user" ? "Student" : "Assistant"}: ${m.content.slice(0, 200)}`).join("\n");
   const system = buildSystemPrompt(studies, mode, recent);
   const GROQ_API_KEY = getGroqKey();
@@ -5323,6 +5386,7 @@ async function callAI(query, history, studies, mode = "general") {
     ...history.slice(-12).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
     { role: "user", content: query }
   ];
+  const useStreaming = typeof onToken === "function";
   try {
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -5334,7 +5398,8 @@ async function callAI(query, history, studies, mode = "general") {
         model: GROQ_MODEL,
         messages,
         max_tokens: 1600,
-        temperature: 0.7
+        temperature: 0.7,
+        stream: useStreaming
       })
     });
     if (!res.ok) {
@@ -5345,15 +5410,87 @@ async function callAI(query, history, studies, mode = "general") {
       else toast.err(`Groq: Server error (${res.status}). Falling back to local mode.`);
       throw new Error(`Groq HTTP ${res.status}`);
     }
-    const data = await res.json();
-    if (data.error) {
-      console.error("Groq API error:", data.error);
-      toast.err(`Groq: ${data.error.message}`);
-      throw new Error(data.error.message);
+    if (useStreaming) {
+      // SSE streaming path with typewriter throttle
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let fullText = "";
+      let displayedText = "";
+      let buffer = "";
+      let typeQueue = "";
+      let typeTimer = null;
+      let streamDone = false;
+
+      // Typewriter: drip queued characters to the UI at a human-readable pace
+      const CHAR_DELAY = 12;   // ms between render ticks
+      const CHARS_PER_TICK = 3; // characters revealed per tick (tune for speed feel)
+
+      function drip() {
+        if (!typeQueue) {
+          if (streamDone) {
+            // Flush any remaining chars immediately
+            if (displayedText !== fullText) onToken(fullText);
+          }
+          typeTimer = null;
+          return;
+        }
+        const chunk = typeQueue.slice(0, CHARS_PER_TICK);
+        typeQueue = typeQueue.slice(CHARS_PER_TICK);
+        displayedText += chunk;
+        onToken(displayedText);
+        typeTimer = setTimeout(drip, CHAR_DELAY);
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop(); // keep incomplete line
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === "data: [DONE]") continue;
+          if (trimmed.startsWith("data: ")) {
+            try {
+              const json = JSON.parse(trimmed.slice(6));
+              const delta = json?.choices?.[0]?.delta?.content;
+              if (delta) {
+                fullText += delta;
+                typeQueue += delta;
+                if (!typeTimer) typeTimer = setTimeout(drip, CHAR_DELAY);
+              }
+            } catch (_) { /* skip malformed chunks */ }
+          }
+        }
+      }
+
+      // Mark stream as done; drip() will flush the tail
+      streamDone = true;
+      if (!typeTimer && typeQueue) typeTimer = setTimeout(drip, CHAR_DELAY);
+
+      // Wait for the typewriter to finish draining before resolving
+      await new Promise((resolve) => {
+        function waitForDrip() {
+          if (!typeQueue && (displayedText === fullText)) return resolve();
+          setTimeout(waitForDrip, 30);
+        }
+        waitForDrip();
+      });
+
+      const relevant = findRelevant(query, studies, 4);
+      return { text: fullText || "No response generated.", citations: relevant, source: "groq" };
+    } else {
+      // Non-streaming fallback
+      const data = await res.json();
+      if (data.error) {
+        console.error("Groq API error:", data.error);
+        toast.err(`Groq: ${data.error.message}`);
+        throw new Error(data.error.message);
+      }
+      const text = data?.choices?.[0]?.message?.content || "No response generated.";
+      const relevant = findRelevant(query, studies, 4);
+      return { text, citations: relevant, source: "groq" };
     }
-    const text = ((_c = (_b = (_a = data.choices) == null ? void 0 : _a[0]) == null ? void 0 : _b.message) == null ? void 0 : _c.content) || "No response generated.";
-    const relevant = findRelevant(query, studies, 4);
-    return { text, citations: relevant, source: "groq" };
   } catch (err) {
     console.error("AI call failed:", err);
     return buildLocalResponse(query, studies, mode);
@@ -8104,14 +8241,33 @@ function ChatPage({ currentUser }) {
       toast.err("Please enter a valid API key.");
       return;
     }
+    if (!k.startsWith("gsk_") || k.length < 40) {
+      toast.err("That doesn't look like a valid Groq key. It should start with gsk_ and be at least 40 characters.");
+      return;
+    }
+    // Quick live validation — test the key against Groq before saving
+    try {
+      const testRes = await fetch("https://api.groq.com/openai/v1/models", {
+        headers: { "Authorization": `Bearer ${k}` }
+      });
+      if (!testRes.ok) {
+        const err = await testRes.json().catch(() => ({}));
+        toast.err(`Key rejected by Groq: ${err?.error?.message || testRes.statusText}`);
+        return;
+      }
+    } catch (e) {
+      toast.err("Could not reach Groq to validate the key. Check your connection.");
+      return;
+    }
     try {
       await db.collection("config").doc("groq").set({ apiKey: k });
       _groqKeyCache = k;
-      localStorage.setItem("sabnahis_groq_key", k);
+      _groqKeyLoadedAt = Date.now();
+      localStorage.setItem(LS_KEY, k);
       setGroqKey(k);
       setKeyInput("");
       setShowKeySetup(false);
-      toast.ok("API key saved to Firestore!");
+      toast.ok("✓ API key validated & saved to Firestore!");
     } catch (e) {
       toast.err("Failed to save: " + e.message);
     }
@@ -8119,15 +8275,15 @@ function ChatPage({ currentUser }) {
   const removeKey = async () => {
     try {
       await db.collection("config").doc("groq").delete();
-      _groqKeyCache = null;
-      localStorage.removeItem("sabnahis_groq_key");
-      setGroqKey("");
-      toast.ok("API key removed.");
     } catch (e) {
-      localStorage.removeItem("sabnahis_groq_key");
-      setGroqKey("");
-      toast.ok("API key removed locally.");
+      // best-effort Firestore delete
     }
+    _groqKeyCache = null;
+    _groqKeyLoadedAt = 0;
+    localStorage.removeItem(LS_KEY);
+    setGroqKey("");
+    _notifyGroqKeyListeners("");
+    toast.ok("API key removed.");
   };
   const [studies, setStudies] = useState([]);
   const [msgs, setMsgs] = useState([]);
@@ -8143,7 +8299,9 @@ function ChatPage({ currentUser }) {
   const inputRef = useRef();
   const msgsRef = useRef();
   useEffect(() => {
-    loadGroqKeyFromFirestore().then(() => {
+    // Subscribe to key changes (Firestore load, tab-sync, removal)
+    const unsub = onGroqKeyChange((k) => setGroqKey(k));
+    loadGroqKeyFromFirestore({ force: true }).then(() => {
       if (_groqKeyCache) setGroqKey(_groqKeyCache);
     });
     API.getAllStudies().then((s) => {
@@ -8193,10 +8351,12 @@ I function as a **smart research copilot**, not just a keyword search. I can:
 I have **${s.length}** ${s.length === 1 ? "study" : "studies"} loaded. Use the **mode buttons** to focus, or just ask me anything!${gapHint}`
       }]);
     });
+    return unsub;
   }, []);
   useEffect(() => {
     var _a2;
-    (_a2 = bottomRef.current) == null ? void 0 : _a2.scrollIntoView({ behavior: "smooth" });
+    const isStreaming = msgs.some((m) => m.streaming);
+    (_a2 = bottomRef.current) == null ? void 0 : _a2.scrollIntoView({ behavior: isStreaming ? "auto" : "smooth" });
   }, [msgs]);
   useEffect(() => {
     const ta = inputRef.current;
@@ -8209,14 +8369,38 @@ I have **${s.length}** ${s.length === 1 ? "study" : "studies"} loaded. Use the *
     if (!q || loading) return;
     setInput("");
     const userMsg = { id: Date.now(), role: "user", text: q, citations: [], time: now() };
+    const botId = Date.now() + 1;
     setMsgs((m) => [...m, userMsg]);
     setLoading(true);
-    try {
-      const r = await callAI(q, history, studies, mode);
-      setMsgs((m) => [...m, { id: Date.now() + 1, role: "bot", text: r.text, citations: r.citations || [], source: r.source, time: now() }]);
-      setHistory((h) => [...h, { role: "user", content: q }, { role: "assistant", content: r.text }]);
-    } catch (e) {
-      setMsgs((m) => [...m, { id: Date.now() + 1, role: "bot", text: "Sorry, something went wrong. Please try again.", citations: [], time: now() }]);
+    const hasGroqKey = !!getGroqKey();
+    if (hasGroqKey) {
+      // Streaming path: add an empty bot message and fill it token by token
+      setMsgs((m) => [...m, { id: botId, role: "bot", text: "", citations: [], source: "groq", time: now(), streaming: true }]);
+      try {
+        const r = await callAI(q, history, studies, mode, (partialText) => {
+          setMsgs((m) => m.map((msg) => msg.id === botId ? { ...msg, text: partialText } : msg));
+        });
+        // Finalise: mark streaming done, attach citations
+        setMsgs((m) => m.map((msg) => msg.id === botId
+          ? { ...msg, text: r.text, citations: r.citations || [], streaming: false }
+          : msg
+        ));
+        setHistory((h) => [...h, { role: "user", content: q }, { role: "assistant", content: r.text }]);
+      } catch (e) {
+        setMsgs((m) => m.map((msg) => msg.id === botId
+          ? { ...msg, text: "Sorry, something went wrong. Please try again.", streaming: false }
+          : msg
+        ));
+      }
+    } else {
+      // Local/offline fallback — no streaming needed
+      try {
+        const r = await callAI(q, history, studies, mode);
+        setMsgs((m) => [...m, { id: botId, role: "bot", text: r.text, citations: r.citations || [], source: r.source, time: now() }]);
+        setHistory((h) => [...h, { role: "user", content: q }, { role: "assistant", content: r.text }]);
+      } catch (e) {
+        setMsgs((m) => [...m, { id: botId, role: "bot", text: "Sorry, something went wrong. Please try again.", citations: [], time: now() }]);
+      }
     }
     setLoading(false);
     setTimeout(() => {
@@ -8294,12 +8478,12 @@ ${m.text}`).join("\n\n---\n\n");
     m.label
   ))), /* @__PURE__ */ React.createElement("div", { className: "chat-msgs", ref: msgsRef, role: "log", "aria-live": "polite", "aria-label": "Chat messages" }, !studiesLoaded ? /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "50px", color: "var(--muted)" } }, /* @__PURE__ */ React.createElement("span", { className: "spin spin-gold", style: { width: 28, height: 28, border: "3px solid rgba(201,162,39,0.25)", borderTopColor: "var(--gold)", display: "inline-block", marginBottom: 12 } }), /* @__PURE__ */ React.createElement("p", null, "Loading AI assistant\u2026")) : msgs.map((msg) => {
     var _a2;
-    return /* @__PURE__ */ React.createElement("div", { key: msg.id, className: `cm ${msg.role}`, role: msg.role === "bot" ? "article" : "none" }, /* @__PURE__ */ React.createElement("div", { className: `cm-av ${msg.role}`, "aria-hidden": "true" }, msg.role === "bot" ? "\u{1F916}" : initials(currentUser.name)), /* @__PURE__ */ React.createElement("div", { className: "cm-body" }, /* @__PURE__ */ React.createElement("div", { className: `cm-bub ${msg.role}` }, msg.role === "bot" ? /* @__PURE__ */ React.createElement(MD, { text: msg.text }) : msg.text, ((_a2 = msg.citations) == null ? void 0 : _a2.length) > 0 && /* @__PURE__ */ React.createElement("div", { className: "chat-refs" }, /* @__PURE__ */ React.createElement("div", { className: "chat-ref-lbl" }, "\u{1F4DA} Referenced Studies (", msg.citations.length, ")"), msg.citations.map((s, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "chat-ref" }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, cursor: "pointer" }, title: "Click to copy APA", onClick: () => {
+    return /* @__PURE__ */ React.createElement("div", { key: msg.id, className: `cm ${msg.role}`, role: msg.role === "bot" ? "article" : "none" }, /* @__PURE__ */ React.createElement("div", { className: `cm-av ${msg.role}`, "aria-hidden": "true" }, msg.role === "bot" ? "\u{1F916}" : initials(currentUser.name)), /* @__PURE__ */ React.createElement("div", { className: "cm-body" }, /* @__PURE__ */ React.createElement("div", { className: `cm-bub ${msg.role}` }, msg.role === "bot" ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(MD, { text: msg.text }), msg.streaming ? /* @__PURE__ */ React.createElement("span", { className: "stream-cursor" }) : null) : msg.text, ((_a2 = msg.citations) == null ? void 0 : _a2.length) > 0 && /* @__PURE__ */ React.createElement("div", { className: "chat-refs" }, /* @__PURE__ */ React.createElement("div", { className: "chat-ref-lbl" }, "\u{1F4DA} Referenced Studies (", msg.citations.length, ")"), msg.citations.map((s, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "chat-ref" }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, cursor: "pointer" }, title: "Click to copy APA", onClick: () => {
       var _a3;
       (_a3 = navigator.clipboard) == null ? void 0 : _a3.writeText(generateAPA(s));
       toast.ok("APA citation copied!");
     } }, "[", i + 1, "] ", generateAPA(s)), /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", cursor: "pointer", color: "var(--teal)", fontSize: "0.65rem", fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap", minWidth: 36, minHeight: 24, padding: "2px 4px" }, onClick: () => saveCitation(s) }, "Save"))))), /* @__PURE__ */ React.createElement("div", { className: "cm-meta" }, /* @__PURE__ */ React.createElement("span", null, msg.time), msg.source && /* @__PURE__ */ React.createElement("span", { className: `cm-src ${msg.source}` }, msg.source === "groq" ? "\u26A1 Groq AI" : "\u{1F527} Local"), msg.role === "bot" && /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "0 4px", borderRadius: 4, minWidth: 28, minHeight: 24, display: "flex", alignItems: "center" }, onClick: () => copyMsg(msg.text), "data-tip": "Copy response", "aria-label": "Copy response" }, /* @__PURE__ */ React.createElement(Ico.copy, null)))));
-  }), loading && /* @__PURE__ */ React.createElement("div", { className: "cm bot", "aria-label": "AI is thinking" }, /* @__PURE__ */ React.createElement("div", { className: "cm-av bot", "aria-hidden": "true" }, "\u{1F916}"), /* @__PURE__ */ React.createElement("div", { className: "cm-body" }, /* @__PURE__ */ React.createElement("div", { className: "cm-bub bot" }, /* @__PURE__ */ React.createElement("div", { className: "typing" }, /* @__PURE__ */ React.createElement("div", { className: "dot" }), /* @__PURE__ */ React.createElement("div", { className: "dot" }), /* @__PURE__ */ React.createElement("div", { className: "dot" }))), /* @__PURE__ */ React.createElement("div", { className: "cm-meta" }, /* @__PURE__ */ React.createElement("span", null, "Thinking\u2026")))), /* @__PURE__ */ React.createElement("div", { ref: bottomRef, style: { height: 1 } })), /* @__PURE__ */ React.createElement("div", { className: "chat-input-area" }, /* @__PURE__ */ React.createElement("div", { className: "chat-input-row" }, /* @__PURE__ */ React.createElement(
+  }), loading && !msgs.some((m) => m.streaming) && /* @__PURE__ */ React.createElement("div", { className: "cm bot", "aria-label": "AI is thinking" }, /* @__PURE__ */ React.createElement("div", { className: "cm-av bot", "aria-hidden": "true" }, "\u{1F916}"), /* @__PURE__ */ React.createElement("div", { className: "cm-body" }, /* @__PURE__ */ React.createElement("div", { className: "cm-bub bot" }, /* @__PURE__ */ React.createElement("div", { className: "typing" }, /* @__PURE__ */ React.createElement("div", { className: "dot" }), /* @__PURE__ */ React.createElement("div", { className: "dot" }), /* @__PURE__ */ React.createElement("div", { className: "dot" }))), /* @__PURE__ */ React.createElement("div", { className: "cm-meta" }, /* @__PURE__ */ React.createElement("span", null, "Thinking\u2026")))), /* @__PURE__ */ React.createElement("div", { ref: bottomRef, style: { height: 1 } })), /* @__PURE__ */ React.createElement("div", { className: "chat-input-area" }, /* @__PURE__ */ React.createElement("div", { className: "chat-input-row" }, /* @__PURE__ */ React.createElement(
     "textarea",
     {
       ref: inputRef,
