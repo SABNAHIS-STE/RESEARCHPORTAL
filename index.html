@@ -1379,8 +1379,8 @@ textarea { resize: vertical; min-height: 90px; }
 .sc-cat { font-size:var(--text-xs); font-weight:600; padding:3px 9px; border-radius:99px; background:var(--gold-bg); color:var(--gold); border: 1px solid rgba(201,162,39,0.25); letter-spacing:0.02em; }
 .sc-title { font-family:var(--font-display); font-size:clamp(0.88rem,2.5vw,0.97rem); font-weight:600; color:var(--ink); line-height:1.4; }
 .sc-authors { font-size:var(--text-xs); color:var(--muted); }
-.sc-abs { font-size:var(--text-sm); color:var(--slate); line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; transition:all .25s ease; }
-.sc-abs.expanded { display:block; -webkit-line-clamp:unset; overflow:visible; }
+.sc-abs { font-size:var(--text-sm); color:var(--slate); line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; transition:all .25s ease; }
+.sc-abs.expanded { display:block; -webkit-line-clamp:unset; line-clamp:unset; overflow:visible; }
 .sc-abs-toggle { background:none; border:none; cursor:pointer; font-size:var(--text-xs); color:var(--teal); font-family:var(--font-body); font-weight:600; padding:2px 0; margin-top:3px; display:inline-flex; align-items:center; gap:3px; transition:color var(--transition); }
 .sc-abs-toggle:hover { color:var(--gold); }
 .sc-meta { display:flex; align-items:center; gap:10px; font-size:var(--text-xs); color:var(--muted); flex-wrap:wrap; margin-top:auto; }
@@ -14178,10 +14178,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
     { text: 'Every great study started with a single question.', icon: '💡' },
     { text: 'Your research is making an impact — keep going!', icon: '🚀' },
     { text: 'Knowledge shared is knowledge multiplied.', icon: '✨' },
-    { text: 'Science is not a destination — it's a journey.', icon: '🧭' },
+    { text: 'Science is not a destination — it\'s a journey.', icon: '🧭' },
     { text: 'The more you read, the more you discover.', icon: '📚' },
     { text: 'Consistency builds greatness. Keep that streak alive!', icon: '🔥' },
-    { text: 'One citation at a time, you're changing minds.', icon: '💬' },
+    { text: 'One citation at a time, you\'re changing minds.', icon: '💬' },
   ];
 
   // ── Main enhancer ──────────────────────────────────────
@@ -14336,18 +14336,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
     var xpBadgeEl = document.querySelector('.msp-xp-badge');
     if (xpBadgeEl) {
       xpBadgeEl.title =
-        'Uploads: ' + stats.uploads + ' × 10 = ' + (stats.uploads*10) + ' XP
-' +
-        'Views: ' + stats.views + ' × 5 = ' + (stats.views*5) + ' XP
-' +
-        'Downloads: ' + stats.downloads + ' × 8 = ' + (stats.downloads*8) + ' XP
-' +
-        'Citations: ' + stats.citations + ' × 15 = ' + (stats.citations*15) + ' XP
-' +
-        'Studies Read: ' + stats.reads + ' × 3 = ' + (stats.reads*3) + ' XP
-' +
-        'Streak: ' + stats.streak + ' × 20 = ' + (stats.streak*20) + ' XP
-' +
+        'Uploads: ' + stats.uploads + ' × 10 = ' + (stats.uploads*10) + ' XP\n' +
+        'Views: ' + stats.views + ' × 5 = ' + (stats.views*5) + ' XP\n' +
+        'Downloads: ' + stats.downloads + ' × 8 = ' + (stats.downloads*8) + ' XP\n' +
+        'Citations: ' + stats.citations + ' × 15 = ' + (stats.citations*15) + ' XP\n' +
+        'Studies Read: ' + stats.reads + ' × 3 = ' + (stats.reads*3) + ' XP\n' +
+        'Streak: ' + stats.streak + ' × 20 = ' + (stats.streak*20) + ' XP\n' +
         'Total: ' + xp + ' XP';
       xpBadgeEl.style.cursor = 'help';
     }
