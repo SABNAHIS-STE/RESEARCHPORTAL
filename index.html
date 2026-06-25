@@ -2153,8 +2153,7 @@ tr { transition: background .1s; }
 
 /* Typing indicator */
 .typing { display:flex; gap:4px; padding:6px 4px; align-items:center; }
-.stream-cursor { display:inline-block; width:2px; height:1.1em; background:var(--teal); margin-left:2px; vertical-align:text-bottom; animation:cursorBlink 0.55s step-end infinite; border-radius:1px; opacity:0.9; }
-@keyframes cursorBlink { 0%,100%{opacity:0.9} 50%{opacity:0} }
+.stream-cursor { display:inline-block; width:2px; height:1em; background:currentColor; margin-left:2px; vertical-align:text-bottom; animation:cursorBlink 0.7s step-end infinite; border-radius:1px; }
 @keyframes cursorBlink { 0%,100%{opacity:1} 50%{opacity:0} }
 .dot {
   width: 7px; height: 7px;
@@ -4151,10 +4150,26 @@ const API = {
       }
     });
   },
-  async createStudy({ title, authors, coAuthors, abstract, keywords, categories, year, gdrive, uploadedBy, uploadedByName, uploaderGrade = "", uploaderSection = "" }) {
+  async getDraftStudies(userId, isAdmin) {
+    // Drafts are private: only visible to the uploader or admins
+    try {
+      const snap = await db.collection("studies").where("status", "==", "draft").orderBy("createdAt", "desc").get();
+      const all = snap.docs.map((d) => __spreadValues({ id: d.id }, d.data()));
+      if (isAdmin) return all;
+      return all.filter((s) => s.uploadedBy === userId);
+    } catch (e) {
+      return [];
+    }
+  },
+  async publishDraft(studyId) {
+    await db.collection("studies").doc(studyId).update({ status: "active", publishedAt: (/* @__PURE__ */ new Date()).toISOString() });
+    Cache.invalidate("studies", "allStudies", "stats");
+  },
+  async createStudy({ title, authors, coAuthors, abstract, keywords, categories, year, gdrive, uploadedBy, uploadedByName, uploaderGrade = "", uploaderSection = "", isDraft = false }) {
     if (!title || !abstract) throw new Error("Title and abstract are required.");
     if (!(authors == null ? void 0 : authors.length)) throw new Error("At least one author is required.");
-    if (!(categories == null ? void 0 : categories.length)) throw new Error("At least one category is required.");
+    if (!isDraft && !(categories == null ? void 0 : categories.length)) throw new Error("At least one category is required.");
+    if (isDraft && !(categories == null ? void 0 : categories.length)) categories = ["Unfinished"];
     const normalized = title.trim().toLowerCase().replace(/\s+/g, " ");
     const existing = await db.collection("studies").where("titleNorm", "==", normalized).limit(1).get();
     if (!existing.empty) throw new Error(`\u26A0\uFE0F A study with this title already exists: "${existing.docs[0].data().title}"`);
@@ -4174,7 +4189,7 @@ const API = {
       uploaderSection,
       viewCount: 0,
       downloadCount: 0,
-      status: "active",
+      status: isDraft ? "draft" : "active",
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     });
     await db.collection("users").doc(uploadedBy).update({
@@ -4196,6 +4211,7 @@ const API = {
     }
     try {
       const newStudyId = newStudyDocRef.id;
+      if (!isDraft) {
       await db.collection("pendingReviews").add({
         type: "new_study",
         studyId: newStudyId,
@@ -4208,6 +4224,7 @@ const API = {
         // set to 'reviewed' when an admin acts on it
       });
       Cache.invalidate("studyNotifications");
+      }
     } catch (e) {
       console.warn("Notification write failed:", e.message);
     }
@@ -5305,76 +5322,15 @@ ${conversationContext}` : ""}`;
 }
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 let _groqKeyCache = null;
-let _groqKeyLoadedAt = 0;          // timestamp of last successful Firestore load
-const GROQ_KEY_TTL = 5 * 60 * 1000; // re-fetch from Firestore if cache is older than 5 min
-const LS_KEY = "sabnahis_groq_key";
-
-const getGroqKey = () => _groqKeyCache || localStorage.getItem(LS_KEY) || "";
-
-// Validate that a string looks like a real Groq key (gsk_ prefix, sufficient length)
-function isValidGroqKey(k) {
-  return typeof k === "string" && k.startsWith("gsk_") && k.length >= 40;
-}
-
-// Listeners that want to know when the key changes (e.g. React state setters)
-const _groqKeyListeners = new Set();
-function onGroqKeyChange(fn) { _groqKeyListeners.add(fn); return () => _groqKeyListeners.delete(fn); }
-function _notifyGroqKeyListeners(k) { _groqKeyListeners.forEach((fn) => { try { fn(k); } catch(_){} }); }
-
-async function loadGroqKeyFromFirestore({ force = false } = {}) {
-  // Skip if cache is still fresh (unless forced)
-  const now = Date.now();
-  if (!force && _groqKeyCache && (now - _groqKeyLoadedAt) < GROQ_KEY_TTL) return;
-
-  const MAX_RETRIES = 3;
-  let lastErr;
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const snap = await db.collection("config").doc("groq").get();
-      if (snap.exists && snap.data().apiKey) {
-        const k = snap.data().apiKey;
-        if (isValidGroqKey(k)) {
-          _groqKeyCache = k;
-          _groqKeyLoadedAt = Date.now();
-          // Keep localStorage in sync so offline / page-refresh works
-          localStorage.setItem(LS_KEY, k);
-          _notifyGroqKeyListeners(k);
-          return; // success
-        }
-      } else {
-        // Key was removed from Firestore — clear local copy too
-        if (_groqKeyCache) {
-          _groqKeyCache = null;
-          localStorage.removeItem(LS_KEY);
-          _notifyGroqKeyListeners("");
-        }
-        return;
-      }
-    } catch (e) {
-      lastErr = e;
-      if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 800 * attempt));
+const getGroqKey = () => _groqKeyCache || localStorage.getItem("sabnahis_groq_key") || "";
+async function loadGroqKeyFromFirestore() {
+  try {
+    const snap = await db.collection("config").doc("groq").get();
+    if (snap.exists && snap.data().apiKey) {
+      _groqKeyCache = snap.data().apiKey;
     }
+  } catch (e) {
   }
-  // All retries failed — fall back to localStorage silently
-  const local = localStorage.getItem(LS_KEY);
-  if (local && isValidGroqKey(local) && !_groqKeyCache) {
-    _groqKeyCache = local;
-    _notifyGroqKeyListeners(local);
-  }
-  console.warn("loadGroqKeyFromFirestore: all retries failed, using localStorage fallback.", lastErr);
-}
-
-// Re-sync when the tab regains focus (user might have saved key in another tab/session)
-if (typeof window !== "undefined") {
-  window.addEventListener("focus", () => loadGroqKeyFromFirestore({ force: true }));
-  // Also sync when another tab writes to localStorage
-  window.addEventListener("storage", (e) => {
-    if (e.key === LS_KEY) {
-      const k = e.newValue || "";
-      _groqKeyCache = isValidGroqKey(k) ? k : null;
-      _notifyGroqKeyListeners(k);
-    }
-  });
 }
 async function callAI(query, history, studies, mode = "general", onToken) {
   const recent = history.slice(-6).map((m) => `${m.role === "user" ? "Student" : "Assistant"}: ${m.content.slice(0, 200)}`).join("\n");
@@ -5411,36 +5367,11 @@ async function callAI(query, history, studies, mode = "general", onToken) {
       throw new Error(`Groq HTTP ${res.status}`);
     }
     if (useStreaming) {
-      // SSE streaming path with typewriter throttle
+      // SSE streaming path
       const reader = res.body.getReader();
       const decoder = new TextDecoder("utf-8");
       let fullText = "";
-      let displayedText = "";
       let buffer = "";
-      let typeQueue = "";
-      let typeTimer = null;
-      let streamDone = false;
-
-      // Typewriter: drip queued characters to the UI at a human-readable pace
-      const CHAR_DELAY = 12;   // ms between render ticks
-      const CHARS_PER_TICK = 3; // characters revealed per tick (tune for speed feel)
-
-      function drip() {
-        if (!typeQueue) {
-          if (streamDone) {
-            // Flush any remaining chars immediately
-            if (displayedText !== fullText) onToken(fullText);
-          }
-          typeTimer = null;
-          return;
-        }
-        const chunk = typeQueue.slice(0, CHARS_PER_TICK);
-        typeQueue = typeQueue.slice(CHARS_PER_TICK);
-        displayedText += chunk;
-        onToken(displayedText);
-        typeTimer = setTimeout(drip, CHAR_DELAY);
-      }
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -5456,27 +5387,12 @@ async function callAI(query, history, studies, mode = "general", onToken) {
               const delta = json?.choices?.[0]?.delta?.content;
               if (delta) {
                 fullText += delta;
-                typeQueue += delta;
-                if (!typeTimer) typeTimer = setTimeout(drip, CHAR_DELAY);
+                onToken(fullText);
               }
             } catch (_) { /* skip malformed chunks */ }
           }
         }
       }
-
-      // Mark stream as done; drip() will flush the tail
-      streamDone = true;
-      if (!typeTimer && typeQueue) typeTimer = setTimeout(drip, CHAR_DELAY);
-
-      // Wait for the typewriter to finish draining before resolving
-      await new Promise((resolve) => {
-        function waitForDrip() {
-          if (!typeQueue && (displayedText === fullText)) return resolve();
-          setTimeout(waitForDrip, 30);
-        }
-        waitForDrip();
-      });
-
       const relevant = findRelevant(query, studies, 4);
       return { text: fullText || "No response generated.", citations: relevant, source: "groq" };
     } else {
@@ -7744,6 +7660,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
   const [allStudiesCache, setAllStudiesCache] = useState([]);
   const [draftStatus, setDraftStatus] = useState(existingDraft ? "saved" : null);
   const [hasDraftRestored, setHasDraftRestored] = useState(!!existingDraft);
+  const [isDraft, setIsDraft] = useState(false);
   const titleCheckTimeout = useRef(null);
   const plagCheckTimeout = useRef(null);
   const draftTimeout = useRef(null);
@@ -7852,10 +7769,11 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
       toast.err("Abstract is required.");
       return;
     }
-    if (!selCats.length) {
+    if (!isDraft && !selCats.length) {
       toast.err("Select at least one category.");
       return;
     }
+    if (!isDraft) {
     try {
       const [ownSnap, coAuthored] = await Promise.all([
         db.collection("studies").where("uploadedBy", "==", currentUser.id).where("status", "==", "active").get(),
@@ -7869,8 +7787,9 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
       }
     } catch (e) {
     }
+    }
     const topPlag = plagResults[0];
-    if (topPlag && topPlag.score >= 0.5) {
+    if (!isDraft && topPlag && topPlag.score >= 0.5) {
       toast.err("Abstract has high similarity (" + Math.round(topPlag.score * 100) + "%) with an existing study. Please rewrite it.");
       return;
     }
@@ -7880,9 +7799,9 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
       const coAuthors = authorTags.slice(1).map((t) => ({ name: t.name, userId: t.userId || null, registered: !!t.registered }));
       const keywords = form.keywords.split(",").map((k) => k.trim()).filter(Boolean);
       const gdrive = gdriveInfo ? { driveUrl: gdriveInfo.viewUrl, downloadUrl: gdriveInfo.downloadUrl, driveId: gdriveInfo.id } : null;
-      await API.createStudy({ title: form.title, authors, coAuthors, abstract: form.abstract, keywords, categories: selCats, year: form.year, gdrive, uploadedBy: currentUser.id, uploadedByName: currentUser.name, uploaderGrade: currentUser.gradeLevel || "", uploaderSection: currentUser.section || "" });
+      await API.createStudy({ title: form.title, authors, coAuthors, abstract: form.abstract, keywords, categories: selCats, year: form.year, gdrive, uploadedBy: currentUser.id, uploadedByName: currentUser.name, uploaderGrade: currentUser.gradeLevel || "", uploaderSection: currentUser.section || "", isDraft });
       clearDraft(draftKey);
-      toast.ok("Study uploaded successfully!");
+      toast.ok(isDraft ? "📝 Saved as unfinished draft! Only you and teachers can see it." : "Study uploaded successfully!");
       onUpload();
       onClose();
     } catch (e) {
@@ -7916,7 +7835,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
       onChange: (e) => handleGdriveInput(e.target.value),
       style: { color: "var(--ink)" }
     }
-  ), gdriveUrl && !gdriveInfo && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--red)", fontSize: "0.75rem", flexShrink: 0 } }, "Invalid link"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4, minHeight: 20 } }, draftStatus === "saving" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saving" }, /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 9, height: 9, borderWidth: 1.5 } }), "Auto-saving draft\u2026"), draftStatus === "saved" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saved" }, "\u2713 Draft saved \u2014 close anytime and resume later")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: confirmClose }, form.title.trim() || authorTags.length > 1 || form.abstract.trim() ? "\u{1F4BE} Save & Close" : "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: submit, disabled: loading || !!titleDupe || ((_a = plagResults[0]) == null ? void 0 : _a.score) >= 0.5 }, loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), "Uploading\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.up, null), " Upload Study"))));
+  ), gdriveUrl && !gdriveInfo && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--red)", fontSize: "0.75rem", flexShrink: 0 } }, "Invalid link"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4, minHeight: 20 } }, draftStatus === "saving" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saving" }, /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 9, height: 9, borderWidth: 1.5 } }), "Auto-saving draft\u2026"), draftStatus === "saved" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saved" }, "\u2713 Draft saved \u2014 close anytime and resume later")), /* @__PURE__ */ React.createElement("div", { style: { background: isDraft ? "rgba(109,63,168,0.07)" : "var(--surface)", border: `1.5px solid ${isDraft ? "var(--purple)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "12px 14px", marginBottom: 12, cursor: "pointer", transition: "all 0.2s" }, onClick: () => setIsDraft((v) => !v), role: "button", "aria-pressed": isDraft, tabIndex: 0, onKeyDown: (e) => e.key === "Enter" && setIsDraft((v) => !v) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 20, borderRadius: 99, background: isDraft ? "var(--purple)" : "var(--border)", position: "relative", transition: "background 0.2s", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 2, left: isDraft ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.85rem", color: isDraft ? "var(--purple)" : "var(--ink)", marginBottom: 1 } }, "\u{1F512} Save as Unfinished Draft"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)", lineHeight: 1.4 } }, isDraft ? "Only you and your teachers can see this. Teachers can review and comment. You can publish it anytime." : "Toggle on to upload privately \u2014 visible only to you and teachers.")))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: confirmClose }, form.title.trim() || authorTags.length > 1 || form.abstract.trim() ? "\u{1F4BE} Save & Close" : "Cancel"), /* @__PURE__ */ React.createElement("button", { className: `btn ${isDraft ? "btn-purple" : "btn-gold"}`, style: isDraft ? { background: "var(--purple)", color: "#fff", borderColor: "var(--purple)" } : {}, onClick: submit, disabled: loading || (!isDraft && (!!titleDupe || ((_a = plagResults[0]) == null ? void 0 : _a.score) >= 0.5)) }, loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), isDraft ? "Saving\u2026" : "Uploading\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, isDraft ? "\u{1F512} Save as Unfinished Draft" : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.up, null), " Upload Study")))));
 }
 function EmptyState({ icon = "\u{1F4ED}", title, message, action = null, compact = false }) {
   return /* @__PURE__ */ React.createElement("div", { className: "empty", style: compact ? { padding: "28px 20px" } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "empty-badge" }, icon), /* @__PURE__ */ React.createElement("h3", null, title), message && /* @__PURE__ */ React.createElement("p", null, message), action && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, action));
@@ -8089,7 +8008,9 @@ function StudiesPage({ currentUser }) {
     setPage(1);
   };
   const sortedStudies = studies;
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "page-hd" }, /* @__PURE__ */ React.createElement("div", { className: "page-hd-left" }, /* @__PURE__ */ React.createElement("h2", null, "Research Repository"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, total, " ", total === 1 ? "study" : "studies", " found", filterYear ? ` \xB7 ${filterYear}` : "", search && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--gold)", marginLeft: 5 } }, '\xB7 "', search, '"'))), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", "data-tip": "Upload a new research study", onClick: () => setShowUpload(true) }, /* @__PURE__ */ React.createElement(Ico.up, null), " Upload Study")), /* @__PURE__ */ React.createElement("div", { className: "mob-search-sticky" }, /* @__PURE__ */ React.createElement("div", { className: "fb", style: { flexWrap: "wrap", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { className: "search-history-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "sb", style: { width: "100%" } }, /* @__PURE__ */ React.createElement(Ico.search, null), /* @__PURE__ */ React.createElement(
+  const [sector, setSector] = useState("published"); // "published" | "drafts"
+  const isAdmin = currentUser.role === "admin";
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "page-hd" }, /* @__PURE__ */ React.createElement("div", { className: "page-hd-left" }, /* @__PURE__ */ React.createElement("h2", null, "Research Repository"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, sector === "drafts" ? "Unfinished studies — private between you and teachers" : (total + " " + (total === 1 ? "study" : "studies") + " found" + (filterYear ? ` \xB7 ${filterYear}` : "")), search && sector !== "drafts" && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--gold)", marginLeft: 5 } }, '\xB7 "', search, '"'))), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", "data-tip": "Upload a new research study", onClick: () => setShowUpload(true) }, /* @__PURE__ */ React.createElement(Ico.up, null), " Upload Study")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 16 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setSector("published"), style: { display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 99, border: `1.5px solid ${sector === "published" ? "var(--gold)" : "var(--border)"}`, background: sector === "published" ? "var(--gold-bg)" : "var(--surface)", color: sector === "published" ? "var(--gold)" : "var(--muted)", fontWeight: sector === "published" ? 700 : 400, fontSize: "var(--text-sm)", cursor: "pointer", transition: "all 0.15s", fontFamily: "var(--font-body)" } }, "\u{1F4DA} Published"), /* @__PURE__ */ React.createElement("button", { onClick: () => setSector("drafts"), style: { display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 99, border: `1.5px solid ${sector === "drafts" ? "var(--purple)" : "var(--border)"}`, background: sector === "drafts" ? "rgba(109,63,168,0.09)" : "var(--surface)", color: sector === "drafts" ? "var(--purple)" : "var(--muted)", fontWeight: sector === "drafts" ? 700 : 400, fontSize: "var(--text-sm)", cursor: "pointer", transition: "all 0.15s", fontFamily: "var(--font-body)" } }, "\u{1F512} Unfinished Drafts ", /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.68rem", background: sector === "drafts" ? "var(--purple)" : "var(--border)", color: sector === "drafts" ? "#fff" : "var(--muted)", borderRadius: 99, padding: "1px 7px", marginLeft: 2 } }, isAdmin ? "Teacher View" : "Private"))), sector === "drafts" ? /* @__PURE__ */ React.createElement(DraftStudiesSection, { currentUser, isAdmin }) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "mob-search-sticky" }, /* @__PURE__ */ React.createElement("div", { className: "fb", style: { flexWrap: "wrap", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { className: "search-history-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "sb", style: { width: "100%" } }, /* @__PURE__ */ React.createElement(Ico.search, null), /* @__PURE__ */ React.createElement(
     "input",
     {
       ref: searchInputRef,
@@ -8215,10 +8136,99 @@ function StudiesPage({ currentUser }) {
     });
     trackRecentlyViewed(s);
     setSelected(__spreadProps(__spreadValues({}, s), { viewCount: (s.viewCount || 0) + 1 }));
-  } }), showUpload && /* @__PURE__ */ React.createElement(UploadModal, { onClose: () => setShowUpload(false), currentUser, cats, onUpload: () => {
+  } })), showUpload && /* @__PURE__ */ React.createElement(UploadModal, { onClose: () => setShowUpload(false), currentUser, cats, onUpload: () => {
     load();
     setShowUpload(false);
   } }));
+}
+function DraftStudiesSection({ currentUser, isAdmin }) {
+  const [drafts, setDrafts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [cats, setCats] = useState([]);
+  const [publishing, setPublishing] = useState(null);
+  useEffect(() => { API.getCategories().then(setCats).catch(() => {}); }, []);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await API.getDraftStudies(currentUser.id, isAdmin);
+      setDrafts(data);
+    } catch(e) {
+      toast.err("Failed to load drafts.");
+    }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+  const handlePublish = async (study) => {
+    if (!confirm(`Publish "${study.title}" to the public repository? Everyone will be able to see it.`)) return;
+    setPublishing(study.id);
+    try {
+      await API.publishDraft(study.id);
+      toast.ok("\uD83C\uDF89 Study published to the repository!");
+      load();
+    } catch(e) {
+      toast.err("Failed to publish: " + e.message);
+    }
+    setPublishing(null);
+  };
+  const handleDelete = async (id) => {
+    if (!confirm("Delete this unfinished draft? This cannot be undone.")) return;
+    try {
+      await API.deleteStudy(id);
+      toast.ok("Draft deleted.");
+      setDrafts(prev => prev.filter(d => d.id !== id));
+    } catch(e) {
+      toast.err("Failed to delete draft.");
+    }
+  };
+  if (loading) return /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "40px", color: "var(--muted)" } }, /* @__PURE__ */ React.createElement("span", { className: "spin spin-gold", style: { width: 24, height: 24, display: "inline-block", marginBottom: 10 } }), /* @__PURE__ */ React.createElement("p", null, "Loading drafts\u2026"));
+  if (drafts.length === 0) return /* @__PURE__ */ React.createElement("div", null,
+    /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(109,63,168,0.07)", border: "1.5px solid var(--purple)", borderRadius: "var(--radius-lg)", padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "flex-start", gap: 12 } },
+      /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.4rem", flexShrink: 0 } }, "\uD83D\uDD12"),
+      /* @__PURE__ */ React.createElement("div", null,
+        /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: "0.88rem", color: "var(--purple)", marginBottom: 3 } }, isAdmin ? "Unfinished Drafts — Teacher View" : "Your Unfinished Studies"),
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.55 } }, isAdmin ? "These are private unfinished studies uploaded by students. You can review, comment, and give feedback. They are hidden from the public repository." : "Studies saved here are private — only you and your teachers can see them. When your study is ready, you can publish it to the repository.")
+      )
+    ),
+    /* @__PURE__ */ React.createElement(EmptyState, { icon: "\uD83D\uDCDD", title: isAdmin ? "No unfinished drafts yet" : "No drafts yet", message: isAdmin ? "When students save unfinished studies, they appear here for your review." : "When you save an unfinished study, it will appear here privately." })
+  );
+  return /* @__PURE__ */ React.createElement("div", null,
+    /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(109,63,168,0.07)", border: "1.5px solid var(--purple)", borderRadius: "var(--radius-lg)", padding: "14px 18px", marginBottom: 20, display: "flex", alignItems: "flex-start", gap: 12 } },
+      /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.2rem", flexShrink: 0 } }, "\uD83D\uDD12"),
+      /* @__PURE__ */ React.createElement("div", null,
+        /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: "0.85rem", color: "var(--purple)", marginBottom: 2 } }, isAdmin ? "Unfinished Drafts — Teacher View" : "Your Private Drafts"),
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5 } }, isAdmin ? "These studies are hidden from all other students. You can review and comment freely." : "Only you and your teachers can see these. Click \u201CPublish\u201D when ready to share with everyone.")
+      )
+    ),
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
+      drafts.map(study => /* @__PURE__ */ React.createElement("div", { key: study.id, style: { background: "var(--white)", border: "1.5px solid var(--purple)", borderRadius: "var(--radius-lg)", padding: "18px 20px", position: "relative", boxShadow: "var(--shadow)" } },
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" } },
+          /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+            /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } },
+              /* @__PURE__ */ React.createElement("span", { style: { background: "rgba(109,63,168,0.12)", color: "var(--purple)", fontSize: "0.68rem", fontWeight: 700, padding: "2px 9px", borderRadius: 99, border: "1px solid rgba(109,63,168,0.25)" } }, "\uD83D\uDD12 Unfinished Draft"),
+              isAdmin && study.uploadedByName && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, "by ", study.uploadedByName),
+              /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)", marginLeft: "auto" } }, fmtDate(study.createdAt))
+            ),
+            /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--ink)", marginBottom: 6, wordBreak: "break-word" } }, study.title),
+            /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.8rem", color: "var(--muted)", marginBottom: 8 } }, "By: ", (study.authors || []).join(", ")),
+            study.abstract && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "var(--text-sm)", color: "var(--ink-2)", lineHeight: 1.6, marginBottom: 10, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, study.abstract),
+            /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
+              (study.categories || []).filter(c => c !== "Unfinished").map(c => /* @__PURE__ */ React.createElement("span", { key: c, style: { background: "var(--gold-bg)", color: "var(--gold)", fontSize: "0.68rem", fontWeight: 600, padding: "2px 9px", borderRadius: 99, border: "1px solid var(--gold-light)" } }, c))
+            )
+          ),
+          /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, flexShrink: 0, minWidth: 120 } },
+            /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { borderColor: "var(--purple)", color: "var(--purple)" }, onClick: () => setSelected(study) }, "\uD83D\uDC41 View"),
+            (currentUser.id === study.uploadedBy) && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setEditing(study) }, "\u270F\uFE0F Edit"),
+            !isAdmin && /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold btn-sm", onClick: () => handlePublish(study), disabled: publishing === study.id, style: { whiteSpace: "nowrap" } }, publishing === study.id ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark", style: { width: 11, height: 11 } }), " Publishing\u2026") : "\uD83C\uDF89 Publish"),
+            /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { color: "var(--red)", borderColor: "var(--red)" }, onClick: () => handleDelete(study.id) }, "\uD83D\uDDD1 Delete")
+          )
+        )
+      ))
+    ),
+    selected && /* @__PURE__ */ React.createElement(StudyDetailModal, { study: selected, onClose: () => setSelected(null), currentUser, onDelete: async (id) => { await API.deleteStudy(id); setSelected(null); load(); }, allStudies: drafts, onOpenStudy: () => {} }),
+    editing && /* @__PURE__ */ React.createElement(EditStudyModal, { study: editing, cats, onClose: () => setEditing(null), onSaved: () => { setEditing(null); load(); toast.ok("Draft updated!"); } })
+  );
 }
 const QUICK_PROMPTS = {
   general: ["What is the scientific method?", "Define hypothesis vs theory", "Show me all studies in the repository", "What research gaps exist?"],
@@ -8241,33 +8251,14 @@ function ChatPage({ currentUser }) {
       toast.err("Please enter a valid API key.");
       return;
     }
-    if (!k.startsWith("gsk_") || k.length < 40) {
-      toast.err("That doesn't look like a valid Groq key. It should start with gsk_ and be at least 40 characters.");
-      return;
-    }
-    // Quick live validation — test the key against Groq before saving
-    try {
-      const testRes = await fetch("https://api.groq.com/openai/v1/models", {
-        headers: { "Authorization": `Bearer ${k}` }
-      });
-      if (!testRes.ok) {
-        const err = await testRes.json().catch(() => ({}));
-        toast.err(`Key rejected by Groq: ${err?.error?.message || testRes.statusText}`);
-        return;
-      }
-    } catch (e) {
-      toast.err("Could not reach Groq to validate the key. Check your connection.");
-      return;
-    }
     try {
       await db.collection("config").doc("groq").set({ apiKey: k });
       _groqKeyCache = k;
-      _groqKeyLoadedAt = Date.now();
-      localStorage.setItem(LS_KEY, k);
+      localStorage.setItem("sabnahis_groq_key", k);
       setGroqKey(k);
       setKeyInput("");
       setShowKeySetup(false);
-      toast.ok("✓ API key validated & saved to Firestore!");
+      toast.ok("API key saved to Firestore!");
     } catch (e) {
       toast.err("Failed to save: " + e.message);
     }
@@ -8275,15 +8266,15 @@ function ChatPage({ currentUser }) {
   const removeKey = async () => {
     try {
       await db.collection("config").doc("groq").delete();
+      _groqKeyCache = null;
+      localStorage.removeItem("sabnahis_groq_key");
+      setGroqKey("");
+      toast.ok("API key removed.");
     } catch (e) {
-      // best-effort Firestore delete
+      localStorage.removeItem("sabnahis_groq_key");
+      setGroqKey("");
+      toast.ok("API key removed locally.");
     }
-    _groqKeyCache = null;
-    _groqKeyLoadedAt = 0;
-    localStorage.removeItem(LS_KEY);
-    setGroqKey("");
-    _notifyGroqKeyListeners("");
-    toast.ok("API key removed.");
   };
   const [studies, setStudies] = useState([]);
   const [msgs, setMsgs] = useState([]);
@@ -8299,9 +8290,7 @@ function ChatPage({ currentUser }) {
   const inputRef = useRef();
   const msgsRef = useRef();
   useEffect(() => {
-    // Subscribe to key changes (Firestore load, tab-sync, removal)
-    const unsub = onGroqKeyChange((k) => setGroqKey(k));
-    loadGroqKeyFromFirestore({ force: true }).then(() => {
+    loadGroqKeyFromFirestore().then(() => {
       if (_groqKeyCache) setGroqKey(_groqKeyCache);
     });
     API.getAllStudies().then((s) => {
@@ -8351,12 +8340,10 @@ I function as a **smart research copilot**, not just a keyword search. I can:
 I have **${s.length}** ${s.length === 1 ? "study" : "studies"} loaded. Use the **mode buttons** to focus, or just ask me anything!${gapHint}`
       }]);
     });
-    return unsub;
   }, []);
   useEffect(() => {
     var _a2;
-    const isStreaming = msgs.some((m) => m.streaming);
-    (_a2 = bottomRef.current) == null ? void 0 : _a2.scrollIntoView({ behavior: isStreaming ? "auto" : "smooth" });
+    (_a2 = bottomRef.current) == null ? void 0 : _a2.scrollIntoView({ behavior: "smooth" });
   }, [msgs]);
   useEffect(() => {
     const ta = inputRef.current;
