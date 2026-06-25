@@ -3980,8 +3980,16 @@ const Cache = /* @__PURE__ */ (() => {
     // 30s  — recognized studies
     profile: 6e4,
     // 1 min — user profile
-    weekly: 3e5
+    weekly: 3e5,
     // 5 min — weekly highlights
+    wallet: 2e4,
+    // 20s — per-user token balance
+    freezes: 2e4,
+    // 20s — per-user streak freeze count
+    shopItems: 6e4,
+    // 1 min — token shop catalog
+    shopRedemptions: 15e3
+    // 15s — teacher's redemption log
   };
   return {
     // Return cached value if still fresh, otherwise null
@@ -4448,39 +4456,319 @@ const API = {
   },
   // ── Daily Login Streak ─────────────────────────────────
   // Call once per session. Increments the streak if the user's last
-  // recorded visit was "yesterday" (relative to local date), resets to 1
-  // if a day was missed, and leaves it unchanged if already visited today.
+  // recorded visit was "yesterday" (relative to local date), leaves it
+  // unchanged if already visited today, and — if exactly one day was
+  // missed and the student has a streak freeze banked — pauses instead
+  // of resetting so the UI can ask whether to spend a freeze. Any other
+  // gap (2+ days, or no freeze available) resets to 1 immediately.
   async recordDailyVisit(userId) {
     const ref = db.collection("users").doc(userId).collection("streak").doc("current");
     const todayKey = (/* @__PURE__ */ new Date()).toDateString();
     const snap = await ref.get();
     const data = snap.exists ? snap.data() : null;
     if (data && data.lastVisit === todayKey) {
-      return { streak: data.streak || 1, isNew: false };
+      return { streak: data.streak || 1, isNew: false, missedDay: false };
     }
-    let streak = 1;
     if (data && data.lastVisit) {
       const last = new Date(data.lastVisit);
       const today = new Date(todayKey);
       const diffDays = Math.round((today - last) / 864e5);
-      if (diffDays === 1) streak = (data.streak || 0) + 1;
-      else if (diffDays <= 0) streak = data.streak || 1;
-      else streak = 1;
+      if (diffDays === 1) {
+        const streak = (data.streak || 0) + 1;
+        await ref.set({
+          streak,
+          lastVisit: todayKey,
+          longestStreak: Math.max(streak, data.longestStreak || 0),
+          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+        });
+        Cache.invalidate(`streak:${userId}`);
+        return { streak, isNew: true, missedDay: false };
+      }
+      if (diffDays > 1) {
+        // A day (or more) was missed — check for a banked freeze before
+        // resetting. Don't touch Firestore yet; let the caller decide.
+        const freezes = await API.getFreezeCount(userId);
+        if (freezes > 0) {
+          return {
+            streak: data.streak || 1,
+            isNew: false,
+            missedDay: true,
+            freezesAvailable: freezes,
+            priorStreakData: data
+          };
+        }
+      }
     }
+    // No prior data, or a gap with no freeze available — reset to 1.
+    const longest = data && data.longestStreak || 0;
     await ref.set({
-      streak,
+      streak: 1,
       lastVisit: todayKey,
-      longestStreak: Math.max(streak, data && data.longestStreak || 0),
+      longestStreak: Math.max(1, longest),
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     });
     Cache.invalidate(`streak:${userId}`);
-    return { streak, isNew: true };
+    return { streak: 1, isNew: true, missedDay: false };
   },
   async getStreak(userId) {
     return Cache.wrap(`streak:${userId}`, "streak", async () => {
       const snap = await db.collection("users").doc(userId).collection("streak").doc("current").get();
       if (!snap.exists) return { streak: 0, longestStreak: 0, lastVisit: null };
       return snap.data();
+    });
+  },
+  // Student chose to spend a streak freeze: keep the streak alive and
+  // mark today as visited, without incrementing the streak count.
+  async useStreakFreeze(userId) {
+    const freezeRef = db.collection("users").doc(userId).collection("freezes").doc("current");
+    const streakRef = db.collection("users").doc(userId).collection("streak").doc("current");
+    await db.runTransaction(async (tx) => {
+      const freezeSnap = await tx.get(freezeRef);
+      const fData = freezeSnap.exists ? freezeSnap.data() : { count: 0 };
+      if ((fData.count || 0) <= 0) throw new Error("No streak freeze available.");
+      const streakSnap = await tx.get(streakRef);
+      const sData = streakSnap.exists ? streakSnap.data() : { streak: 1, longestStreak: 1 };
+      const todayKey = (/* @__PURE__ */ new Date()).toDateString();
+      tx.update(freezeRef, { count: (fData.count || 0) - 1, updatedAt: (/* @__PURE__ */ new Date()).toISOString() });
+      tx.set(streakRef, {
+        streak: sData.streak || 1,
+        lastVisit: todayKey,
+        longestStreak: Math.max(sData.streak || 1, sData.longestStreak || 0),
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    });
+    Cache.invalidate(`streak:${userId}`, `freezes:${userId}`);
+    return true;
+  },
+  // Student declined to use a freeze (or had none) after missing a day —
+  // reset the streak to 1, same as the normal "gap" path.
+  async declineStreakFreeze(userId) {
+    const ref = db.collection("users").doc(userId).collection("streak").doc("current");
+    const snap = await ref.get();
+    const data = snap.exists ? snap.data() : null;
+    const todayKey = (/* @__PURE__ */ new Date()).toDateString();
+    await ref.set({
+      streak: 1,
+      lastVisit: todayKey,
+      longestStreak: Math.max(1, data && data.longestStreak || 0),
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    Cache.invalidate(`streak:${userId}`);
+    return true;
+  },
+  // ── Streak Freezes (earned every FREEZE_READS_REQUIRED reads) ──────
+  async getFreezeCount(userId) {
+    return Cache.wrap(`freezes:${userId}`, "freezes", async () => {
+      const snap = await db.collection("users").doc(userId).collection("freezes").doc("current").get();
+      return snap.exists ? snap.data().count || 0 : 0;
+    });
+  },
+  async getFreezeProgress(userId) {
+    const snap = await db.collection("users").doc(userId).collection("freezes").doc("current").get();
+    const data = snap.exists ? snap.data() : { count: 0, readsSinceLastFreeze: 0 };
+    return { count: data.count || 0, readsSinceLastFreeze: data.readsSinceLastFreeze || 0 };
+  },
+  // Called after every new study read. Tracks progress toward the next
+  // freeze and grants one whenever FREEZE_READS_REQUIRED is reached.
+  // Returns true if a new freeze was just earned (for toast/popup).
+  async _registerReadForFreeze(userId) {
+    const ref = db.collection("users").doc(userId).collection("freezes").doc("current");
+    return db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const data = snap.exists ? snap.data() : { count: 0, readsSinceLastFreeze: 0 };
+      let reads = (data.readsSinceLastFreeze || 0) + 1;
+      let count = data.count || 0;
+      let earned = false;
+      if (reads >= FREEZE_READS_REQUIRED) {
+        reads = 0;
+        count += 1;
+        earned = true;
+      }
+      tx.set(ref, { count, readsSinceLastFreeze: reads, updatedAt: (/* @__PURE__ */ new Date()).toISOString() }, { merge: true });
+      return { earned, count };
+    }).then((result) => {
+      Cache.invalidate(`freezes:${userId}`);
+      return result;
+    });
+  },
+  // ── Token Wallet ────────────────────────────────────────
+  async getWallet(userId) {
+    return Cache.wrap(`wallet:${userId}`, "wallet", async () => {
+      const snap = await db.collection("users").doc(userId).collection("wallet").doc("current").get();
+      return snap.exists ? snap.data().tokens || 0 : 0;
+    });
+  },
+  // Grants tokens for unlocking a reading badge tier exactly once. Uses
+  // the badge id as the ledger doc id so a duplicate call (e.g. a race
+  // between two tabs) can never double-pay the same tier.
+  async grantBadgeTokens(userId, badge) {
+    const amount = TOKEN_REWARDS[badge.id] || 0;
+    if (amount <= 0) return false;
+    const ledgerRef = db.collection("users").doc(userId).collection("tokenLog").doc(`badge_${badge.id}`);
+    const walletRef = db.collection("users").doc(userId).collection("wallet").doc("current");
+    const granted = await db.runTransaction(async (tx) => {
+      const existing = await tx.get(ledgerRef);
+      if (existing.exists) return false;
+      const walletSnap = await tx.get(walletRef);
+      const current = walletSnap.exists ? walletSnap.data().tokens || 0 : 0;
+      tx.set(ledgerRef, {
+        type: "earn",
+        source: "badge",
+        badgeId: badge.id,
+        badgeLabel: badge.label,
+        amount,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      tx.set(walletRef, { tokens: current + amount, updatedAt: (/* @__PURE__ */ new Date()).toISOString() }, { merge: true });
+      return true;
+    });
+    if (granted) Cache.invalidate(`wallet:${userId}`);
+    return granted;
+  },
+  async getTokenLog(userId) {
+    const snap = await db.collection("users").doc(userId).collection("tokenLog").orderBy("createdAt", "desc").limit(50).get();
+    return snap.docs.map((d) => __spreadValues({ id: d.id }, d.data()));
+  },
+  // Teacher-initiated token grant (e.g. a bonus for good work). Unlike
+  // grantBadgeTokens this has no dedupe key — a teacher can award tokens
+  // to the same student as many times as they want.
+  async grantManualTokens(userId, amount, grantedBy, grantedByName) {
+    const amt = Math.round(Number(amount));
+    if (!amt || amt <= 0) throw new Error("Token amount must be greater than 0.");
+    const ledgerRef = db.collection("users").doc(userId).collection("tokenLog").doc();
+    const walletRef = db.collection("users").doc(userId).collection("wallet").doc("current");
+    await db.runTransaction(async (tx) => {
+      const walletSnap = await tx.get(walletRef);
+      const current = walletSnap.exists ? walletSnap.data().tokens || 0 : 0;
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      tx.set(ledgerRef, {
+        type: "earn",
+        source: "manual",
+        amount: amt,
+        grantedBy,
+        grantedByName,
+        createdAt: now
+      });
+      tx.set(walletRef, { tokens: current + amt, updatedAt: now }, { merge: true });
+    });
+    Cache.invalidate(`wallet:${userId}`);
+    return true;
+  },
+  // ── Retroactive Badge Token Migration ───────────────────
+  // For each approved user: counts their readStudies, determines which
+  // badge tiers they've earned, and calls grantBadgeTokens for each.
+  // grantBadgeTokens is idempotent (uses badge_<id> as the ledger key),
+  // so running this more than once is safe — already-paid tiers are skipped.
+  async runBadgeMigration(onProgress) {
+    const usersSnap = await db.collection("users").where("status", "==", "approved").get();
+    const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const results = [];
+    for (const user of users) {
+      const rsSnap = await db.collection("users").doc(user.id).collection("readStudies").get();
+      const count = rsSnap.size;
+      const earned = READING_BADGES.filter(b => count >= b.min);
+      let granted = 0, skipped = 0;
+      for (const badge of earned) {
+        try {
+          const wasNew = await API.grantBadgeTokens(user.id, badge);
+          if (wasNew) granted++;
+          else skipped++;
+        } catch (e) {
+          skipped++;
+        }
+      }
+      const entry = { name: user.name || user.email, count, earned: earned.length, granted, skipped };
+      results.push(entry);
+      if (onProgress) onProgress(entry, results.length, users.length);
+    }
+    return results;
+  },
+  // ── Token Shop ──────────────────────────────────────────
+  // NOTE: sorts client-side rather than chaining .orderBy() after .where()
+  // on a different field — that combination requires a manually-created
+  // Firestore composite index, which would otherwise make this query fail
+  // silently (items just never show up) until someone builds the index.
+  async getShopItems() {
+    return Cache.wrap("shopItems", "shopItems", async () => {
+      const snap = await db.collection("shopItems").where("active", "==", true).get();
+      const items = snap.docs.map((d) => __spreadValues({ id: d.id }, d.data()));
+      items.sort((a, b) => (a.cost || 0) - (b.cost || 0));
+      return items;
+    });
+  },
+  async getAllShopItems() {
+    const snap = await db.collection("shopItems").get();
+    const items = snap.docs.map((d) => __spreadValues({ id: d.id }, d.data()));
+    items.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    return items;
+  },
+  async createShopItem({ name, description, cost, createdBy, createdByName }) {
+    if (!(name == null ? void 0 : name.trim())) throw new Error("Item name is required.");
+    if (!cost || cost <= 0) throw new Error("Token cost must be greater than 0.");
+    const ref = db.collection("shopItems").doc();
+    await ref.set({
+      name: name.trim(),
+      description: (description || "").trim(),
+      cost: Math.round(cost),
+      active: true,
+      createdBy,
+      createdByName,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    Cache.invalidate("shopItems");
+    return ref.id;
+  },
+  async updateShopItem(itemId, fields) {
+    await db.collection("shopItems").doc(itemId).update(fields);
+    Cache.invalidate("shopItems");
+  },
+  async deleteShopItem(itemId) {
+    await db.collection("shopItems").doc(itemId).update({ active: false });
+    Cache.invalidate("shopItems");
+  },
+  async getMyRedemptions(userId) {
+    const snap = await db.collection("users").doc(userId).collection("redemptions").get();
+    return snap.docs.map((d) => __spreadValues({ id: d.id }, d.data()));
+  },
+  // Redeems a shop item: deducts tokens, records a per-student redemption
+  // doc keyed by itemId (so a student can never redeem the same item
+  // twice — the transaction fails fast on a duplicate), and writes a
+  // global log entry so the teacher can verify the exchange in person.
+  async redeemShopItem(userId, item, studentName) {
+    const walletRef = db.collection("users").doc(userId).collection("wallet").doc("current");
+    const redemptionRef = db.collection("users").doc(userId).collection("redemptions").doc(item.id);
+    const logRef = db.collection("shopRedemptions").doc();
+    const receipt = await db.runTransaction(async (tx) => {
+      const existing = await tx.get(redemptionRef);
+      if (existing.exists) throw new Error("You've already redeemed this item.");
+      const walletSnap = await tx.get(walletRef);
+      const tokens = walletSnap.exists ? walletSnap.data().tokens || 0 : 0;
+      if (tokens < item.cost) throw new Error("Not enough tokens for this item.");
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      tx.set(walletRef, { tokens: tokens - item.cost, updatedAt: now }, { merge: true });
+      tx.set(redemptionRef, {
+        itemId: item.id,
+        itemName: item.name,
+        cost: item.cost,
+        redeemedAt: now
+      });
+      tx.set(logRef, {
+        studentId: userId,
+        studentName,
+        itemId: item.id,
+        itemName: item.name,
+        cost: item.cost,
+        redeemedAt: now
+      });
+      return { itemName: item.name, cost: item.cost, redeemedAt: now, remainingTokens: tokens - item.cost };
+    });
+    Cache.invalidate(`wallet:${userId}`, "shopRedemptions");
+    return receipt;
+  },
+  async getShopRedemptionLog() {
+    return Cache.wrap("shopRedemptions", "shopRedemptions", async () => {
+      const snap = await db.collection("shopRedemptions").orderBy("redeemedAt", "desc").limit(200).get();
+      return snap.docs.map((d) => __spreadValues({ id: d.id }, d.data()));
     });
   },
   // ── Teacher Feedback ───────────────────────────────────
@@ -5700,6 +5988,22 @@ function getReadingBadge(count) {
   }
   return { current, next };
 }
+// ── Token Rewards ───────────────────────────────────────
+// Tokens are granted once, ever, the moment a student unlocks a new
+// reading badge. Higher tiers pay out more tokens.
+const TOKEN_REWARDS = {
+  curious: 5,
+  explorer: 10,
+  scholar: 20,
+  analyst: 35,
+  master: 50,
+  sage: 100
+};
+// ── Streak Freeze ───────────────────────────────────────
+// Every N studies read (since the last freeze was earned) grants +1
+// freeze. Freezes stockpile and can be spent to protect a daily streak
+// after a missed day.
+const FREEZE_READS_REQUIRED = 5;
 const READ_DWELL_MS = 1e4;
 const STREAK_TIERS = [
   { id: "blue", min: 20, label: "On Fire!", color: "#3b82d4", glow: "rgba(59,130,212,0.35)" },
@@ -5772,7 +6076,9 @@ const Ico = {
   chevsL: () => /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2" }, /* @__PURE__ */ React.createElement("polyline", { points: "11 17 6 12 11 7" }), /* @__PURE__ */ React.createElement("polyline", { points: "18 17 13 12 18 7" })),
   cmdk: () => /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", width: "15", height: "15" }, /* @__PURE__ */ React.createElement("path", { d: "M9 3a3 3 0 0 0-3 3v3H3a3 3 0 1 0 0 3h3v3a3 3 0 1 0 3 0v-3h6v3a3 3 0 1 0 3 0v-3h3a3 3 0 1 0 0-3h-3V6a3 3 0 1 0-3 0v3H9z" })),
   key: () => /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", width: "14", height: "14" }, /* @__PURE__ */ React.createElement("path", { d: "M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L17 4" })),
-  help: () => /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "16", height: "16", fill: "none", stroke: "currentColor", strokeWidth: "2" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "10" }), /* @__PURE__ */ React.createElement("path", { d: "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2.5-3 4.5" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "17.5", x2: "12", y2: "17.5", strokeWidth: "2.5", strokeLinecap: "round" }))
+  help: () => /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "16", height: "16", fill: "none", stroke: "currentColor", strokeWidth: "2" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "10" }), /* @__PURE__ */ React.createElement("path", { d: "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2.5-3 4.5" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "17.5", x2: "12", y2: "17.5", strokeWidth: "2.5", strokeLinecap: "round" })),
+  shop: () => /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", width: "18", height: "18" }, /* @__PURE__ */ React.createElement("path", { d: "M6 2L3 7v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-3-5z" }), /* @__PURE__ */ React.createElement("line", { x1: "3", y1: "7", x2: "21", y2: "7" }), /* @__PURE__ */ React.createElement("path", { d: "M16 11a4 4 0 0 1-8 0" })),
+  coin: () => /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", width: "16", height: "16" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "9" }), /* @__PURE__ */ React.createElement("path", { d: "M9.5 15a2.5 2.5 0 0 0 2.5 1.5c1.5 0 2.5-.9 2.5-2s-1-1.6-2.5-2-2.5-1-2.5-2 1-2 2.5-2a2.5 2.5 0 0 1 2.5 1.5" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "6.5", x2: "12", y2: "8" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "16", x2: "12", y2: "17.5" }))
 };
 const ADMIN_NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "home" },
@@ -6725,11 +7031,25 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies = 
         console.log("[readBadge] markStudyRead result, isNew=", isNew);
         if (!isNew) return;
         toast.ok("\u{1F4D6} Marked as read!");
+        // Progress toward the next streak freeze — every study read counts.
+        API._registerReadForFreeze(currentUser.id).then(({ earned, count }) => {
+          if (earned) toast.ok(`\u2744\uFE0F Streak freeze earned! You now have ${count}.`);
+        }).catch((e) => console.warn("registerReadForFreeze failed:", e));
         API.getReadCount(currentUser.id).then((count) => {
           console.log("[readBadge] new read count=", count);
           const b = [...READING_BADGES].reverse().find((x) => x.min <= count);
           const prevB = [...READING_BADGES].reverse().find((x) => x.min <= count - 1);
-          if (b && b !== prevB) { toast.ok(`${b.icon} New badge earned: ${b.label}!`); showBadgePopup(b); }
+          if (b && b !== prevB) {
+            const tokenAmount = TOKEN_REWARDS[b.id] || 0;
+            API.grantBadgeTokens(currentUser.id, b).then((granted) => {
+              const desc = granted && tokenAmount > 0 ? `${b.desc} \u2014 +${tokenAmount} tokens!` : b.desc;
+              toast.ok(`${b.icon} New badge earned: ${b.label}!`);
+              showBadgePopup(__spreadProps(__spreadValues({}, b), { desc }));
+            }).catch((e) => {
+              console.warn("grantBadgeTokens failed:", e);
+              showBadgePopup(b);
+            });
+          }
         }).catch((e) => console.warn("getReadCount failed:", e));
       }).catch((e) => console.warn("markStudyRead failed:", e));
     }, READ_DWELL_MS);
@@ -8743,19 +9063,27 @@ function MyStatsPage({ currentUser }) {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [historyStudy, setHistoryStudy] = useState(null);
+  const [tokens, setTokens] = useState(0);
+  const [freezeCount, setFreezeCount] = useState(0);
+  const [freezeProgress, setFreezeProgress] = useState(0);
   useEffect(() => {
     Promise.all([
       API.getStudies({ uploadedBy: currentUser.id, status: "active", perPage: 100 }),
       API.getReadCount(currentUser.id),
       API.getStreak(currentUser.id),
       API.getFavorites(currentUser.id),
-      API.getCoAuthoredStudies(currentUser.id)
-    ]).then(([res, rc, sk, favs, coAuthored]) => {
+      API.getCoAuthoredStudies(currentUser.id),
+      API.getWallet(currentUser.id),
+      API.getFreezeProgress(currentUser.id)
+    ]).then(([res, rc, sk, favs, coAuthored, walletTokens, freezeProg]) => {
       setMyStudies(res.data);
       setReadCount(rc);
       setStreakData(sk);
       setFavorites(favs);
       setCoAuthoredStudies(coAuthored);
+      setTokens(walletTokens);
+      setFreezeCount(freezeProg.count);
+      setFreezeProgress(freezeProg.readsSinceLastFreeze);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [currentUser.id]);
@@ -8791,16 +9119,21 @@ function MyStatsPage({ currentUser }) {
       React.createElement("p", { className: "muted" }, "Your personal research activity at a glance. ", React.createElement("span", { style:{fontSize:"0.72rem",color:"var(--teal)"}}, "Tap any card to drill down →"))
     ),
     // ── Stat pills grid ──
-    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10, marginBottom: 18 } },
-      React.createElement(StatPill, { label: "Studies Uploaded", value: myStudies.length, color: "var(--gold)", icon: "📄", onClick: () => openDrill("studies"), sub: "tap to view" }),
+    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(110px,1fr))", gap: 10, marginBottom: 10 } },
+      React.createElement(StatPill, { label: "Uploaded", value: myStudies.length, color: "var(--gold)", icon: "📄", onClick: () => openDrill("studies"), sub: "tap to view" }),
       React.createElement(StatPill, { label: "Co-authored", value: coAuthoredStudies.length, color: "var(--teal)", icon: "🤝", onClick: coAuthoredStudies.length > 0 ? () => openDrill("coauthored") : undefined }),
-      React.createElement(StatPill, { label: "Total Views", value: totalViews, color: "var(--teal)", icon: "👁", onClick: totalViews > 0 ? () => openDrill("views") : undefined }),
-      React.createElement(StatPill, { label: "Downloads", value: totalDownloads, color: "var(--blue)", icon: "⬇", onClick: totalDownloads > 0 ? () => openDrill("downloads") : undefined }),
-      React.createElement(StatPill, { label: "Citations", value: totalCitations, color: "var(--purple)", icon: "📋", onClick: totalCitations > 0 ? () => openDrill("citations") : undefined }),
       React.createElement(StatPill, { label: "Studies Read", value: readCount, color: "var(--green)", icon: "📖" }),
       React.createElement(StatPill, { label: "Bookmarks", value: favorites.length, color: "var(--ink-3)", icon: "🔖", onClick: favorites.length > 0 ? () => openDrill("bookmarks") : undefined }),
       React.createElement(StatPill, { label: "Day Streak", value: streakData.streak, color: tier ? tier.color : "var(--muted)", icon: "🔥" }),
-      React.createElement(StatPill, { label: "Best Streak", value: streakData.longestStreak, color: "var(--gold)", icon: "🏅" })
+      React.createElement(StatPill, { label: "Best Streak", value: streakData.longestStreak, color: "var(--gold)", icon: "🏅" }),
+      React.createElement(StatPill, { label: "Total Views", value: totalViews, color: "var(--teal)", icon: "👁", onClick: totalViews > 0 ? () => openDrill("views") : undefined }),
+      React.createElement(StatPill, { label: "Downloads", value: totalDownloads, color: "var(--blue)", icon: "⬇", onClick: totalDownloads > 0 ? () => openDrill("downloads") : undefined }),
+      React.createElement(StatPill, { label: "Citations", value: totalCitations, color: "var(--purple)", icon: "📋", onClick: totalCitations > 0 ? () => openDrill("citations") : undefined })
+    ),
+    // ── Economy row (always 2 columns, always visible) ──
+    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 } },
+      React.createElement(StatPill, { label: "Tokens", value: tokens, color: "var(--gold)", icon: "🪙", onClick: () => window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'shop'})), sub: "tap to spend" }),
+      React.createElement(StatPill, { label: "Streak Freezes", value: freezeCount, color: "var(--blue)", icon: "❄️", sub: `${freezeProgress}/${FREEZE_READS_REQUIRED} reads to next` })
     ),
     // ── Drill-down modal ──
     drillModal && React.createElement("div", {
@@ -9222,6 +9555,92 @@ function StudentDash({ currentUser }) {
     load();
     setShowUpload(false);
   } }), historyStudy && /* @__PURE__ */ React.createElement(StudyHistoryModal, { study: historyStudy, onClose: () => setHistoryStudy(null) })));
+}
+function StudentShopPage({ currentUser }) {
+  const [items, setItems] = useState([]);
+  const [redemptions, setRedemptions] = useState([]);
+  const [tokens, setTokens] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [redeemingId, setRedeemingId] = useState(null);
+  const [receipt, setReceipt] = useState(null);
+  const load = () => {
+    setLoading(true);
+    Promise.all([
+      API.getShopItems(),
+      API.getMyRedemptions(currentUser.id),
+      API.getWallet(currentUser.id)
+    ]).then(([shopItems, myReds, walletTokens]) => {
+      setItems(shopItems);
+      setRedemptions(myReds);
+      setTokens(walletTokens);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, [currentUser.id]);
+  const redeemedIds = new Set(redemptions.map((r) => r.id));
+  const redeem = async (item) => {
+    if (!confirm(`Redeem "${item.name}" for ${item.cost} tokens? Your teacher will see this in the shop log to hand it over.`)) return;
+    setRedeemingId(item.id);
+    try {
+      const rec = await API.redeemShopItem(currentUser.id, item, currentUser.name);
+      setTokens(rec.remainingTokens);
+      setRedemptions((prev) => [...prev, { id: item.id, itemId: item.id, itemName: item.name, cost: item.cost, redeemedAt: rec.redeemedAt }]);
+      setReceipt(rec);
+      toast.ok(`✅ Redeemed "${item.name}"!`);
+    } catch (e) {
+      toast.err(e.message);
+    }
+    setRedeemingId(null);
+  };
+  if (loading) return React.createElement("div", null, React.createElement("div", { style: { marginBottom: 22 } }, React.createElement("div", { className: "skel skel-page-title", style: { marginBottom: 8 } }), React.createElement("div", { className: "skel", style: { height: 13, width: 200, borderRadius: 5 } })), React.createElement(StudiesGridSkeleton, { count: 3 }));
+  return React.createElement("div", null,
+    React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 22 } },
+      React.createElement("div", null,
+        React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", marginBottom: 3 } }, "🛍️ Token Shop"),
+        React.createElement("p", { className: "muted" }, "Spend tokens you've earned from reading badges. Each item can only be redeemed once.")
+      ),
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", background: "var(--gold-bg)", border: "1.5px solid var(--gold)", borderRadius: "var(--radius)", flexShrink: 0 } },
+        React.createElement("span", { style: { fontSize: "1.4rem" } }, "🪙"),
+        React.createElement("div", null,
+          React.createElement("div", { style: { fontFamily: "var(--font-display)", fontSize: "1.3rem", fontWeight: 700, color: "var(--gold)", lineHeight: 1 } }, tokens),
+          React.createElement("div", { style: { fontSize: "0.62rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" } }, "tokens")
+        )
+      )
+    ),
+    items.length === 0
+      ? React.createElement(EmptyState, { icon: "🛍️", title: "Shop is empty", message: "Your teacher hasn't added any items to the token shop yet. Check back soon!" })
+      : React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 14 } },
+          items.map((item) => {
+            const already = redeemedIds.has(item.id);
+            const canAfford = tokens >= item.cost;
+            const busy = redeemingId === item.id;
+            return React.createElement("div", { key: item.id, className: "card", style: { display: "flex", flexDirection: "column", gap: 10, opacity: already ? 0.75 : 1 } },
+              React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 } },
+                React.createElement("h3", { style: { fontSize: "var(--text-md)", fontWeight: 700, color: "var(--ink)" } }, item.name),
+                React.createElement("span", { style: { flexShrink: 0, display: "flex", alignItems: "center", gap: 4, fontSize: "0.78rem", fontWeight: 700, color: "var(--gold)", background: "var(--gold-bg)", padding: "3px 9px", borderRadius: 99 } }, "🪙 ", item.cost)
+              ),
+              item.description && React.createElement("p", { className: "muted", style: { fontSize: "0.82rem", lineHeight: 1.5, flex: 1 } }, item.description),
+              already
+                ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", fontWeight: 600, color: "var(--green)" } }, React.createElement(Ico.chk, null), "Redeemed — show this to your teacher")
+                : React.createElement("button", {
+                    className: `btn btn-sm ${canAfford ? "btn-gold" : "btn-ol"}`,
+                    disabled: !canAfford || busy,
+                    onClick: () => redeem(item)
+                  }, busy ? React.createElement(React.Fragment, null, React.createElement("span", { className: "spin spin-dark" }), "Redeeming…") : canAfford ? "Redeem" : "Not enough tokens")
+            );
+          })
+        ),
+    receipt && React.createElement(Modal, { title: "🧾 Redemption Receipt", onClose: () => setReceipt(null) },
+      React.createElement("div", { style: { textAlign: "center", padding: "10px 0" } },
+        React.createElement("div", { style: { fontSize: "2.4rem", marginBottom: 10 } }, "✅"),
+        React.createElement("h3", { style: { fontFamily: "var(--font-display)", fontSize: "1.15rem", marginBottom: 10 } }, receipt.itemName),
+        React.createElement("p", { className: "muted", style: { fontSize: "0.85rem", marginBottom: 4 } }, "−", receipt.cost, " tokens"),
+        React.createElement("p", { className: "muted", style: { fontSize: "0.78rem", marginBottom: 16 } }, fmtDate(receipt.redeemedAt), " · ", receipt.remainingTokens, " tokens remaining"),
+        React.createElement("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", fontSize: "0.78rem", color: "var(--muted)", marginBottom: 16 } }, "Show this to your teacher to pick up your item. They can also verify it in the Redemption Log."),
+        React.createElement("button", { className: "btn btn-gold btn-full", onClick: () => setReceipt(null) }, "Done")
+      )
+    )
+  );
 }
 function AdminDash({ currentUser }) {
   var _a;
@@ -10182,6 +10601,49 @@ function AdminUsers({ currentUser }) {
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [bulkGrade, setBulkGrade] = useState("");
   const [bulkSection, setBulkSection] = useState("");
+  const [tokenGrantUser, setTokenGrantUser] = useState(null);
+  const [tokenGrantAmount, setTokenGrantAmount] = useState("");
+  const [tokenGrantBusy, setTokenGrantBusy] = useState(false);
+  // Badge token migration
+  const [migrationBusy, setMigrationBusy] = useState(false);
+  const [migrationLog, setMigrationLog] = useState([]); // [{name, count, earned, granted, skipped}]
+  const [migrationDone, setMigrationDone] = useState(false);
+  const [migrationProgress, setMigrationProgress] = useState({ done: 0, total: 0 });
+  const runMigration = async () => {
+    if (!confirm("This will retroactively grant badge tokens to all approved users who earned badges before the token system launched.\n\nAlready-paid tiers are skipped automatically. Continue?")) return;
+    setMigrationBusy(true);
+    setMigrationLog([]);
+    setMigrationDone(false);
+    setMigrationProgress({ done: 0, total: 0 });
+    try {
+      const results = await API.runBadgeMigration((entry, done, total) => {
+        setMigrationLog(prev => [...prev, entry]);
+        setMigrationProgress({ done, total });
+      });
+      const totalGranted = results.reduce((s, r) => s + r.granted, 0);
+      const affected = results.filter(r => r.granted > 0).length;
+      toast.ok(`Migration complete! ${totalGranted} token payouts across ${affected} student${affected !== 1 ? "s" : ""}.`);
+      setMigrationDone(true);
+    } catch (e) {
+      toast.err("Migration failed: " + e.message);
+    }
+    setMigrationBusy(false);
+  };
+  const giveTokens = async () => {
+    const amt = parseInt(tokenGrantAmount, 10);
+    if (!amt || amt <= 0) { toast.err("Enter a token amount greater than 0."); return; }
+    setTokenGrantBusy(true);
+    try {
+      await API.grantManualTokens(tokenGrantUser.id, amt, currentUser.id, currentUser.name);
+      API.logAction(currentUser, `Gave ${amt} tokens`, tokenGrantUser.name);
+      toast.ok(`🪙 Gave ${amt} tokens to ${tokenGrantUser.name}!`);
+      setTokenGrantUser(null);
+      setTokenGrantAmount("");
+    } catch (e) {
+      toast.err(e.message);
+    }
+    setTokenGrantBusy(false);
+  };
   const load = async () => {
     setLoading(true);
     const res = await API.getUsers({ role: "student", status: statusFilter === "all" ? "" : statusFilter, search });
@@ -10298,7 +10760,7 @@ function AdminUsers({ currentUser }) {
     });
     return c;
   }, [students]);
-  const StudentRow = ({ u }) => /* @__PURE__ */ React.createElement("tr", { key: u.id, style: { background: selected.has(u.id) ? "var(--gold-bg)" : "" } }, /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: selected.has(u.id), onChange: () => toggleSelect(u.id), style: { accentColor: "var(--gold)" } })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 32, height: 32, fontSize: "0.72rem", background: GRADE_COLORS[u.gradeLevel] || "var(--ink-3)", flexShrink: 0 } }, initials(u.name)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500 } }, u.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, u.email)))), /* @__PURE__ */ React.createElement("td", null, u.institution || "\u2014"), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(GradeBadge, { level: u.gradeLevel })), /* @__PURE__ */ React.createElement("td", { style: { fontSize: "0.82rem" } }, u.section || "\u2014"), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("span", { className: `badge badge-${u.status === "approved" ? "appr" : u.status === "rejected" ? "rej" : "pend"}` }, u.status)), /* @__PURE__ */ React.createElement("td", null, u.uploadCount || 0), /* @__PURE__ */ React.createElement("td", { style: { whiteSpace: "nowrap" } }, fmtDate(u.createdAt)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setEditingUser(u), "data-tip": "Edit grade & section" }, /* @__PURE__ */ React.createElement(Ico.edit, null)), u.status !== "approved" && /* @__PURE__ */ React.createElement("button", { className: "btn btn-grn btn-sm", onClick: () => upd(u.id, "approved"), "data-tip": "Approve user" }, /* @__PURE__ */ React.createElement(Ico.chk, null)), u.status !== "rejected" && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => upd(u.id, "rejected") }, "Reject"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-red btn-sm", onClick: () => del(u.id), "data-tip-pos": "left", "data-tip": "Delete user" }, /* @__PURE__ */ React.createElement(Ico.trash, null)))));
+  const StudentRow = ({ u }) => /* @__PURE__ */ React.createElement("tr", { key: u.id, style: { background: selected.has(u.id) ? "var(--gold-bg)" : "" } }, /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: selected.has(u.id), onChange: () => toggleSelect(u.id), style: { accentColor: "var(--gold)" } })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 32, height: 32, fontSize: "0.72rem", background: GRADE_COLORS[u.gradeLevel] || "var(--ink-3)", flexShrink: 0 } }, initials(u.name)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500 } }, u.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, u.email)))), /* @__PURE__ */ React.createElement("td", null, u.institution || "\u2014"), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(GradeBadge, { level: u.gradeLevel })), /* @__PURE__ */ React.createElement("td", { style: { fontSize: "0.82rem" } }, u.section || "\u2014"), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("span", { className: `badge badge-${u.status === "approved" ? "appr" : u.status === "rejected" ? "rej" : "pend"}` }, u.status)), /* @__PURE__ */ React.createElement("td", null, u.uploadCount || 0), /* @__PURE__ */ React.createElement("td", { style: { whiteSpace: "nowrap" } }, fmtDate(u.createdAt)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setEditingUser(u), "data-tip": "Edit grade & section" }, /* @__PURE__ */ React.createElement(Ico.edit, null)), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setTokenGrantUser(u), "data-tip": "Give tokens" }, "\u{1FA99}"), u.status !== "approved" && /* @__PURE__ */ React.createElement("button", { className: "btn btn-grn btn-sm", onClick: () => upd(u.id, "approved"), "data-tip": "Approve user" }, /* @__PURE__ */ React.createElement(Ico.chk, null)), u.status !== "rejected" && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => upd(u.id, "rejected") }, "Reject"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-red btn-sm", onClick: () => del(u.id), "data-tip-pos": "left", "data-tip": "Delete user" }, /* @__PURE__ */ React.createElement(Ico.trash, null)))));
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10, marginBottom: 18 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h2", { className: "sec-title", style: { marginBottom: 1 } }, "User Management"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, filtered.length, gradeFilter !== "all" ? ` of ${students.length}` : "", " student", filtered.length !== 1 ? "s" : "")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { className: `btn btn-sm ${viewMode === "table" ? "btn-ink" : "btn-ol"}`, onClick: () => setViewMode("table"), "data-tip": "Flat table view" }, "\u2630 Table"), /* @__PURE__ */ React.createElement("button", { className: `btn btn-sm ${viewMode === "grouped" ? "btn-ink" : "btn-ol"}`, onClick: () => setViewMode("grouped"), "data-tip": "Group by grade & section" }, "\u229E By Grade"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: exportCSV, "data-tip": "Download as CSV" }, "\u2B07 Export CSV"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 } }, /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -10350,11 +10812,51 @@ function AdminUsers({ currentUser }) {
     setBulkSection("");
   } }, "Cancel"))), loading ? /* @__PURE__ */ React.createElement("div", { className: "card", style: { textAlign: "center", padding: "30px", color: "var(--muted)" } }, "Loading\u2026") : filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement(EmptyState, { icon: "\u{1F464}", title: "No students found", message: "Try adjusting your search or filters to find who you're looking for.", compact: true })) : viewMode === "grouped" ? (
     /* ── Grouped by Grade → Section ── */
-    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 18 } }, Object.entries(grouped).map(([grade, sections]) => /* @__PURE__ */ React.createElement("div", { key: grade }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 4, height: 28, borderRadius: 2, background: GRADE_COLORS[grade] || "var(--muted)", flexShrink: 0 } }), /* @__PURE__ */ React.createElement("h3", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-lg)", fontWeight: 600, color: "var(--ink)" } }, grade === "Unknown" ? "No Grade Assigned" : `Grade ${grade}`), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)", marginLeft: 4 } }, Object.values(sections).flat().length, " student", Object.values(sections).flat().length !== 1 ? "s" : "")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, paddingLeft: 14, borderLeft: `2px solid ${GRADE_BG[grade] || "var(--border)"}` } }, Object.entries(sections).sort(([a], [b]) => a.localeCompare(b)).map(([sec, list]) => /* @__PURE__ */ React.createElement("div", { key: sec, className: "card", style: { padding: "12px 16px", borderLeft: `3px solid ${GRADE_COLORS[grade] || "var(--border)"}` } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink)" } }, sec), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.68rem", color: "var(--muted)", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 99, padding: "1px 8px" } }, list.length, " student", list.length !== 1 ? "s" : "")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5 } }, list.some((u) => !selected.has(u.id)) ? /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { fontSize: "0.68rem", minHeight: 28, padding: "3px 10px" }, onClick: () => toggleAll(list) }, "\u2610 Select All") : /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { fontSize: "0.68rem", minHeight: 28, padding: "3px 10px" }, onClick: () => toggleAll(list) }, "\u2611 Deselect"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, list.map((u) => /* @__PURE__ */ React.createElement("div", { key: u.id, style: { display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderRadius: "var(--radius)", background: selected.has(u.id) ? "var(--gold-bg)" : "var(--surface)", transition: "background .15s" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: selected.has(u.id), onChange: () => toggleSelect(u.id), style: { accentColor: "var(--gold)", flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 28, height: 28, fontSize: "0.68rem", background: GRADE_COLORS[grade] || "var(--ink-3)", flexShrink: 0 } }, initials(u.name)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.85rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, u.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", color: "var(--muted)" } }, u.email)), /* @__PURE__ */ React.createElement("span", { className: `badge badge-${u.status === "approved" ? "appr" : u.status === "rejected" ? "rej" : "pend"}`, style: { flexShrink: 0, fontSize: "0.62rem" } }, u.status), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)", flexShrink: 0 } }, u.uploadCount || 0, " upload", (u.uploadCount || 0) !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { minHeight: 28, padding: "3px 8px" }, onClick: () => setEditingUser(u), "data-tip": "Edit grade & section" }, /* @__PURE__ */ React.createElement(Ico.edit, null)), u.status !== "approved" && /* @__PURE__ */ React.createElement("button", { className: "btn btn-grn btn-sm", style: { minHeight: 28, padding: "3px 8px" }, onClick: () => upd(u.id, "approved"), "data-tip": "Approve" }, /* @__PURE__ */ React.createElement(Ico.chk, null)), u.status !== "rejected" && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { minHeight: 28, padding: "3px 8px", fontSize: "0.72rem" }, onClick: () => upd(u.id, "rejected") }, "Reject"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-red btn-sm", style: { minHeight: 28, padding: "3px 8px" }, onClick: () => del(u.id), "data-tip": "Delete" }, /* @__PURE__ */ React.createElement(Ico.trash, null))))))))))))
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 18 } }, Object.entries(grouped).map(([grade, sections]) => /* @__PURE__ */ React.createElement("div", { key: grade }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 4, height: 28, borderRadius: 2, background: GRADE_COLORS[grade] || "var(--muted)", flexShrink: 0 } }), /* @__PURE__ */ React.createElement("h3", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-lg)", fontWeight: 600, color: "var(--ink)" } }, grade === "Unknown" ? "No Grade Assigned" : `Grade ${grade}`), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)", marginLeft: 4 } }, Object.values(sections).flat().length, " student", Object.values(sections).flat().length !== 1 ? "s" : "")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, paddingLeft: 14, borderLeft: `2px solid ${GRADE_BG[grade] || "var(--border)"}` } }, Object.entries(sections).sort(([a], [b]) => a.localeCompare(b)).map(([sec, list]) => /* @__PURE__ */ React.createElement("div", { key: sec, className: "card", style: { padding: "12px 16px", borderLeft: `3px solid ${GRADE_COLORS[grade] || "var(--border)"}` } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink)" } }, sec), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.68rem", color: "var(--muted)", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 99, padding: "1px 8px" } }, list.length, " student", list.length !== 1 ? "s" : "")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5 } }, list.some((u) => !selected.has(u.id)) ? /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { fontSize: "0.68rem", minHeight: 28, padding: "3px 10px" }, onClick: () => toggleAll(list) }, "\u2610 Select All") : /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { fontSize: "0.68rem", minHeight: 28, padding: "3px 10px" }, onClick: () => toggleAll(list) }, "\u2611 Deselect"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, list.map((u) => /* @__PURE__ */ React.createElement("div", { key: u.id, style: { display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderRadius: "var(--radius)", background: selected.has(u.id) ? "var(--gold-bg)" : "var(--surface)", transition: "background .15s" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: selected.has(u.id), onChange: () => toggleSelect(u.id), style: { accentColor: "var(--gold)", flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 28, height: 28, fontSize: "0.68rem", background: GRADE_COLORS[grade] || "var(--ink-3)", flexShrink: 0 } }, initials(u.name)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.85rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, u.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", color: "var(--muted)" } }, u.email)), /* @__PURE__ */ React.createElement("span", { className: `badge badge-${u.status === "approved" ? "appr" : u.status === "rejected" ? "rej" : "pend"}`, style: { flexShrink: 0, fontSize: "0.62rem" } }, u.status), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)", flexShrink: 0 } }, u.uploadCount || 0, " upload", (u.uploadCount || 0) !== 1 ? "s" : ""), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { minHeight: 28, padding: "3px 8px" }, onClick: () => setEditingUser(u), "data-tip": "Edit grade & section" }, /* @__PURE__ */ React.createElement(Ico.edit, null)), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { minHeight: 28, padding: "3px 8px" }, onClick: () => setTokenGrantUser(u), "data-tip": "Give tokens" }, "\u{1FA99}"), u.status !== "approved" && /* @__PURE__ */ React.createElement("button", { className: "btn btn-grn btn-sm", style: { minHeight: 28, padding: "3px 8px" }, onClick: () => upd(u.id, "approved"), "data-tip": "Approve" }, /* @__PURE__ */ React.createElement(Ico.chk, null)), u.status !== "rejected" && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { minHeight: 28, padding: "3px 8px", fontSize: "0.72rem" }, onClick: () => upd(u.id, "rejected") }, "Reject"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-red btn-sm", style: { minHeight: 28, padding: "3px 8px" }, onClick: () => del(u.id), "data-tip": "Delete" }, /* @__PURE__ */ React.createElement(Ico.trash, null))))))))))))
   ) : (
     /* ── Flat table view ── */
     /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "tw" }, /* @__PURE__ */ React.createElement("table", null, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { width: 36 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: selected.size === filtered.length && filtered.length > 0, onChange: () => toggleAll(filtered), style: { accentColor: "var(--gold)" } })), /* @__PURE__ */ React.createElement("th", null, "Student"), /* @__PURE__ */ React.createElement("th", null, "School"), /* @__PURE__ */ React.createElement("th", null, "Grade"), /* @__PURE__ */ React.createElement("th", null, "Section"), /* @__PURE__ */ React.createElement("th", null, "Status"), /* @__PURE__ */ React.createElement("th", null, "Uploads"), /* @__PURE__ */ React.createElement("th", null, "Registered"), /* @__PURE__ */ React.createElement("th", null, "Actions"))), /* @__PURE__ */ React.createElement("tbody", null, filtered.map((u) => /* @__PURE__ */ React.createElement(StudentRow, { key: u.id, u }))))))
-  ), editingUser && /* @__PURE__ */ React.createElement(EditGradeModal, { user: editingUser, onClose: () => setEditingUser(null), onSaved: load }));
+  ),
+  /* ── Retroactive Badge Token Migration card ── */
+  React.createElement("div", { className: "card", style: { marginTop: 20, borderLeft: "3px solid var(--gold)" } },
+    React.createElement("div", { className: "card-hd", style: { marginBottom: 10 } },
+      React.createElement("span", { className: "card-title" }, "\uD83D\uDD04 Retroactive Badge Tokens"),
+      migrationDone && React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--green)", fontWeight: 600 } }, "\u2713 Done")
+    ),
+    React.createElement("p", { style: { fontSize: "0.82rem", color: "var(--muted)", marginBottom: 12 } },
+      "Users who earned reading badges before the token system was introduced never received their token rewards. Click below to backfill them now. Already-paid tiers are automatically skipped — safe to run more than once."
+    ),
+    React.createElement("button", {
+      className: "btn btn-gold",
+      disabled: migrationBusy,
+      onClick: runMigration,
+      style: { marginBottom: migrationLog.length > 0 ? 14 : 0 }
+    }, migrationBusy
+      ? React.createElement(React.Fragment, null, React.createElement("span", { className: "spin spin-dark" }), ` Processing… (${migrationProgress.done}/${migrationProgress.total})`)
+      : "\uD83E\uDE99 Run Badge Token Migration"
+    ),
+    migrationLog.length > 0 && React.createElement("div", { style: { maxHeight: 220, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--surface)", padding: "8px 10px", fontSize: "0.78rem", fontFamily: "var(--font-mono, monospace)" } },
+      migrationLog.map((r, i) => React.createElement("div", { key: i, style: { padding: "3px 0", borderBottom: i < migrationLog.length - 1 ? "1px solid var(--border)" : "none", display: "flex", gap: 10, alignItems: "baseline" } },
+        React.createElement("span", { style: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--ink)" } }, r.name),
+        React.createElement("span", { style: { flexShrink: 0, color: "var(--muted)" } }, r.count, " reads / ", r.earned, " badge", r.earned !== 1 ? "s" : ""),
+        React.createElement("span", { style: { flexShrink: 0, color: r.granted > 0 ? "var(--green)" : "var(--muted)", fontWeight: r.granted > 0 ? 600 : 400 } }, r.granted > 0 ? `+${r.granted} granted` : r.skipped > 0 ? "already paid" : "—")
+      ))
+    )
+  ),
+  editingUser && /* @__PURE__ */ React.createElement(EditGradeModal, { user: editingUser, onClose: () => setEditingUser(null), onSaved: load }), tokenGrantUser && /* @__PURE__ */ React.createElement(Modal, { title: "\u{1FA99} Give Tokens", onClose: () => !tokenGrantBusy && setTokenGrantUser(null) },
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 16 } },
+      /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 36, height: 36, fontSize: "0.78rem", flexShrink: 0 } }, initials(tokenGrantUser.name)),
+      /* @__PURE__ */ React.createElement("div", null,
+        /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.9rem" } }, tokenGrantUser.name),
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.75rem", color: "var(--muted)" } }, tokenGrantUser.email)
+      )
+    ),
+    /* @__PURE__ */ React.createElement("div", { className: "fg" },
+      /* @__PURE__ */ React.createElement("label", { htmlFor: "token-grant-amount" }, "Token Amount"),
+      /* @__PURE__ */ React.createElement("input", { id: "token-grant-amount", type: "number", min: 1, autoFocus: true, value: tokenGrantAmount, onChange: (e) => setTokenGrantAmount(e.target.value), onKeyDown: (e) => e.key === "Enter" && giveTokens(), placeholder: "e.g. 20" })
+    ),
+    /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold btn-full", disabled: tokenGrantBusy || !tokenGrantAmount, onClick: giveTokens }, tokenGrantBusy ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), "Giving\u2026") : `Give ${tokenGrantAmount || 0} Tokens`)
+  ));
 }
 function AdminStudies({ currentUser }) {
   const [search, setSearch] = useState("");
@@ -10735,6 +11237,240 @@ function AdminCats() {
       );
     })));
   })))));
+}
+function AdminShopManagement({ currentUser }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [cost, setCost] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editCost, setEditCost] = useState("");
+  const [students, setStudents] = useState([]);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [selectedStudents, setSelectedStudents] = useState(/* @__PURE__ */ new Set());
+  const [awardAmount, setAwardAmount] = useState("");
+  const [awarding, setAwarding] = useState(false);
+  useEffect(() => {
+    API.getUsers({ role: "student", status: "approved" }).then(setStudents).catch(() => {});
+  }, []);
+  const filteredStudents = students.filter((s) => {
+    const q = studentSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (s.name || "").toLowerCase().includes(q) || (s.email || "").toLowerCase().includes(q);
+  });
+  const toggleStudent = (id) => setSelectedStudents((s) => {
+    const n = new Set(s);
+    n.has(id) ? n.delete(id) : n.add(id);
+    return n;
+  });
+  const awardTokens = async () => {
+    const amt = parseInt(awardAmount, 10);
+    if (!amt || amt <= 0) { toast.err("Enter a token amount greater than 0."); return; }
+    if (selectedStudents.size === 0) { toast.err("Select at least one student."); return; }
+    setAwarding(true);
+    try {
+      await Promise.all([...selectedStudents].map((id) => API.grantManualTokens(id, amt, currentUser.id, currentUser.name)));
+      toast.ok(`🪙 Gave ${amt} tokens to ${selectedStudents.size} student${selectedStudents.size !== 1 ? "s" : ""}!`);
+      setSelectedStudents(/* @__PURE__ */ new Set());
+      setAwardAmount("");
+    } catch (e) {
+      toast.err(e.message);
+    }
+    setAwarding(false);
+  };
+  const load = () => {
+    setLoading(true);
+    API.getAllShopItems().then((all) => {
+      setItems(all);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+  const add = async () => {
+    if (!name.trim()) { toast.err("Item name is required."); return; }
+    const costNum = parseInt(cost, 10);
+    if (!costNum || costNum <= 0) { toast.err("Token cost must be greater than 0."); return; }
+    setSaving(true);
+    try {
+      await API.createShopItem({ name, description, cost: costNum, createdBy: currentUser.id, createdByName: currentUser.name });
+      toast.ok(`Added "${name}" to the shop!`);
+      setName(""); setDescription(""); setCost("");
+      load();
+    } catch (e) {
+      toast.err(e.message);
+    }
+    setSaving(false);
+  };
+  const startEdit = (item) => {
+    setEditingId(item.id);
+    setEditName(item.name);
+    setEditDesc(item.description || "");
+    setEditCost(String(item.cost));
+  };
+  const saveEdit = async () => {
+    const costNum = parseInt(editCost, 10);
+    if (!editName.trim() || !costNum || costNum <= 0) { toast.err("Please provide a valid name and cost."); return; }
+    try {
+      await API.updateShopItem(editingId, { name: editName.trim(), description: editDesc.trim(), cost: costNum });
+      toast.ok("Item updated!");
+      setEditingId(null);
+      load();
+    } catch (e) {
+      toast.err(e.message);
+    }
+  };
+  const remove = async (item) => {
+    if (!confirm(`Remove "${item.name}" from the shop? Students who already redeemed it keep their receipt, but it will no longer be available to redeem.`)) return;
+    try {
+      await API.deleteShopItem(item.id);
+      toast.ok("Item removed from shop.");
+      load();
+    } catch (e) {
+      toast.err(e.message);
+    }
+  };
+  const activeItems = items.filter((i) => i.active !== false);
+  const inactiveItems = items.filter((i) => i.active === false);
+  return React.createElement("div", null,
+    React.createElement("div", { style: { marginBottom: 22 } },
+      React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", marginBottom: 3 } }, "🛍️ Shop Management"),
+      React.createElement("p", { className: "muted" }, "Add items students can redeem with the tokens they earn from reading badges. Each student can redeem a given item only once.")
+    ),
+    React.createElement("div", { className: "card", style: { marginBottom: 18 } },
+      React.createElement("div", { className: "card-hd" }, React.createElement("span", { className: "card-title" }, "➕ Add a New Item")),
+      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 } },
+        React.createElement("div", { className: "fg", style: { marginBottom: 0 } },
+          React.createElement("label", { htmlFor: "shop-item-name" }, "Item Name"),
+          React.createElement("input", { id: "shop-item-name", value: name, onChange: (e) => setName(e.target.value), placeholder: "e.g. Free homework pass" })
+        ),
+        React.createElement("div", { className: "fg", style: { marginBottom: 0 } },
+          React.createElement("label", { htmlFor: "shop-item-cost" }, "Token Cost"),
+          React.createElement("input", { id: "shop-item-cost", type: "number", min: 1, value: cost, onChange: (e) => setCost(e.target.value), placeholder: "e.g. 20" })
+        )
+      ),
+      React.createElement("div", { className: "fg" },
+        React.createElement("label", { htmlFor: "shop-item-desc" }, "Description (optional)"),
+        React.createElement("textarea", { id: "shop-item-desc", rows: 2, value: description, onChange: (e) => setDescription(e.target.value), placeholder: "What does the student get, and how do they claim it?" })
+      ),
+      React.createElement("button", { className: "btn btn-gold", disabled: saving, onClick: add }, saving ? React.createElement(React.Fragment, null, React.createElement("span", { className: "spin spin-dark" }), "Adding…") : React.createElement(React.Fragment, null, React.createElement(Ico.plus, null), "Add Item"))
+    ),
+    React.createElement("div", { className: "card", style: { marginBottom: 18 } },
+      React.createElement("div", { className: "card-hd" }, React.createElement("span", { className: "card-title" }, "🪙 Award Tokens"), React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, selectedStudents.size, " selected")),
+      React.createElement("p", { className: "muted", style: { fontSize: "0.8rem", marginBottom: 12 } }, "Give a token bonus to one or more students — for great work, participation, anything you want."),
+      React.createElement("div", { className: "fg" },
+        React.createElement("input", { value: studentSearch, onChange: (e) => setStudentSearch(e.target.value), placeholder: "Search students by name or email…" })
+      ),
+      React.createElement("div", { style: { maxHeight: 240, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 8, marginBottom: 12 } },
+        filteredStudents.length === 0
+          ? React.createElement("div", { style: { padding: "16px", textAlign: "center", color: "var(--muted)", fontSize: "0.8rem" } }, "No students found.")
+          : filteredStudents.map((s) => React.createElement("div", {
+              key: s.id,
+              onClick: () => toggleStudent(s.id),
+              style: { display: "flex", alignItems: "center", gap: 9, padding: "8px 12px", cursor: "pointer", background: selectedStudents.has(s.id) ? "var(--gold-bg)" : "transparent", borderBottom: "1px solid var(--border)" }
+            },
+              React.createElement("input", { type: "checkbox", checked: selectedStudents.has(s.id), onChange: () => toggleStudent(s.id), style: { accentColor: "var(--gold)", flexShrink: 0 }, onClick: (e) => e.stopPropagation() }),
+              React.createElement("div", { className: "avatar", style: { width: 26, height: 26, fontSize: "0.62rem", flexShrink: 0 } }, initials(s.name)),
+              React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                React.createElement("div", { style: { fontSize: "0.82rem", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.name),
+                React.createElement("div", { style: { fontSize: "0.68rem", color: "var(--muted)" } }, s.email)
+              )
+            ))
+      ),
+      React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" } },
+        React.createElement("div", { className: "fg", style: { marginBottom: 0, flex: "1 1 140px" } },
+          React.createElement("label", { htmlFor: "award-amount" }, "Token Amount"),
+          React.createElement("input", { id: "award-amount", type: "number", min: 1, value: awardAmount, onChange: (e) => setAwardAmount(e.target.value), placeholder: "e.g. 20" })
+        ),
+        React.createElement("button", { className: "btn btn-gold", disabled: awarding || !awardAmount || selectedStudents.size === 0, onClick: awardTokens, style: { flexShrink: 0 } }, awarding ? React.createElement(React.Fragment, null, React.createElement("span", { className: "spin spin-dark" }), "Giving…") : `🪙 Give to ${selectedStudents.size || 0} student${selectedStudents.size === 1 ? "" : "s"}`)
+      )
+    ),
+    loading
+      ? React.createElement("div", { className: "card" }, React.createElement("div", { className: "skel", style: { height: 60, borderRadius: 8 } }))
+      : activeItems.length === 0
+        ? React.createElement(EmptyState, { icon: "🛍️", title: "No shop items yet", message: "Add your first item above so students have something to redeem their tokens for." })
+        : React.createElement("div", { className: "card" },
+            React.createElement("div", { className: "card-hd" }, React.createElement("span", { className: "card-title" }, "Active Items"), React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, activeItems.length, " item", activeItems.length !== 1 ? "s" : "")),
+            React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+              activeItems.map((item) => editingId === item.id
+                ? React.createElement("div", { key: item.id, style: { padding: "12px", background: "var(--surface)", borderRadius: 8, border: "1.5px solid var(--gold)", display: "flex", flexDirection: "column", gap: 8 } },
+                    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8 } },
+                      React.createElement("input", { value: editName, onChange: (e) => setEditName(e.target.value) }),
+                      React.createElement("input", { type: "number", min: 1, value: editCost, onChange: (e) => setEditCost(e.target.value) })
+                    ),
+                    React.createElement("textarea", { rows: 2, value: editDesc, onChange: (e) => setEditDesc(e.target.value) }),
+                    React.createElement("div", { style: { display: "flex", gap: 8 } },
+                      React.createElement("button", { className: "btn btn-gold btn-sm", onClick: saveEdit }, "Save"),
+                      React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setEditingId(null) }, "Cancel")
+                    )
+                  )
+                : React.createElement("div", { key: item.id, style: { display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", background: "var(--surface)", borderRadius: 8 } },
+                    React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 2 } },
+                        React.createElement("span", { style: { fontWeight: 600, fontSize: "0.88rem" } }, item.name),
+                        React.createElement("span", { style: { fontSize: "0.7rem", fontWeight: 700, color: "var(--gold)", background: "var(--gold-bg)", padding: "1px 8px", borderRadius: 99 } }, "🪙 ", item.cost)
+                      ),
+                      item.description && React.createElement("div", { style: { fontSize: "0.78rem", color: "var(--muted)" } }, item.description)
+                    ),
+                    React.createElement("div", { style: { display: "flex", gap: 6, flexShrink: 0 } },
+                      React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => startEdit(item) }, React.createElement(Ico.edit, null)),
+                      React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => remove(item) }, React.createElement(Ico.trash, null))
+                    )
+                  )
+              )
+            )
+          ),
+    inactiveItems.length > 0 && React.createElement("div", { className: "card", style: { marginTop: 14, opacity: 0.6 } },
+      React.createElement("div", { className: "card-hd" }, React.createElement("span", { className: "card-title" }, "Removed Items")),
+      React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+        inactiveItems.map((item) => React.createElement("div", { key: item.id, style: { fontSize: "0.8rem", color: "var(--muted)", padding: "6px 10px" } }, item.name, " — ", item.cost, " tokens"))
+      )
+    )
+  );
+}
+function AdminShopLog() {
+  const [log, setLog] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    API.getShopRedemptionLog().then((entries) => {
+      setLog(entries);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+  const filtered = log.filter((r) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (r.studentName || "").toLowerCase().includes(q) || (r.itemName || "").toLowerCase().includes(q);
+  });
+  return React.createElement("div", null,
+    React.createElement("div", { style: { marginBottom: 22 } },
+      React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", marginBottom: 3 } }, "🧾 Redemption Log"),
+      React.createElement("p", { className: "muted" }, "Every token-shop redemption, newest first. Use this to verify a student's receipt before handing over their item.")
+    ),
+    React.createElement("div", { className: "fg" },
+      React.createElement("input", { value: search, onChange: (e) => setSearch(e.target.value), placeholder: "Search by student or item name…" })
+    ),
+    loading
+      ? React.createElement("div", { className: "card" }, React.createElement("div", { className: "skel", style: { height: 60, borderRadius: 8 } }))
+      : filtered.length === 0
+        ? React.createElement(EmptyState, { icon: "🧾", title: "No redemptions yet", message: "Once students start redeeming shop items, they'll show up here for you to verify." })
+        : React.createElement("div", { className: "card" },
+            React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+              filtered.map((r) => React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "var(--surface)", borderRadius: 8 } },
+                React.createElement("div", { className: "avatar", style: { width: 30, height: 30, fontSize: "0.68rem", flexShrink: 0 } }, initials(r.studentName || "?")),
+                React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                  React.createElement("div", { style: { fontWeight: 500, fontSize: "0.85rem" } }, r.studentName),
+                  React.createElement("div", { style: { fontSize: "0.75rem", color: "var(--muted)" } }, "Redeemed ", React.createElement("strong", null, r.itemName), " for ", r.cost, " tokens")
+                ),
+                React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)", flexShrink: 0, textAlign: "right" } }, fmtDate(r.redeemedAt))
+              ))
+            )
+          )
+  );
 }
 function BatchGradingPage({ currentUser }) {
   const [studies, setStudies] = useState([]);
@@ -11410,6 +12146,8 @@ const Sidebar = memo(function Sidebar2({ currentUser, activeTab, setActiveTab, o
     { id: "users", label: "Users", icon: /* @__PURE__ */ React.createElement(Ico.users, null), badge: pendingCount || null },
     { id: "studies-admin", label: "All Studies", icon: /* @__PURE__ */ React.createElement(Ico.book, null) },
     { id: "categories", label: "Categories", icon: /* @__PURE__ */ React.createElement(Ico.tag, null) },
+    { id: "shop-admin", label: "Shop Management", icon: /* @__PURE__ */ React.createElement(Ico.shop, null) },
+    { id: "shop-log", label: "Redemption Log", icon: /* @__PURE__ */ React.createElement(Ico.coin, null) },
     { id: "analytics", label: "Analytics", icon: /* @__PURE__ */ React.createElement(Ico.eye, null) },
     { id: "teacher-analytics", label: "Teacher Dashboard", icon: /* @__PURE__ */ React.createElement(Ico.doc, null) },
     { id: "approval-workflow", label: "Approval Queue", icon: /* @__PURE__ */ React.createElement(Ico.chk, null) },
@@ -11424,6 +12162,7 @@ const Sidebar = memo(function Sidebar2({ currentUser, activeTab, setActiveTab, o
   const studentNav = [
     { id: "dashboard", label: "Dashboard", icon: /* @__PURE__ */ React.createElement(Ico.home, null) },
     { id: "my-stats", label: "My Stats", icon: /* @__PURE__ */ React.createElement(Ico.eye, null) },
+    { id: "shop", label: "Token Shop", icon: /* @__PURE__ */ React.createElement(Ico.shop, null) },
     { id: "reading-progress", label: "Reading Progress", icon: /* @__PURE__ */ React.createElement(Ico.book, null) },
     { id: "notif-center", label: "Notifications", icon: /* @__PURE__ */ React.createElement(Ico.bell, null) },
     { id: "stat-analysis", label: "Statistical Analysis", icon: /* @__PURE__ */ React.createElement(Ico.search, null) },
@@ -11501,6 +12240,44 @@ function BackToTop() {
     },
     "\u2191"
   );
+}
+function FreezePromptModal({ freezesAvailable, onUse, onDecline }) {
+  const [busy, setBusy] = useState(false);
+  const choose = (fn) => {
+    if (busy) return;
+    setBusy(true);
+    fn();
+  };
+  return /* @__PURE__ */ React.createElement("div", { style: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 910,
+    background: "rgba(13,15,20,0.72)",
+    backdropFilter: "blur(4px)",
+    WebkitBackdropFilter: "blur(4px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "20px"
+  } }, /* @__PURE__ */ React.createElement("div", { style: {
+    background: "var(--white)",
+    borderRadius: "var(--radius-xl)",
+    width: "100%",
+    maxWidth: 420,
+    boxShadow: "var(--shadow-xl)",
+    padding: "clamp(22px,5vw,32px)",
+    textAlign: "center",
+    animation: "slideUp .25s cubic-bezier(0.34,1.56,0.64,1)"
+  } },
+    /* @__PURE__ */ React.createElement("div", { style: { width: 64, height: 64, borderRadius: "50%", background: "var(--blue-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", margin: "0 auto 16px" } }, "\u2744\uFE0F"),
+    /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-xl)", fontWeight: 700, color: "var(--ink)", marginBottom: 8 } }, "You missed a day!"),
+    /* @__PURE__ */ React.createElement("p", { style: { fontSize: "var(--text-sm)", color: "var(--muted)", lineHeight: 1.55, marginBottom: 6 } }, "Your streak would normally reset to 1. You have ", /* @__PURE__ */ React.createElement("strong", { style: { color: "var(--blue)" } }, freezesAvailable, " streak freeze", freezesAvailable === 1 ? "" : "s"), " banked \u2014 want to use one to keep it going?"),
+    /* @__PURE__ */ React.createElement("p", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", marginBottom: 22 } }, "Freezes are earned every 5 studies you read."),
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
+      /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold btn-full", style: { height: 46 }, disabled: busy, onClick: () => choose(onUse) }, busy ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), "Using freeze\u2026") : "\u2744\uFE0F Use a streak freeze"),
+      /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-full", disabled: busy, onClick: () => choose(onDecline) }, "No thanks, reset my streak")
+    )
+  ));
 }
 function SetSecurityQuestionModal({ user, onDone }) {
   const [secQ, setSecQ] = useState(SEC_QS[0]);
@@ -12470,6 +13247,7 @@ function App() {
   const [initError, setInitError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSecQ, setShowSecQ] = useState(false);
+  const [freezePrompt, setFreezePrompt] = useState(null); // { freezesAvailable, priorStreakData } | null
   const [theme, toggleTheme] = useTheme();
   const [showTour, setShowTour] = useState(false);
   const [tourEnabled, setTourEnabled] = useState(() => localStorage.getItem("sabnahis_tour_enabled") !== "false");
@@ -12556,8 +13334,12 @@ function App() {
             if (profile && (profile.status === "approved" || profile.role === "admin")) {
               setCurrentUser(profile);
               if (!profile.secQ || !profile.secA || !profile.secQ.trim() || !profile.secA.trim()) setShowSecQ(true);
-              API.recordDailyVisit(fbUser.uid).catch(() => {
-              });
+              if (profile.role !== "admin") {
+                API.recordDailyVisit(fbUser.uid).then((res) => {
+                  if (res && res.missedDay) setFreezePrompt({ userId: fbUser.uid, freezesAvailable: res.freezesAvailable });
+                }).catch(() => {
+                });
+              }
               if (profile.role === "admin") {
                 API.getUsers({ role: "student", status: "pending" }).then((p) => setPendingCount(p.length)).catch(() => {
                 });
@@ -12589,7 +13371,7 @@ function App() {
       }
     };
   }, []);
-  const titles = { dashboard: "Dashboard", users: "User Management", analytics: "Class Analytics", "grade-overview": "Grade Overview", announcements: "Announcements", "studies-admin": "Manage Studies", categories: "Manage Categories", "audit-log": "Audit Log", repository: "Research Repository", chatbot: "AI Research Assistant", recognized: "Recognized Studies", "my-stats": "My Stats", "stat-analysis": "Statistical Analysis", "teacher-analytics": "Teacher Dashboard", "approval-workflow": "Approval Queue", "reading-progress": "Reading Progress", "notif-center": "Notifications" };
+  const titles = { dashboard: "Dashboard", users: "User Management", analytics: "Class Analytics", "grade-overview": "Grade Overview", announcements: "Announcements", "studies-admin": "Manage Studies", categories: "Manage Categories", "audit-log": "Audit Log", repository: "Research Repository", chatbot: "AI Research Assistant", recognized: "Recognized Studies", "my-stats": "My Stats", "stat-analysis": "Statistical Analysis", "teacher-analytics": "Teacher Dashboard", "approval-workflow": "Approval Queue", "reading-progress": "Reading Progress", "notif-center": "Notifications", "shop": "Token Shop", "shop-admin": "Shop Management", "shop-log": "Redemption Log" };
   if (!authChecked || !loaderDone) {
     if (authChecked && !loaderDone) {
       if (typeof window.sabnahisLoaderDone === "function") {
@@ -12607,8 +13389,12 @@ function App() {
     return /* @__PURE__ */ React.createElement(ToastProvider, null, /* @__PURE__ */ React.createElement(AuthPage, { onLogin: (user) => {
       setCurrentUser(user);
       if (!user.secQ || !user.secA || !user.secQ.trim() || !user.secA.trim()) setShowSecQ(true);
-      API.recordDailyVisit(user.id).catch(() => {
-      });
+      if (user.role !== "admin") {
+        API.recordDailyVisit(user.id).then((res) => {
+          if (res && res.missedDay) setFreezePrompt({ userId: user.id, freezesAvailable: res.freezesAvailable });
+        }).catch(() => {
+        });
+      }
       if (user.role === "admin") API.getUsers({ role: "student", status: "pending" }).then((p) => setPendingCount(p.length)).catch(() => {
       });
       if (user.role === "admin") API.getUnreadStudyNotificationCount(user.id).then((n) => setStudyNotifCount(n)).catch(() => {
@@ -12626,6 +13412,12 @@ function App() {
         return isAdmin ? /* @__PURE__ */ React.createElement(AdminStudies, { currentUser }) : null;
       case "categories":
         return isAdmin ? /* @__PURE__ */ React.createElement(AdminCats, null) : null;
+      case "shop-admin":
+        return isAdmin ? /* @__PURE__ */ React.createElement(AdminShopManagement, { currentUser }) : null;
+      case "shop-log":
+        return isAdmin ? /* @__PURE__ */ React.createElement(AdminShopLog, null) : null;
+      case "shop":
+        return !isAdmin ? /* @__PURE__ */ React.createElement(StudentShopPage, { currentUser }) : null;
       case "analytics":
         return isAdmin ? /* @__PURE__ */ React.createElement(AdminAnalytics, { currentUser }) : null;
       case "grade-overview":
@@ -12721,7 +13513,11 @@ function App() {
     },
     /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", width: "20", height: "20" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "5", r: "1.5", fill: "currentColor" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "1.5", fill: "currentColor" }), /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "19", r: "1.5", fill: "currentColor" })),
     /* @__PURE__ */ React.createElement("span", null, "More")
-  )))), showSecQ && /* @__PURE__ */ React.createElement(SetSecurityQuestionModal, { user: currentUser, onDone: () => setShowSecQ(false) }), !isAdmin && /* @__PURE__ */ React.createElement(AnnouncementPopup, { currentUser }), accountModal === "profile" && /* @__PURE__ */ React.createElement(Modal, { title: "Profile", onClose: () => setAccountModal(null) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 48, height: 48, fontSize: "1rem" } }, initials(currentUser.name)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "var(--text-md)", color: "var(--ink)" } }, currentUser.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", textTransform: "capitalize" } }, isAdmin ? "Teacher" : "Student"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, fontSize: "var(--text-sm)" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Email:"), " ", currentUser.email || "\u2014"), currentUser.institution && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Institution:"), " ", currentUser.institution), currentUser.department && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Department:"), " ", currentUser.department))), accountModal === "settings" && /* @__PURE__ */ React.createElement(Modal, { title: "Settings", onClose: () => setAccountModal(null) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: 8 } }, "Theme"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "topbar-theme-toggle", style: theme === "light" ? { borderColor: "var(--gold)", color: "var(--gold)", background: "var(--gold-bg)", fontWeight: 600 } : {}, onClick: () => theme !== "light" && toggleTheme(), "aria-pressed": theme === "light" }, "\u2600 Light"), /* @__PURE__ */ React.createElement("button", { className: "topbar-theme-toggle", style: theme === "dark" ? { borderColor: "var(--gold)", color: "var(--gold)", background: "var(--gold-bg)", fontWeight: 600 } : {}, onClick: () => theme !== "dark" && toggleTheme(), "aria-pressed": theme === "dark" }, "\u263E Dark"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: 8 } }, "Account"), /* @__PURE__ */ React.createElement("button", { className: "topbar-account-item danger", style: { borderRadius: 6, border: "1px solid var(--border)" }, onClick: async () => {
+  )))), showSecQ && /* @__PURE__ */ React.createElement(SetSecurityQuestionModal, { user: currentUser, onDone: () => setShowSecQ(false) }), freezePrompt && /* @__PURE__ */ React.createElement(FreezePromptModal, { freezesAvailable: freezePrompt.freezesAvailable, onUse: () => {
+    API.useStreakFreeze(freezePrompt.userId).then(() => toast.ok("\u2744\uFE0F Freeze used \u2014 your streak is safe!")).catch((e) => toast.err(e.message)).finally(() => setFreezePrompt(null));
+  }, onDecline: () => {
+    API.declineStreakFreeze(freezePrompt.userId).finally(() => setFreezePrompt(null));
+  } }), !isAdmin && /* @__PURE__ */ React.createElement(AnnouncementPopup, { currentUser }), accountModal === "profile" && /* @__PURE__ */ React.createElement(Modal, { title: "Profile", onClose: () => setAccountModal(null) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 48, height: 48, fontSize: "1rem" } }, initials(currentUser.name)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "var(--text-md)", color: "var(--ink)" } }, currentUser.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", textTransform: "capitalize" } }, isAdmin ? "Teacher" : "Student"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, fontSize: "var(--text-sm)" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Email:"), " ", currentUser.email || "\u2014"), currentUser.institution && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Institution:"), " ", currentUser.institution), currentUser.department && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Department:"), " ", currentUser.department))), accountModal === "settings" && /* @__PURE__ */ React.createElement(Modal, { title: "Settings", onClose: () => setAccountModal(null) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: 8 } }, "Theme"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "topbar-theme-toggle", style: theme === "light" ? { borderColor: "var(--gold)", color: "var(--gold)", background: "var(--gold-bg)", fontWeight: 600 } : {}, onClick: () => theme !== "light" && toggleTheme(), "aria-pressed": theme === "light" }, "\u2600 Light"), /* @__PURE__ */ React.createElement("button", { className: "topbar-theme-toggle", style: theme === "dark" ? { borderColor: "var(--gold)", color: "var(--gold)", background: "var(--gold-bg)", fontWeight: 600 } : {}, onClick: () => theme !== "dark" && toggleTheme(), "aria-pressed": theme === "dark" }, "\u263E Dark"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: 8 } }, "Account"), /* @__PURE__ */ React.createElement("button", { className: "topbar-account-item danger", style: { borderRadius: 6, border: "1px solid var(--border)" }, onClick: async () => {
     await API.logout();
     setCurrentUser(null);
     setActiveTab("dashboard");
@@ -14268,186 +15064,257 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 
 <style>
 /* ══════════════════════════════════════════════════════
-   MY STATS — REDESIGN v2
+   MY STATS — REDESIGN v3 (msp2)
 ══════════════════════════════════════════════════════ */
 
 /* ── Keyframes ── */
-@keyframes mspFadeIn    { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
-@keyframes mspStatPop   { from { opacity:0; transform:translateY(12px) scale(.9); } to { opacity:1; transform:none; } }
-@keyframes mspXpShimmer { from { background-position:0% center; } to { background-position:200% center; } }
-@keyframes mspPulseRing { 0%,100%{box-shadow:0 0 0 0 var(--msp-color,var(--gold));} 50%{box-shadow:0 0 0 6px transparent;} }
-@keyframes mspTitleShimmer { 0%,100%{background-position:0% center;} 50%{background-position:100% center;} }
+@keyframes mspFadeIn    { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+@keyframes mspStatPop   { from{opacity:0;transform:scale(.88)} to{opacity:1;transform:none} }
+@keyframes mspXpShimmer { from{background-position:0% center} to{background-position:200% center} }
+@keyframes mspTitleShimmer { 0%,100%{background-position:0% center} 50%{background-position:100% center} }
+@keyframes msp2GlowPulse { 0%,100%{box-shadow:0 0 20px 2px rgba(245,200,66,.12)} 50%{box-shadow:0 0 36px 8px rgba(245,200,66,.28)} }
 
-/* ── Page header ── */
-.msp-header { position:relative; margin-bottom:28px; }
+/* ── Page title ── */
+.msp-header { position:relative; margin-bottom:24px; }
 .msp-title {
   font-size:2rem !important;
-  background:linear-gradient(110deg,var(--gold) 0%,#ff922b 40%,var(--teal) 80%);
+  background:linear-gradient(110deg,#f5c842 0%,#ff7c2a 40%,#14b8a6 80%);
   -webkit-background-clip:text; -webkit-text-fill-color:transparent;
   background-clip:text; background-size:200% auto;
   animation:mspTitleShimmer 5s ease infinite;
 }
 
-/* ── XP HERO BANNER ── */
-.msp-xp-wrap {
+/* ── Root wrapper ── */
+.msp2-root { display:flex; flex-direction:column; gap:14px; margin-bottom:20px; }
+
+/* ════════════════════════════════════════
+   XP CARD
+════════════════════════════════════════ */
+.msp2-xp-card {
   position:relative; overflow:hidden;
-  background:linear-gradient(135deg,rgba(212,175,55,.12) 0%,rgba(20,184,166,.08) 50%,rgba(139,92,246,.08) 100%);
-  border:1px solid rgba(212,175,55,.25);
-  border-radius:16px;
-  padding:20px 24px 16px;
-  margin-bottom:20px;
+  border-radius:18px;
+  padding:22px 24px 0;
+  background:linear-gradient(145deg,#0e1120 0%,#131829 55%,#0d1520 100%);
+  border:1px solid rgba(245,200,66,.2);
+  box-shadow:0 8px 40px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.04);
   animation:mspFadeIn .5s ease both;
 }
-.msp-xp-wrap::before {
-  content:'';
+/* Subtle corner glows */
+.msp2-xp-card::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(ellipse 50% 80% at 0 0, rgba(245,200,66,.08), transparent 60%),
+    radial-gradient(ellipse 35% 50% at 100% 100%, rgba(20,184,166,.06), transparent 60%);
+}
+/* Top shimmer line */
+.msp2-xp-card::after {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px; pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(245,200,66,.5),rgba(20,184,166,.3),transparent);
+}
+
+/* Top section: ring + info + total */
+.msp2-xp-top-row {
+  display:flex; align-items:center; gap:20px; margin-bottom:18px;
+  position:relative; /* above ::before */
+}
+
+/* Ring */
+.msp2-ring-wrap { position:relative; flex-shrink:0; width:80px; height:80px; }
+.msp2-ring-svg  { width:80px; height:80px; }
+.msp2-ring-inner {
   position:absolute; inset:0;
-  background:radial-gradient(ellipse 60% 80% at 0% 0%, rgba(212,175,55,.08), transparent);
-  pointer-events:none;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
 }
-.msp-xp-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
-.msp-xp-left { display:flex; align-items:center; gap:10px; }
-.msp-xp-badge {
-  background:linear-gradient(135deg,var(--gold),#ff922b);
-  color:#fff; font-weight:800; font-size:0.78rem;
-  padding:5px 13px; border-radius:99px; letter-spacing:0.4px;
-  box-shadow:0 2px 12px rgba(212,175,55,.35);
-  cursor:help;
+.msp2-ring-emoji { font-size:1.6rem; line-height:1; }
+.msp2-ring-lv    { font-size:0.6rem; font-weight:800; letter-spacing:.5px; color:rgba(245,200,66,.8); margin-top:1px; text-transform:uppercase; }
+
+/* Info block */
+.msp2-xp-info { flex:1; min-width:0; }
+.msp2-eyebrow {
+  font-size:0.58rem; font-weight:800; text-transform:uppercase;
+  letter-spacing:1.2px; color:rgba(245,200,66,.55); margin-bottom:3px;
 }
-.msp-xp-title { font-size:1rem; font-weight:700; color:var(--ink); }
-.msp-xp-sub   { font-size:0.72rem; color:var(--muted); margin-top:1px; }
-.msp-xp-pts   { font-size:1.1rem; font-weight:800; color:var(--gold); }
-.msp-xp-track {
-  height:12px; background:var(--border); border-radius:99px;
-  overflow:hidden; position:relative; margin-bottom:6px;
+.msp2-rank-name {
+  font-size:1.15rem; font-weight:800; color:#fff;
+  line-height:1.2; margin-bottom:5px;
+  text-shadow:0 0 20px rgba(245,200,66,.18);
 }
-.msp-xp-fill {
+.msp2-xp-meta {
+  display:flex; align-items:center; gap:6px;
+  font-size:0.7rem; color:rgba(255,255,255,.38); margin-bottom:10px;
+}
+.msp2-dot { opacity:.4; }
+
+/* XP bar */
+.msp2-bar-wrap { display:flex; align-items:center; gap:8px; }
+.msp2-bar-track {
+  flex:1; height:10px; border-radius:99px;
+  background:rgba(255,255,255,.07);
+  overflow:hidden;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.3);
+}
+.msp2-bar-fill {
   height:100%; border-radius:99px; width:0%;
-  background:linear-gradient(90deg,var(--gold),#ff922b,var(--teal));
+  background:linear-gradient(90deg,#c9a227,#f5d97a,#ff7c2a,#14b8a6);
   background-size:200% auto;
-  transition:width 1.3s cubic-bezier(.34,1.1,.64,1);
-  animation:mspXpShimmer 2.5s linear infinite;
+  transition:width 1.5s cubic-bezier(.34,1.1,.64,1) .25s;
+  animation:mspXpShimmer 3s linear infinite;
   position:relative;
 }
-.msp-xp-fill::after {
+.msp2-bar-fill::after {
   content:''; position:absolute; right:0; top:0; bottom:0;
-  width:18px; background:rgba(255,255,255,.4);
-  border-radius:99px; filter:blur(3px);
+  width:20px; background:rgba(255,255,255,.45); border-radius:99px; filter:blur(4px);
 }
-.msp-xp-next { font-size:0.7rem; color:var(--muted); text-align:right; }
+.msp2-bar-pct {
+  font-size:0.65rem; font-weight:800; color:rgba(245,200,66,.85);
+  white-space:nowrap; flex-shrink:0;
+}
+.msp2-next-lv {
+  font-size:0.65rem; color:rgba(255,255,255,.3); margin-top:5px;
+}
+.msp2-next-lv strong { color:rgba(245,200,66,.65); }
 
-/* ── HERO STAT CARDS (top 3) ── */
-.msp-hero-grid {
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:14px;
-  margin-bottom:12px;
+/* XP total */
+.msp2-xp-total { text-align:right; flex-shrink:0; }
+.msp2-xp-num {
+  font-size:2rem; font-weight:900; line-height:1;
+  background:linear-gradient(135deg,#f5d97a,#d4af37,#ff7c2a);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
 }
-@media(max-width:600px){ .msp-hero-grid { grid-template-columns:1fr; } }
-.msp-hero-card {
+.msp2-xp-lbl {
+  font-size:0.6rem; font-weight:700; letter-spacing:.8px;
+  text-transform:uppercase; color:rgba(245,200,66,.45); margin-top:3px;
+}
+.msp2-streak-badge {
+  margin-top:8px; display:inline-block;
+  background:linear-gradient(135deg,rgba(240,136,62,.2),rgba(240,136,62,.08));
+  border:1px solid rgba(240,136,62,.35); border-radius:99px;
+  padding:3px 10px; font-size:0.65rem; font-weight:700;
+  color:#f0883e;
+}
+
+/* XP chips row */
+.msp2-chip-row {
+  display:flex; flex-wrap:wrap; align-items:center; gap:5px;
+  padding:12px 0 14px;
+  border-top:1px solid rgba(255,255,255,.06);
+  position:relative;
+}
+.msp2-chip-label {
+  font-size:0.58rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.8px; color:rgba(255,255,255,.2); margin-right:2px; flex-shrink:0;
+}
+.msp2-chip {
+  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09);
+  border-radius:8px; padding:3px 9px;
+  font-size:0.62rem; color:rgba(255,255,255,.45);
+  transition:background .2s, border-color .2s;
+}
+.msp2-chip:hover { background:rgba(245,200,66,.07); border-color:rgba(245,200,66,.2); color:rgba(255,255,255,.7); }
+.msp2-chip strong { color:rgba(245,200,66,.85); font-weight:800; }
+
+/* ════════════════════════════════════════
+   HERO STAT CARDS (Views / Downloads / Citations)
+════════════════════════════════════════ */
+.msp2-hero-row {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+}
+@media(max-width:520px){ .msp2-hero-row { grid-template-columns:1fr; } }
+.msp2-hero-card {
   position:relative; overflow:hidden;
-  border-radius:16px;
-  padding:22px 20px 18px;
-  border:1.5px solid var(--border);
-  background:var(--surface);
+  border-radius:16px; padding:20px 18px 16px;
+  border:1.5px solid rgba(255,255,255,.08);
+  background:var(--surface, #f9fafb);
   cursor:pointer;
-  transition:transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .22s ease, border-color .22s ease;
-  animation:mspStatPop .45s ease both;
-}
-.msp-hero-card::before {
-  content:''; position:absolute; inset:0;
-  background:linear-gradient(135deg, var(--msp-hc,var(--gold)) 0%, transparent 55%);
-  opacity:.07; pointer-events:none;
-}
-.msp-hero-card::after {
-  content:''; position:absolute;
-  top:-40px; right:-40px; width:120px; height:120px;
-  border-radius:50%;
-  background:radial-gradient(circle, var(--msp-hc,var(--gold)) 0%, transparent 70%);
-  opacity:.12; pointer-events:none;
-}
-.msp-hero-card:hover {
-  transform:translateY(-5px) scale(1.02);
-  box-shadow:0 12px 32px rgba(0,0,0,.22), 0 0 0 2px var(--msp-hc,var(--gold));
-  border-color:var(--msp-hc,var(--gold));
-  z-index:2;
-}
-.msp-hero-card-icon {
-  font-size:2rem; line-height:1; margin-bottom:10px; display:block;
-  filter:drop-shadow(0 2px 8px var(--msp-hc,var(--gold)));
-}
-.msp-hero-card-lbl {
-  font-size:0.65rem; font-weight:700; text-transform:uppercase;
-  letter-spacing:.8px; color:var(--muted); margin-bottom:4px;
-}
-.msp-hero-card-val {
-  font-size:2.6rem; font-weight:800; line-height:1;
-  color:var(--msp-hc,var(--gold));
-  font-family:var(--font-display,inherit);
-  display:inline-block;
-  transition:transform .2s cubic-bezier(.34,1.56,.64,1);
-}
-.msp-hero-card:hover .msp-hero-card-val { transform:scale(1.08); }
-.msp-hero-card-sub {
-  font-size:0.68rem; color:var(--muted); margin-top:4px;
-}
-.msp-hero-arrow {
-  position:absolute; bottom:12px; right:14px;
-  font-size:0.65rem; font-weight:700;
-  color:var(--msp-hc,var(--gold)); opacity:0;
-  transition:opacity .15s;
-}
-.msp-hero-card:hover .msp-hero-arrow { opacity:1; }
-
-/* ── SECONDARY STAT GRID ── */
-.msp-sec-grid {
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
-  gap:10px;
-  margin-bottom:16px;
-}
-.msp-sec-card {
-  position:relative; overflow:hidden;
-  border-radius:12px;
-  padding:14px 14px 12px;
-  border:1.5px solid var(--border);
-  background:var(--surface);
-  cursor:default;
-  transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease, border-color .2s ease;
+  transition:transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .22s, border-color .22s;
   animation:mspStatPop .4s ease both;
-  text-align:center;
 }
-.msp-sec-card[data-click="1"] { cursor:pointer; }
-.msp-sec-card::before {
-  content:''; position:absolute; inset:0;
-  background:linear-gradient(135deg, var(--msp-sc,var(--gold)) 0%, transparent 60%);
-  opacity:0; transition:opacity .22s; pointer-events:none;
+.msp2-hero-card::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(135deg, var(--hc,#14b8a6) 0%, transparent 55%);
+  opacity:.08; transition:opacity .2s;
 }
-.msp-sec-card:hover { transform:translateY(-3px); border-color:var(--msp-sc,var(--border)); box-shadow:0 6px 20px rgba(0,0,0,.15); }
-.msp-sec-card:hover::before { opacity:.06; }
-.msp-sec-card-icon { font-size:1.4rem; line-height:1; margin-bottom:6px; display:block; }
-.msp-sec-card-lbl  { font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin-bottom:4px; }
-.msp-sec-card-val  {
-  font-size:1.6rem; font-weight:800; line-height:1;
-  color:var(--msp-sc,var(--ink));
-  font-family:var(--font-display,inherit);
-  display:inline-block;
+.msp2-hero-card::after {
+  content:''; position:absolute; top:-35px; right:-35px;
+  width:100px; height:100px; border-radius:50%; pointer-events:none;
+  background:radial-gradient(circle, var(--hc,#14b8a6), transparent 70%);
+  opacity:.12; transition:opacity .2s;
+}
+.msp2-hero-card:hover {
+  transform:translateY(-5px) scale(1.02);
+  box-shadow:0 14px 36px rgba(0,0,0,.2), 0 0 0 2px var(--hc,#14b8a6);
+  border-color:var(--hc,#14b8a6);
+}
+.msp2-hero-card:hover::before { opacity:.13; }
+.msp2-hero-card:hover::after  { opacity:.2; }
+.msp2-hero-icon {
+  font-size:1.9rem; display:block; margin-bottom:10px;
+  filter:drop-shadow(0 2px 8px var(--hc,#14b8a6));
+}
+.msp2-hero-val {
+  font-size:2.5rem; font-weight:800; line-height:1;
+  color:var(--hc,#14b8a6);
   transition:transform .2s cubic-bezier(.34,1.56,.64,1);
+  display:inline-block;
 }
-.msp-sec-card:hover .msp-sec-card-val { transform:scale(1.1); }
+.msp2-hero-card:hover .msp2-hero-val { transform:scale(1.08); }
+.msp2-hero-lbl {
+  font-size:0.63rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.7px; color:var(--muted,#7c85a8); margin-top:4px;
+}
+.msp2-hero-tap {
+  position:absolute; bottom:10px; right:13px;
+  font-size:0.6rem; font-weight:700; color:var(--hc,#14b8a6);
+  opacity:0; transition:opacity .15s;
+}
+.msp2-hero-card:hover .msp2-hero-tap { opacity:1; }
+
+/* ════════════════════════════════════════
+   SECONDARY GRID
+════════════════════════════════════════ */
+.msp2-sec-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
+  gap:10px;
+}
+.msp2-sec-card {
+  position:relative; overflow:hidden;
+  border-radius:13px; padding:15px 14px 13px;
+  border:1.5px solid var(--border,#e2e5f0);
+  background:var(--surface,#f9fafb);
+  text-align:center; cursor:default;
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s, border-color .2s;
+  animation:mspStatPop .4s ease both;
+}
+.msp2-sec-card::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(135deg, var(--sc,#f5c842), transparent 60%);
+  opacity:0; transition:opacity .2s;
+}
+.msp2-sec-card:hover { transform:translateY(-3px); border-color:var(--sc,#f5c842); box-shadow:0 6px 20px rgba(0,0,0,.12); }
+.msp2-sec-card:hover::before { opacity:.06; }
+.msp2-sec-icon { font-size:1.4rem; display:block; margin-bottom:5px; }
+.msp2-sec-val  {
+  font-size:1.65rem; font-weight:800; color:var(--sc,#f5c842);
+  display:inline-block; transition:transform .2s cubic-bezier(.34,1.56,.64,1);
+}
+.msp2-sec-card:hover .msp2-sec-val { transform:scale(1.1); }
+.msp2-sec-lbl  { font-size:0.58rem; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--muted,#7c85a8); margin-top:3px; }
+.msp2-sec-sub  { font-size:0.58rem; color:var(--sc,#f5c842); opacity:.7; margin-top:2px; font-weight:600; }
 
 /* ── Motivational banner ── */
-.msp-motive {
+.msp2-motive {
   display:flex; align-items:center; gap:12px;
-  background:linear-gradient(120deg,rgba(212,175,55,.1),rgba(20,184,166,.07));
-  border:1px solid var(--border); border-left:3px solid var(--gold);
-  border-radius:12px; padding:13px 18px; margin-bottom:18px;
-  animation:mspFadeIn .6s ease .25s both;
+  background:linear-gradient(120deg,rgba(212,175,55,.08),rgba(20,184,166,.05));
+  border:1px solid var(--border,#e2e5f0); border-left:3px solid #f5c842;
+  border-radius:12px; padding:12px 16px;
+  animation:mspFadeIn .6s ease .3s both;
 }
-.msp-motive-icon { font-size:1.5rem; flex-shrink:0; }
-.msp-motive-text { font-size:0.85rem; color:var(--ink-3); font-style:italic; line-height:1.45; }
-.msp-motive-text strong { color:var(--gold); font-style:normal; }
+.msp2-motive-icon { font-size:1.4rem; flex-shrink:0; }
+.msp2-motive-text { font-size:0.82rem; color:var(--ink-3,#4a5568); font-style:italic; line-height:1.45; }
+.msp2-motive-text strong { color:#f5c842; font-style:normal; }
 
-/* ── Impact bars (Best Study card) ── */
+/* ── Impact bars ── */
 .msp-impact-row { display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
 .msp-impact-item { display:flex; align-items:center; gap:10px; }
 .msp-impact-label { font-size:0.72rem; font-weight:600; color:var(--muted); width:80px; flex-shrink:0; }
@@ -14455,14 +15322,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 .msp-impact-fill  { height:100%; border-radius:99px; width:0%; transition:width 1s cubic-bezier(.34,1.1,.64,1) .35s; }
 .msp-impact-val   { font-size:0.75rem; font-weight:700; width:30px; text-align:right; flex-shrink:0; }
 
-/* ── Scroll reveal ── */
-.msp-reveal { opacity:0; transform:translateY(18px); transition:opacity .5s ease, transform .5s ease; }
-.msp-reveal.visible { opacity:1; transform:none; }
-
-@media(prefers-reduced-motion:reduce) {
-  .msp-hero-card, .msp-sec-card, .msp-xp-fill, .msp-impact-fill { transition:none; animation:none; }
+@media(prefers-reduced-motion:reduce){
+  .msp2-hero-card,.msp2-sec-card,.msp2-bar-fill { transition:none; animation:none; }
   .msp-title { animation:none; -webkit-text-fill-color:var(--ink); }
-  .msp-reveal { opacity:1; transform:none; }
 }
 </style>
 
@@ -14823,169 +15685,281 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   // ── Main enhancer ──────────────────────────────────────
   var enhanced = false;
 
+  function readStats() {
+    // Read all [data-stat-val] elements and their sibling label divs
+    // StatPill DOM: root-div > span(icon), div(LABEL), div > div[data-stat-val], ...
+    var result = { uploads:0, coauthored:0, views:0, downloads:0, citations:0,
+                   reads:0, bookmarks:0, streak:0, bestStreak:0 };
+    var LMAP = {
+      'UPLOADED':'uploads','CO-AUTHORED':'coauthored','TOTAL VIEWS':'views',
+      'DOWNLOADS':'downloads','CITATIONS':'citations','STUDIES READ':'reads',
+      'BOOKMARKS':'bookmarks','DAY STREAK':'streak','BEST STREAK':'bestStreak'
+    };
+    document.querySelectorAll('[data-stat-val]').forEach(function(valEl) {
+      var pill = valEl.closest('div[style]');
+      if (!pill) return;
+      // Walk siblings to find label div (uppercase small text)
+      var kids = Array.from(pill.parentNode === pill.parentNode && pill.children ? pill.children : []);
+      // Actually walk the pill's own children
+      var labelText = '';
+      Array.from(pill.children).forEach(function(child) {
+        if (child.tagName === 'SPAN') return; // icon
+        if (child === valEl.parentElement) return; // value wrapper
+        if (child.tagName === 'DIV' && !child.querySelector('[data-stat-val]')) {
+          var t = (child.textContent||'').trim().toUpperCase();
+          if (t.length > 0 && t.length < 30) labelText = t;
+        }
+      });
+      var key = LMAP[labelText];
+      if (key) result[key] = parseInt(valEl.textContent) || 0;
+    });
+    return result;
+  }
+
   function enhanceMyStats() {
     var h2 = document.querySelector('h2');
     if (!h2 || h2.textContent.indexOf('My Stats') === -1) return;
     if (enhanced) return;
 
-    // Find the original pills grid
+    // Find pill grid: any div with 7+ children that ALL contain [data-stat-val]
     var pillGrid = null;
-    document.querySelectorAll('div[style]').forEach(function(el) {
-      var s = el.style;
-      if (s.gap === '10px' && s.marginBottom === '18px' && el.children.length >= 7) pillGrid = el;
-    });
+    var divs = Array.from(document.querySelectorAll('div[style]'));
+    for (var i = 0; i < divs.length; i++) {
+      var d = divs[i];
+      if (d.children.length < 7) continue;
+      var ok = true;
+      for (var j = 0; j < d.children.length; j++) {
+        if (!d.children[j].querySelector('[data-stat-val]')) { ok = false; break; }
+      }
+      if (ok) { pillGrid = d; break; }
+    }
     if (!pillGrid) return;
     enhanced = true;
 
-    // ── Title ──
+    // ── Style the h2 ──
+    h2.classList.add('msp-title');
     var titleWrap = h2.closest('div');
     if (titleWrap) titleWrap.classList.add('msp-header');
-    h2.classList.add('msp-title');
 
-    // ── Read values from original pills ──
-    var pills = Array.from(pillGrid.children);
-    var vals = pills.map(function(p) {
-      var num = p.querySelector('[data-stat-val]');
-      return num ? (parseInt(num.textContent) || 0) : 0;
-    });
-    var stats = {
-      uploads:vals[0]||0, coauthored:vals[1]||0, views:vals[2]||0,
-      downloads:vals[3]||0, citations:vals[4]||0, reads:vals[5]||0,
-      bookmarks:vals[6]||0, streak:vals[7]||0, bestStreak:vals[8]||0
-    };
+    // ── Read stats ──
+    var stats = readStats();
+    // Fallback: read by child index if label reading failed
+    if (stats.views === 0 && stats.downloads === 0) {
+      var pills = Array.from(pillGrid.children);
+      var order = ['uploads','coauthored','reads','bookmarks','streak','bestStreak','views','downloads','citations'];
+      pills.forEach(function(p, idx) {
+        var valEl = p.querySelector('[data-stat-val]');
+        if (valEl && order[idx]) stats[order[idx]] = parseInt(valEl.textContent) || 0;
+      });
+    }
+
     var xp = calcXP(stats);
     var lv = getLevel(xp);
-    var xpPct = lv.nx ? Math.round(((xp-lv.lv.min)/(lv.nx.min-lv.lv.min))*100) : 100;
+    var xpPct = lv.nx ? Math.min(99, Math.round(((xp - lv.lv.min) / (lv.nx.min - lv.lv.min)) * 100)) : 100;
+    var lvIdx = LEVELS.indexOf(lv.lv) + 1;
 
-    // Hide original pills grid (we replace it)
+    // ── Hide original pill grid ──
     pillGrid.style.display = 'none';
     var parent = pillGrid.parentNode;
-    var insertBefore = pillGrid;  // we'll insert new elements before the hidden grid
+    var anchor = pillGrid;
 
-    // ── XP Banner ──
-    var xpWrap = document.createElement('div');
-    xpWrap.className = 'msp-xp-wrap';
-    var xpTooltip = 'Uploads: '+stats.uploads+' × 10 = '+(stats.uploads*10)+' XP\n'
-      +'Views: '+stats.views+' × 5 = '+(stats.views*5)+' XP\n'
-      +'Downloads: '+stats.downloads+' × 8 = '+(stats.downloads*8)+' XP\n'
-      +'Citations: '+stats.citations+' × 15 = '+(stats.citations*15)+' XP\n'
-      +'Studies Read: '+stats.reads+' × 3 = '+(stats.reads*3)+' XP\n'
-      +'Streak: '+stats.streak+' × 20 = '+(stats.streak*20)+' XP\n'
-      +'Total: '+xp+' XP';
-    xpWrap.innerHTML =
-      '<div class="msp-xp-top">'
-        +'<div class="msp-xp-left">'
-          +'<span class="msp-xp-badge" title="'+xpTooltip+'">'+lv.lv.emoji+' Level '+(LEVELS.indexOf(lv.lv)+1)+'</span>'
-          +'<div><div class="msp-xp-title">'+lv.lv.label+'</div>'
-          +'<div class="msp-xp-sub">Research rank</div></div>'
+    // ── Read Tokens & Streak Freezes from the second pill row ──
+    var tokens = 0, freezes = 0;
+    var tokenRow = pillGrid.nextElementSibling;
+    if (tokenRow && tokenRow.querySelector('[data-stat-val]')) {
+      Array.from(tokenRow.children).forEach(function(p) {
+        var valEl = p.querySelector('[data-stat-val]');
+        if (!valEl) return;
+        var txt = (p.textContent || '').toUpperCase();
+        if (txt.indexOf('TOKEN') !== -1) tokens = parseInt(valEl.textContent) || 0;
+        if (txt.indexOf('FREEZE') !== -1) freezes = parseInt(valEl.textContent) || 0;
+      });
+      tokenRow.style.display = 'none';
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  NEW UI: full replacement of the stats dashboard
+    // ═══════════════════════════════════════════════════
+
+    var wrap = document.createElement('div');
+    wrap.className = 'msp2-root';
+
+    // ── LEVEL + XP CARD ──────────────────────────────
+    var circumference = 2 * Math.PI * 34; // r=34 → ~213.6
+    var dashOffset = circumference - (xpPct / 100) * circumference;
+
+    var xpCard = document.createElement('div');
+    xpCard.className = 'msp2-xp-card';
+    xpCard.innerHTML =
+      '<svg width="0" height="0" style="position:absolute;pointer-events:none">'
+        +'<defs><linearGradient id="msp2Grad" x1="0%" y1="0%" x2="100%" y2="0%">'
+          +'<stop offset="0%" stop-color="#f5c842"/>'
+          +'<stop offset="50%" stop-color="#ff7c2a"/>'
+          +'<stop offset="100%" stop-color="#14b8a6"/>'
+        +'</linearGradient></defs></svg>'
+      +'<div class="msp2-xp-top-row">'
+
+      // Left: ring
+      +'<div class="msp2-ring-wrap">'
+        +'<svg class="msp2-ring-svg" viewBox="0 0 80 80">'
+          +'<circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="7"/>'
+          +'<circle class="msp2-ring-arc" id="msp2-arc" cx="40" cy="40" r="34" fill="none"'
+            +' stroke="url(#msp2Grad)" stroke-width="7" stroke-linecap="round"'
+            +' stroke-dasharray="'+circumference.toFixed(1)+'"'
+            +' stroke-dashoffset="'+circumference.toFixed(1)+'"'
+            +' style="transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset 1.6s cubic-bezier(.34,1.1,.64,1) .3s"/>'
+        +'</svg>'
+        +'<div class="msp2-ring-inner">'
+          +'<div class="msp2-ring-emoji">'+lv.lv.emoji+'</div>'
+          +'<div class="msp2-ring-lv">Lv '+lvIdx+'</div>'
         +'</div>'
-        +'<div class="msp-xp-pts">'+xp.toLocaleString()+' XP</div>'
       +'</div>'
-      +'<div class="msp-xp-track"><div class="msp-xp-fill" id="msp-xp-fill"></div></div>'
-      +'<div class="msp-xp-next">'+(lv.nx ? (lv.nx.min - xp)+' XP to '+lv.nx.emoji+' '+lv.nx.label : '🌟 Max level reached!')+'</div>';
-    parent.insertBefore(xpWrap, insertBefore);
-    setTimeout(function(){
-      var f=document.getElementById('msp-xp-fill'); if(f) f.style.width=xpPct+'%';
-    }, 350);
 
-    // ── Hero grid (3 big cards) ──
-    var heroGrid = document.createElement('div');
-    heroGrid.className = 'msp-hero-grid';
-    HERO_CFG.forEach(function(cfg, gi) {
-      var val = vals[cfg.idx] || 0;
+      // Center: rank info
+      +'<div class="msp2-xp-info">'
+        +'<div class="msp2-eyebrow">Research Rank</div>'
+        +'<div class="msp2-rank-name">'+lv.lv.label+'</div>'
+        +'<div class="msp2-xp-meta">'
+          +'<span>Level '+lvIdx+' / '+LEVELS.length+'</span>'
+          +'<span class="msp2-dot">·</span>'
+          +(lv.nx ? '<span>'+(lv.nx.min-xp)+' XP to next</span>' : '<span>🏆 Max rank!</span>')
+        +'</div>'
+        // Bar
+        +'<div class="msp2-bar-wrap">'
+          +'<div class="msp2-bar-track">'
+            +'<div class="msp2-bar-fill" id="msp2-bar"></div>'
+          +'</div>'
+          +'<span class="msp2-bar-pct" id="msp2-pct">'+xpPct+'%</span>'
+        +'</div>'
+        +(lv.nx ? '<div class="msp2-next-lv">Next: '+lv.nx.emoji+' <strong>'+lv.nx.label+'</strong> at '+lv.nx.min.toLocaleString()+' XP</div>' : '')
+      +'</div>'
+
+      // Right: XP total
+      +'<div class="msp2-xp-total">'
+        +'<div class="msp2-xp-num" id="msp2-xpnum">0</div>'
+        +'<div class="msp2-xp-lbl">Total XP</div>'
+        // Streak badge inline
+        +(stats.streak > 0 ? '<div class="msp2-streak-badge">🔥 '+stats.streak+' day streak</div>' : '')
+      +'</div>'
+      +'</div>'; // close msp2-xp-top-row
+
+    // XP breakdown chips
+    var chips = [
+      {icon:'📤', label:'Uploads', val:stats.uploads*10},
+      {icon:'👁',  label:'Views',   val:stats.views*5},
+      {icon:'⬇️', label:'DLs',     val:stats.downloads*8},
+      {icon:'📋', label:'Cites',   val:stats.citations*15},
+      {icon:'📖', label:'Reads',   val:stats.reads*3},
+      {icon:'🔥', label:'Streak',  val:stats.streak*20},
+    ].filter(function(c){ return c.val > 0; });
+    if (chips.length > 0) {
+      var chipRow = document.createElement('div');
+      chipRow.className = 'msp2-chip-row';
+      chipRow.innerHTML = '<div class="msp2-chip-label">XP sources</div>'
+        + chips.map(function(c){
+            return '<div class="msp2-chip">'+c.icon+' '+c.label+' <strong>+'+c.val+'</strong></div>';
+          }).join('');
+      xpCard.appendChild(chipRow);
+    }
+    wrap.appendChild(xpCard);
+
+    // ── HERO STATS ROW ──────────────────────────────
+    var heroData = [
+      {icon:'👁', label:'Total Views',    val:stats.views,     color:'#14b8a6', drillType:'views'},
+      {icon:'⬇️',label:'Downloads',       val:stats.downloads, color:'#3b82f6', drillType:'downloads'},
+      {icon:'📋', label:'Citations',      val:stats.citations, color:'#8b5cf6', drillType:'citations'},
+    ];
+    var heroRow = document.createElement('div');
+    heroRow.className = 'msp2-hero-row';
+    heroData.forEach(function(h, i) {
       var card = document.createElement('div');
-      card.className = 'msp-hero-card';
-      card.style.setProperty('--msp-hc', cfg.color);
-      card.style.animationDelay = (gi * 0.07) + 's';
-      if (cfg.drillType && val > 0) {
+      card.className = 'msp2-hero-card';
+      card.style.setProperty('--hc', h.color);
+      if (h.drillType && h.val > 0) {
         card.style.cursor = 'pointer';
-        card.setAttribute('data-drill', cfg.drillType);
+        card.setAttribute('data-drill', h.drillType);
       }
       card.innerHTML =
-        '<span class="msp-hero-card-icon">'+cfg.icon+'</span>'
-        +'<div class="msp-hero-card-lbl">'+cfg.label+'</div>'
-        +'<div class="msp-hero-card-val" id="msp-hv-'+gi+'">0</div>'
-        +'<div class="msp-hero-card-sub">'+(cfg.drillType && val>0?'tap to drill down':'all time')+'</div>'
-        +(cfg.drillType && val>0?'<span class="msp-hero-arrow">tap to expand →</span>':'');
-      heroGrid.appendChild(card);
-      // Wire drill-down click → open aggregated activity log modal
-      if (cfg.drillType && val > 0) {
-        (function(logType, cardColor, cardLabel) {
-          card.addEventListener('click', function() {
-            openActivityLogModal(logType, cardColor, cardLabel);
-          });
-        })(cfg.drillType, cfg.color, cfg.label);
+        '<span class="msp2-hero-icon">'+h.icon+'</span>'
+        +'<div class="msp2-hero-val" id="msp2-hv-'+i+'">0</div>'
+        +'<div class="msp2-hero-lbl">'+h.label+'</div>'
+        +(h.val > 0 ? '<div class="msp2-hero-tap">tap to view →</div>' : '');
+      card.style.animationDelay = (i * 0.08)+'s';
+      if (h.drillType && h.val > 0) {
+        (function(dt, hcol, hlbl){ card.addEventListener('click', function(){ openActivityLogModal(dt, hcol, hlbl); }); })(h.drillType, h.color, h.label);
       }
-      setTimeout(function(){ countUp(document.getElementById('msp-hv-'+gi), val, 1000+gi*100); }, 200+gi*80);
+      heroRow.appendChild(card);
+      setTimeout(function(){ countUp(document.getElementById('msp2-hv-'+i), h.val, 1000); }, 300 + i*100);
     });
-    parent.insertBefore(heroGrid, insertBefore);
+    wrap.appendChild(heroRow);
 
-    // ── Secondary grid ──
+    // ── SECONDARY STATS GRID ──────────────────────────
+    var secData = [
+      {icon:'📄', label:'Uploaded',      val:stats.uploads,    color:'#f5c842', drillType:'studies'},
+      {icon:'🤝', label:'Co-authored',   val:stats.coauthored, color:'#14b8a6', drillType:'coauthored'},
+      {icon:'📖', label:'Studies Read',  val:stats.reads,      color:'#22c55e', drillType:null},
+      {icon:'🔖', label:'Bookmarks',     val:stats.bookmarks,  color:'#94a3b8', drillType:'bookmarks'},
+      {icon:'🏅', label:'Best Streak',   val:stats.bestStreak, color:'#f5c842', drillType:null},
+      {icon:'🪙', label:'Tokens',        val:tokens,           color:'#f5c842', drillType:'shop', special:'token'},
+      {icon:'❄️', label:'Streak Freezes',val:freezes,          color:'#60a5fa', drillType:null,   special:'freeze'},
+    ];
     var secGrid = document.createElement('div');
-    secGrid.className = 'msp-sec-grid';
-    SEC_CFG.forEach(function(cfg, si) {
-      var val = vals[cfg.idx] || 0;
+    secGrid.className = 'msp2-sec-grid';
+    secData.forEach(function(s, i) {
       var card = document.createElement('div');
-      card.className = 'msp-sec-card';
-      card.style.setProperty('--msp-sc', cfg.color);
-      card.style.animationDelay = (si * 0.055) + 's';
-      var canDrill = cfg.drillType && val > 0;
-      if (canDrill) card.setAttribute('data-click','1');
-      card.innerHTML =
-        '<span class="msp-sec-card-icon">'+cfg.icon+'</span>'
-        +'<div class="msp-sec-card-lbl">'+cfg.label+'</div>'
-        +'<div class="msp-sec-card-val" id="msp-sv-'+si+'">0</div>';
-      secGrid.appendChild(card);
-      if (canDrill) {
+      card.className = 'msp2-sec-card';
+      card.style.setProperty('--sc', s.color);
+      card.style.animationDelay = (i * 0.06)+'s';
+      if (s.drillType) {
         card.style.cursor = 'pointer';
-        card.addEventListener('click', function() {
-          var origPill = pills[cfg.idx];
-          if (origPill) origPill.click();
-        });
-      }      setTimeout(function(){ countUp(document.getElementById('msp-sv-'+si), val, 900+si*80); }, 350+si*60);
+        (function(drillType, cardLabel) {
+          card.addEventListener('click', function(){
+            if (drillType === 'shop') {
+              window.dispatchEvent(new CustomEvent('sabnahis:nav', {detail:'shop'}));
+            } else {
+              var pill = Array.from(document.querySelectorAll('[data-stat-val]')).find(function(el){
+                var p = el.closest('div[style]'); if (!p) return false;
+                return (p.textContent||'').toLowerCase().indexOf(cardLabel.toLowerCase().split(' ')[0]) !== -1;
+              });
+              if (pill) pill.closest('div[style]').click();
+            }
+          });
+        })(s.drillType, s.label);
+      }
+      // Special badge for token card
+      var specialBadge = '';
+      if (s.special === 'token') specialBadge = '<div class="msp2-sec-sub">tap to spend</div>';
+      if (s.special === 'freeze') specialBadge = '<div class="msp2-sec-sub">streak shields</div>';
+      card.innerHTML =
+        '<span class="msp2-sec-icon">'+s.icon+'</span>'
+        +'<div class="msp2-sec-val" id="msp2-sv-'+i+'">0</div>'
+        +'<div class="msp2-sec-lbl">'+s.label+'</div>'
+        +specialBadge;
+      secGrid.appendChild(card);
+      setTimeout(function(){ countUp(document.getElementById('msp2-sv-'+i), s.val, 900); }, 400 + i*60);
     });
-    parent.insertBefore(secGrid, insertBefore);
+    wrap.appendChild(secGrid);
 
     // ── Motivational quote ──
     var q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
     var motive = document.createElement('div');
-    motive.className = 'msp-motive';
-    motive.innerHTML = '<span class="msp-motive-icon">'+q.icon+'</span><span class="msp-motive-text">'+q.text+'</span>';
-    parent.insertBefore(motive, insertBefore);
+    motive.className = 'msp2-motive';
+    motive.innerHTML = '<span class="msp2-motive-icon">'+q.icon+'</span><span class="msp2-motive-text">'+q.text+'</span>';
+    wrap.appendChild(motive);
 
-    // ── Cache study titles from the DOM (All My Studies rows) ──
-    // This runs after React has rendered the study rows, so we can scrape titles
-    setTimeout(function() {
-      if (!window.__mspStudies || window.__mspStudies.length === 0) {
-        // Scrape from .mstats-study-row elements which have data attributes
-        var studyRows = document.querySelectorAll('.mstats-study-row');
-        studyRows.forEach(function(row) {
-          var sid = row.getAttribute('data-id') || row.dataset.id;
-          var titleEl = row.querySelector('[style*="0.85rem"]') || row.querySelector('[style*="ellipsis"]');
-          if (sid && titleEl) {
-            if (!window.__mspStudies) window.__mspStudies = [];
-            if (!window.__mspStudies.find(function(x){ return x.id===sid; })) {
-              window.__mspStudies.push({ id: sid, title: titleEl.textContent.trim() });
-            }
-          }
-        });
-      }
-    }, 1500);
+    parent.insertBefore(wrap, anchor);
 
-    // ── Animate cards below pills on scroll ──
-    var cards = document.querySelectorAll('.card');
-    cards.forEach(function(c, i) {
-      c.classList.add('msp-reveal');
-      c.style.transitionDelay = (i * 0.07) + 's';
-    });
-    var obs = new IntersectionObserver(function(entries) {
-      entries.forEach(function(e) {
-        if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }
-      });
-    }, {threshold:0.1});
-    cards.forEach(function(c) { obs.observe(c); });
+    // ── Animate ring + bar ──
+    setTimeout(function(){
+      var arc = document.getElementById('msp2-arc');
+      var bar = document.getElementById('msp2-bar');
+      var pct = document.getElementById('msp2-pct');
+      if (arc) arc.style.strokeDashoffset = dashOffset.toFixed(1);
+      if (bar) bar.style.width = xpPct + '%';
+      countUp(document.getElementById('msp2-xpnum'), xp, 1400);
+    }, 200);
 
-    // ── Impact bars in Best Study card ──
+    // ── Impact bars on Best Study card (existing behavior) ──
     setTimeout(function() {
       var bestCard = null;
       document.querySelectorAll('.card').forEach(function(c) {
@@ -14997,33 +15971,36 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
       var bV=parseInt(spans[0].textContent)||0, bD=parseInt(spans[1].textContent)||0, bC=parseInt(spans[2].textContent)||0;
       var mx=Math.max(bV,bD,bC,1);
       var rows=[
-        {label:'👁 Views',     val:bV, color:'var(--teal)',   pct:Math.round(bV/mx*100)},
-        {label:'⬇ Downloads', val:bD, color:'var(--blue)',   pct:Math.round(bD/mx*100)},
-        {label:'📋 Citations', val:bC, color:'var(--purple)', pct:Math.round(bC/mx*100)},
+        {label:'👁 Views',val:bV,color:'var(--teal)',pct:Math.round(bV/mx*100)},
+        {label:'⬇ DLs',  val:bD,color:'var(--blue)',pct:Math.round(bD/mx*100)},
+        {label:'📋 Cites',val:bC,color:'var(--purple)',pct:Math.round(bC/mx*100)},
       ];
-      var wrap=document.createElement('div'); wrap.className='msp-impact-row';
-      rows.forEach(function(r) {
-        var item=document.createElement('div'); item.className='msp-impact-item';
-        item.innerHTML='<span class="msp-impact-label">'+r.label+'</span>'
+      var iw=document.createElement('div'); iw.className='msp-impact-row';
+      rows.forEach(function(r){
+        var it=document.createElement('div'); it.className='msp-impact-item';
+        it.innerHTML='<span class="msp-impact-label">'+r.label+'</span>'
           +'<div class="msp-impact-track"><div class="msp-impact-fill" style="background:'+r.color+'" data-pct="'+r.pct+'"></div></div>'
           +'<span class="msp-impact-val" style="color:'+r.color+'">'+r.val+'</span>';
-        wrap.appendChild(item);
+        iw.appendChild(it);
       });
-      bestCard.appendChild(wrap);
-      setTimeout(function(){
-        wrap.querySelectorAll('.msp-impact-fill').forEach(function(f){ f.style.width=f.dataset.pct+'%'; });
-      }, 200);
-    }, 700);
+      bestCard.appendChild(iw);
+      setTimeout(function(){ iw.querySelectorAll('.msp-impact-fill').forEach(function(f){ f.style.width=f.dataset.pct+'%'; }); }, 200);
+    }, 800);
   }
-
   // Run after React renders, reset on navigation
-  setTimeout(enhanceMyStats, 900);
+  // Try multiple times with increasing delay to handle slow React hydration
+  [900, 1600, 2500, 4000].forEach(function(delay) {
+    setTimeout(function() {
+      var h2 = document.querySelector('h2');
+      if (h2 && h2.textContent.indexOf('My Stats') !== -1 && !enhanced) enhanceMyStats();
+    }, delay);
+  });
   setInterval(function() {
     var h2 = document.querySelector('h2');
     var onStats = h2 && h2.textContent.indexOf('My Stats') !== -1;
     if (onStats) { if (!enhanced) enhanceMyStats(); }
     else { enhanced = false; }
-  }, 800);
+  }, 700);
 })();
 </script>
 
