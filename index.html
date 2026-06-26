@@ -1929,6 +1929,22 @@ tr { transition: background .1s; }
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
+  /* Drop the two heaviest *persistent* backdrop blurs (auth login card
+     28px, loading-screen terminal panel 24px) — unlike brief modals,
+     these sit on screen continuously and a large blur radius is one
+     of the most GPU-expensive things a budget phone can be asked to
+     composite every frame. A solid/near-solid background keeps the
+     same look at near-zero cost. */
+  .auth-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(17,19,24,0.92) !important;
+  }
+  #sabnahis-loader .glass-terminal {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(17,19,24,0.94) !important;
+  }
 }
 
 .spin {
@@ -3214,6 +3230,26 @@ tr { transition: background .1s; }
     <script>
     (function() {
       var canvas = document.getElementById('rls-fluid-canvas');
+
+      // ── Skip the heavy shader on low-power devices ──
+      // Cheap chipsets (e.g. Unisoc/MediaTek entry-level SoCs found in
+      // budget phones) can choke on a full-screen multi-octave noise
+      // shader and freeze the display. Detect likely low-power devices
+      // and fall back to a plain CSS gradient instead.
+      var dm = navigator.deviceMemory; // GB of RAM, undefined if unsupported
+      var cores = navigator.hardwareConcurrency; // logical CPU cores
+      // Threshold raised: 4GB RAM / ≤6 cores covers Realme C-series, Helio G35/G85,
+      // Unisoc T606 and similar budget SoCs that crash on a WebGL shader.
+      var isLowPower = (typeof dm === 'number' && dm <= 4) || (typeof cores === 'number' && cores <= 6)
+        || ('ontouchstart' in window && navigator.maxTouchPoints > 1); // any touch device
+      var prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (isLowPower || prefersReducedMotion) {
+        canvas.style.display = 'none';
+        var fallbackBg = document.getElementById('neural-void-background');
+        if (fallbackBg) fallbackBg.style.background = 'radial-gradient(circle at 50% 40%, #1a1f2e 0%, #0c0e12 100%)';
+        return;
+      }
+
       function syncSize() {
         var w = window.innerWidth, h = window.innerHeight;
         if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
@@ -3241,7 +3277,18 @@ tr { transition: background .1s; }
       window.addEventListener('mousemove',handleInput);
       window.addEventListener('touchstart',handleInput,{passive:true});
       window.addEventListener('touchmove',handleInput,{passive:true});
-      function render(t){gl.viewport(0,0,canvas.width,canvas.height);gl.uniform1f(uTime,t*0.0008);gl.uniform2f(uRes,canvas.width,canvas.height);gl.uniform2f(uMouse,mouse.x,mouse.y);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);requestAnimationFrame(render);}
+      var rendering = true;
+      document.addEventListener('visibilitychange', function() {
+        rendering = !document.hidden;
+        if (rendering) requestAnimationFrame(render);
+      });
+      function render(t){
+        // Stop the loop entirely once the loader div has been removed
+        // from the DOM (instead of running forever in the background).
+        if (!document.body.contains(canvas)) return;
+        if (!rendering) return; // paused while tab is hidden
+        gl.viewport(0,0,canvas.width,canvas.height);gl.uniform1f(uTime,t*0.0008);gl.uniform2f(uRes,canvas.width,canvas.height);gl.uniform2f(uMouse,mouse.x,mouse.y);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);requestAnimationFrame(render);
+      }
       render(0);
     })();
     </script>
@@ -3366,13 +3413,36 @@ tr { transition: background .1s; }
     <div>TEMP: 284.15 K</div>
     <div>BUFFER: OPTIMIZED</div>
   </div>
-  <!-- Three.js DNA Helix -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <!-- Three.js DNA Helix — only loaded on non-touch/desktop, saves ~600KB parse on phones -->
+  <script>
+  (function() {
+    var isMobLoader = ('ontouchstart' in window && navigator.maxTouchPoints > 1)
+      || window.matchMedia('(max-width:768px)').matches;
+    if (!isMobLoader) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js';
+      document.currentScript.parentNode.appendChild(s);
+    }
+  })();
+  </script>
   <script>
   (function waitForThree() {
     if (typeof THREE === 'undefined') { setTimeout(waitForThree, 50); return; }
     var container = document.getElementById('rls-dna-canvas');
     if (!container) return;
+
+    // ── Skip this WebGL scene on low-power devices ──
+    // Same rationale as the fluid background shader: a lit 3D scene
+    // with 40+ meshes can overload weak/budget GPUs and freeze the page.
+    var dm2 = navigator.deviceMemory;
+    var cores2 = navigator.hardwareConcurrency;
+    // Skip on any touch device (all phones), or low-RAM/low-core desktops
+    var isLowPower2 = ('ontouchstart' in window && navigator.maxTouchPoints > 1)
+      || (typeof dm2 === 'number' && dm2 <= 4)
+      || (typeof cores2 === 'number' && cores2 <= 6);
+    if (isLowPower2 || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+      return;
+    }
 
     function getSize() {
       var w = container.offsetWidth || container.clientWidth || 320;
@@ -3435,7 +3505,16 @@ tr { transition: background .1s; }
     });
 
     var clock = new THREE.Clock();
+    var dnaRendering = true;
+    document.addEventListener('visibilitychange', function() {
+      dnaRendering = !document.hidden;
+      if (dnaRendering) requestAnimationFrame(animate);
+    });
     function animate() {
+      // Stop the loop once the loader/container has been removed from
+      // the DOM, instead of rendering forever in the background.
+      if (!document.body.contains(container)) return;
+      if (!dnaRendering) return; // paused while tab is hidden
       requestAnimationFrame(animate);
       if (!isDragging) dnaGroup.rotation.y += clock.getDelta() * 0.5;
       else clock.getDelta(); // drain delta while dragging
@@ -3604,14 +3683,19 @@ document.addEventListener('DOMContentLoaded', function() {
     '#rn-fx-9c2{ opacity:0.05; mix-blend-mode:difference; z-index:2147483646; }',
     '#rn-fx-9c2b{ opacity:0.035; mix-blend-mode:difference; z-index:2147483645; }',
     // On touch/mobile: drop mix-blend-mode difference (forces full-page composite on every frame)
-    '@media (pointer:coarse){ #rn-fx-9c2{ mix-blend-mode:normal; opacity:0.04; } #rn-fx-9c2b{ mix-blend-mode:normal; opacity:0.03; } }',
+    '@media (pointer:coarse){ #rn-fx-9c2{ mix-blend-mode:normal; opacity:0.055; } #rn-fx-9c2b{ mix-blend-mode:normal; opacity:0.04; } }',
     '#rn-fx-9c2 span{',
-      'font-family:"JetBrains Mono",monospace;font-size:13px;color:#fff;',
-      'white-space:nowrap;padding:34px 26px;flex-shrink:0;',
+      'font-family:"JetBrains Mono",monospace;font-size:15px;font-weight:700;color:#fff;',
+      'white-space:nowrap;padding:38px 30px;flex-shrink:0;letter-spacing:0.03em;',
     '}',
     '#rn-fx-9c2b span{',
-      'font-family:"JetBrains Mono",monospace;font-size:9px;color:#fff;',
-      'white-space:nowrap;padding:12px 10px;flex-shrink:0;',
+      'font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;color:#fff;',
+      'white-space:nowrap;padding:14px 12px;flex-shrink:0;',
+    '}',
+    /* Mobile: readable size that actually tiles across narrow screens */
+    '@media (pointer:coarse){',
+      '#rn-fx-9c2 span{ font-size:11px; font-weight:700; padding:24px 12px; }',
+      '#rn-fx-9c2b span{ font-size:8px; font-weight:600; padding:10px 7px; }',
     '}',
     '@media print{ #rn-fx-9c2{ opacity:0.12!important; mix-blend-mode:normal!important; } #rn-fx-9c2 span{ color:#999!important; } #rn-fx-9c2b{ opacity:0.08!important; mix-blend-mode:normal!important; } #rn-fx-9c2b span{ color:#bbb!important; } }',
   ].join('');
@@ -4262,18 +4346,89 @@ const API = {
     });
   },
   async getDraftStudies(userId, isAdmin) {
-    // Drafts are private: only visible to the uploader or admins
+    // Drafts are private: only visible to the uploader or admins.
+    // SECURITY FIX: students get a server-side uploadedBy filter so Firestore
+    // rules (and the query itself) prevent reading other users' drafts.
+    // Admins still fetch all drafts with a single query.
     try {
-      const snap = await db.collection("studies").where("status", "==", "draft").orderBy("createdAt", "desc").get();
-      const all = snap.docs.map((d) => __spreadValues({ id: d.id }, d.data()));
-      if (isAdmin) return all;
-      return all.filter((s) => s.uploadedBy === userId);
+      let snap;
+      if (isAdmin) {
+        snap = await db.collection("studies").where("status", "==", "draft").orderBy("createdAt", "desc").get();
+      } else {
+        snap = await db.collection("studies")
+          .where("status", "==", "draft")
+          .where("uploadedBy", "==", userId)
+          .orderBy("createdAt", "desc")
+          .get();
+      }
+      return snap.docs.map((d) => __spreadValues({ id: d.id }, d.data()));
     } catch (e) {
       return [];
     }
   },
   async publishDraft(studyId) {
-    await db.collection("studies").doc(studyId).update({ status: "active", publishedAt: (/* @__PURE__ */ new Date()).toISOString() });
+    // Fetch the study so we can create the pendingReviews notification
+    const snap = await db.collection("studies").doc(studyId).get();
+    if (!snap.exists) throw new Error("Draft not found.");
+    const data = snap.data();
+    await db.collection("studies").doc(studyId).update({
+      status: "active",
+      publishedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      draftSection: ""  // clear the in-progress section tag
+    });
+    // Co-author uploadCount: deferred from draft save, fire now
+    try {
+      const registeredCoAuthorIds = (data.coAuthors || []).filter((ca) => ca.userId && ca.registered).map((ca) => ca.userId);
+      if (registeredCoAuthorIds.length > 0) {
+        const coBatch = db.batch();
+        registeredCoAuthorIds.forEach((uid) => {
+          coBatch.update(db.collection("users").doc(uid), {
+            uploadCount: firebase.firestore.FieldValue.increment(1)
+          });
+        });
+        await coBatch.commit();
+      }
+    } catch (e) {
+      console.warn("publishDraft: co-author uploadCount failed:", e.message);
+    }
+    // Co-author notifications: deferred from draft save, fire now
+    try {
+      const registeredCoAuthors = (data.coAuthors || []).filter((ca) => ca.userId && ca.registered);
+      if (registeredCoAuthors.length > 0) {
+        const notifBatch = db.batch();
+        registeredCoAuthors.forEach((ca) => {
+          const ref = db.collection("users").doc(ca.userId).collection("notifications").doc();
+          notifBatch.set(ref, {
+            type: "coauthor_tag",
+            title: "You were tagged as co-author",
+            body: `"${data.title}" by ${data.uploadedByName} lists you as a co-author.`,
+            link: studyId,
+            createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+            read: false
+          });
+        });
+        await notifBatch.commit();
+      }
+    } catch (e) {
+      console.warn("publishDraft: co-author notification failed:", e.message);
+    }
+    // Notify teachers via the same pendingReviews flow a normal upload uses
+    try {
+      await db.collection("pendingReviews").add({
+        type: "new_study",
+        studyId,
+        studyTitle: data.title || "",
+        submittedBy: data.uploadedByName || "",
+        submittedByUid: data.uploadedBy || "",
+        categories: data.categories || [],
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        status: "pending",
+        fromDraft: true  // so teachers know it was previously a draft
+      });
+      Cache.invalidate("studyNotifications");
+    } catch (e) {
+      console.warn("publishDraft: pendingReviews write failed:", e.message);
+    }
     Cache.invalidate("studies", "allStudies", "stats");
   },
   async createStudy({ title, authors, coAuthors, abstract, keywords, categories, year, gdrive, uploadedBy, uploadedByName, uploaderGrade = "", uploaderSection = "", isDraft = false, draftSection = "" }) {
@@ -4307,6 +4462,9 @@ const API = {
     await db.collection("users").doc(uploadedBy).update({
       uploadCount: firebase.firestore.FieldValue.increment(1)
     });
+    // Co-author uploadCount + notifications: only fire on live publish, not on draft save.
+    // (publishDraft handles these when the study goes active.)
+    if (!isDraft) {
     try {
       const registeredCoAuthorIds = (coAuthors || []).filter((ca) => ca.userId && ca.registered).map((ca) => ca.userId);
       if (registeredCoAuthorIds.length > 0) {
@@ -4320,6 +4478,7 @@ const API = {
       }
     } catch (e) {
       console.warn("Co-author uploadCount increment failed:", e.message);
+    }
     }
     try {
       const newStudyId = newStudyDocRef.id;
@@ -4340,6 +4499,8 @@ const API = {
     } catch (e) {
       console.warn("Notification write failed:", e.message);
     }
+    // Co-author notifications: only on live publish, not draft save
+    if (!isDraft) {
     try {
       const registeredCoAuthors = (coAuthors || []).filter((ca) => ca.userId && ca.registered);
       if (registeredCoAuthors.length > 0) {
@@ -4360,6 +4521,7 @@ const API = {
       }
     } catch (e) {
       console.warn("Co-author notification failed:", e.message);
+    }
     }
     Cache.invalidate("studies", "allStudies", "stats");
   },
@@ -12599,8 +12761,15 @@ function WatermarkOverlay({ currentUser }) {
     };
   }, []);
   const isReading = readingCount > 0 && !!currentUser;
-  const stamp = currentUser ? `${currentUser.name} \u00B7 ${currentUser.email || currentUser.id} \u00B7 ${now.toLocaleString()}` : "";
-  const microStamp = currentUser ? `${currentUser.name} \u00B7 ${currentUser.email || currentUser.id}` : "";
+  const userLabel = currentUser ? [
+    currentUser.name || "Unknown",
+    currentUser.email || currentUser.id || "",
+    currentUser.gradeLevel ? `Gr.${currentUser.gradeLevel}` : "",
+    currentUser.section ? `§${currentUser.section}` : "",
+    currentUser.role === "admin" ? "ADMIN" : "",
+  ].filter(Boolean).join(" · ") : "";
+  const stamp = currentUser ? `${userLabel} · ${now.toLocaleString()}` : "";
+  const microStamp = currentUser ? userLabel : "";
   stampRef.current = stamp;
   useWatermarkWatchdog(stampRef, setRemountKey, isReading);
   const seedRef = useRef(null);
@@ -12614,13 +12783,14 @@ function WatermarkOverlay({ currentUser }) {
   }
   if (!isReading) return null;
   const seed = seedRef.current;
-  const rowHeight = 100;
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 600;
+  const rowHeight = isMobile ? 60 : 100;
   const rowCount = Math.ceil((pageHeight * 1.6) / rowHeight) + 2;
-  const colCount = 8;
+  const colCount = isMobile ? 4 : 8;
   const tiles = Array.from({ length: rowCount * colCount }, (_, i) => i);
-  const microRowHeight = 46;
+  const microRowHeight = isMobile ? 28 : 46;
   const microRowCount = Math.ceil((pageHeight * 1.6) / microRowHeight) + 2;
-  const microTiles = Array.from({ length: microRowCount * 14 }, (_, i) => i);
+  const microTiles = Array.from({ length: microRowCount * (isMobile ? 8 : 14) }, (_, i) => i);
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
     "div",
     { key: "a" + remountKey, id: "rn-fx-9c2", "aria-hidden": "true", style: { height: pageHeight * 1.6 + "px", transform: `rotate(${seed.angleA}deg) scale(${seed.scaleA})` } },
@@ -14872,16 +15042,28 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   });
   document.addEventListener('DOMContentLoaded', function() {
     obs.observe(document.body, { childList: true, subtree: true });
-    // Also periodically re-check for style changes (tier upgrades)
-    setInterval(function() {
-      document.querySelectorAll('.streak-flame[data-flame-upgraded]').forEach(function(el) {
-        var tier = detectTier(el);
-        if (tier && !el.classList.contains('streak-flame-' + tier)) {
-          ['orange','yellow','red','purple','blue'].forEach(function(t){ el.classList.remove('streak-flame-'+t); });
-          el.classList.add('streak-flame-' + tier);
-        }
+    // Also periodically re-check for style changes (tier upgrades).
+    // Skip entirely on mobile — upgradeFlame() already no-ops there
+    // (no tier classes/embers are ever added), so this poll would just
+    // burn CPU every 2s for nothing.
+    var isMobFlamePoll = window.matchMedia('(max-width:768px)').matches ||
+      ('ontouchstart' in window && navigator.maxTouchPoints > 1);
+    if (!isMobFlamePoll) {
+      var flamePollActive = true;
+      document.addEventListener('visibilitychange', function() {
+        flamePollActive = !document.hidden;
       });
-    }, 2000);
+      setInterval(function() {
+        if (!flamePollActive) return; // paused while tab is hidden
+        document.querySelectorAll('.streak-flame[data-flame-upgraded]').forEach(function(el) {
+          var tier = detectTier(el);
+          if (tier && !el.classList.contains('streak-flame-' + tier)) {
+            ['orange','yellow','red','purple','blue'].forEach(function(t){ el.classList.remove('streak-flame-'+t); });
+            el.classList.add('streak-flame-' + tier);
+          }
+        });
+      }, 2000);
+    }
 
     // ── Wire up streak-circle hover on big 54px flame circle containers ──
     var TIER_MAP = {
@@ -16360,7 +16542,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
       if (h2 && h2.textContent.indexOf('My Stats') !== -1 && !enhanced) enhanceMyStats();
     }, delay);
   });
+  var statsPollActive = true;
+  document.addEventListener('visibilitychange', function() {
+    statsPollActive = !document.hidden;
+  });
   setInterval(function() {
+    if (!statsPollActive) return; // paused while tab is hidden
     var h2 = document.querySelector('h2');
     var onStats = h2 && h2.textContent.indexOf('My Stats') !== -1;
     if (onStats) { if (!enhanced) enhanceMyStats(); }
