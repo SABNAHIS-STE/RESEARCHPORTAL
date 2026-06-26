@@ -1657,7 +1657,12 @@ tr { transition: background .1s; }
     streakBreathe   2.1s ease-in-out infinite,
     streakDrift     3.0s ease-in-out infinite;
   transform-origin: 50% 90%;
-  will-change: transform, filter;
+  /* will-change only on true pointer devices — on older phones it forces
+     GPU layer promotion for every flame and causes flicker / layer thrash */
+  will-change: auto;
+}
+@media (hover:hover) and (pointer:fine) {
+  .streak-flame { will-change: transform, filter; }
 }
 
 /* Main flicker — organic wobble */
@@ -1855,9 +1860,77 @@ tr { transition: background .1s; }
   .streak-circle,.streak-circle:hover,.streak-tier-badge:hover { animation:none; transform:none; }
 }
 
-/* ══════════════════════════════════════════
-   SPINNERS
-══════════════════════════════════════════ */
+/* ── Mobile performance overrides ──────────────────────────── */
+@media (max-width: 768px) {
+  /* Disable will-change hints that promote layers unnecessarily */
+  .sidebar { will-change: auto !important; }
+  /* Reduce animation complexity site-wide on mobile */
+  .sc:hover { transform: none !important; box-shadow: var(--shadow-lg) !important; }
+  .stat:hover { transform: none !important; }
+  /* Disable page transition animation on mobile (saves a composite layer) */
+  .page-transition { animation: none !important; }
+  /* Disable the empty-badge bounce */
+  .empty-badge { animation: none !important; }
+  /* Disable sec-title text gradient clip (expensive on some mobile GPUs) */
+  .sec-title-enhanced {
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    -webkit-text-fill-color: var(--ink) !important;
+    background-clip: unset !important;
+  }
+  /* Streak flame: replace 3 concurrent infinite animations (transform+filter)
+     with a single opacity-only fade — avoids composite layer thrash on old GPUs */
+  .streak-flame {
+    animation: streakMobilePulse 2.4s ease-in-out infinite !important;
+    will-change: auto !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  @keyframes streakMobilePulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.82; }
+  }
+  /* Hide ember particles entirely on mobile */
+  .streak-flame-wrap span { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  .auth-wrap {
+    background: #0c0e12 !important;
+    /* Simple animated gradient instead of WebGL — near-zero GPU cost */
+  }
+  .auth-wrap::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(212,175,55,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(192,192,192,0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 60% 80%, rgba(212,175,55,0.05) 0%, transparent 50%);
+    animation: authBgPulse 8s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+  @keyframes authBgPulse {
+    0%,100% { opacity: 0.6; }
+    50%      { opacity: 1; }
+  }
+  /* Remove GPU-expensive backdrop-filter on mobile topbar */
+  .topbar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--white) !important;
+  }
+  [data-theme="dark"] .topbar {
+    background: #1a1d2e !important;
+  }
+  /* Simplify mob-overlay blur */
+  .mob-overlay {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
 .spin {
   width:19px; height:19px;
   border: 2px solid rgba(255,255,255,0.28);
@@ -3530,6 +3603,8 @@ document.addEventListener('DOMContentLoaded', function() {
     '}',
     '#rn-fx-9c2{ opacity:0.05; mix-blend-mode:difference; z-index:2147483646; }',
     '#rn-fx-9c2b{ opacity:0.035; mix-blend-mode:difference; z-index:2147483645; }',
+    // On touch/mobile: drop mix-blend-mode difference (forces full-page composite on every frame)
+    '@media (pointer:coarse){ #rn-fx-9c2{ mix-blend-mode:normal; opacity:0.04; } #rn-fx-9c2b{ mix-blend-mode:normal; opacity:0.03; } }',
     '#rn-fx-9c2 span{',
       'font-family:"JetBrains Mono",monospace;font-size:13px;color:#fff;',
       'white-space:nowrap;padding:34px 26px;flex-shrink:0;',
@@ -3580,51 +3655,71 @@ document.addEventListener('DOMContentLoaded', function() {
   // iOS Safari DOES fire this for screenshots on iOS 14.5+.
   // The overlay must already be in the compositor (opacity:0 not display:none)
   // for this to work — that's the critical fix above.
-  document.addEventListener('visibilitychange', function() {
-    if (document.visibilityState === 'hidden') {
+  // On mobile, visibilitychange fires on every app-switch/tab-switch which
+  // causes a visible flash. Only use it on desktop (non-touch) devices.
+  var isMobileUA = ('ontouchstart' in window && navigator.maxTouchPoints > 1);
+  if (!isMobileUA) {
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'hidden') {
+        showBlur();
+        clearTimeout(blurTimer);
+      } else {
+        blurTimer = setTimeout(hideBlur, 1800);
+      }
+    });
+
+    // ── 4. window blur/focus ─────────────────────────────────────────
+    // Catches Android Chrome app-switching, desktop alt-tab, Samsung Internet
+    window.addEventListener('blur', function() {
       showBlur();
       clearTimeout(blurTimer);
-    } else {
+    });
+    window.addEventListener('focus', function() {
       blurTimer = setTimeout(hideBlur, 1800);
-    }
-  });
-
-  // ── 4. window blur/focus ─────────────────────────────────────────
-  // Catches Android Chrome app-switching, desktop alt-tab, Samsung Internet
-  window.addEventListener('blur', function() {
-    showBlur();
-    clearTimeout(blurTimer);
-  });
-  window.addEventListener('focus', function() {
-    blurTimer = setTimeout(hideBlur, 1800);
-  });
+    });
+  }
 
   // ── 5. pagehide/pageshow ─────────────────────────────────────────
   // iOS Safari back/forward cache (bfcache) — fires when user swipes back
-  window.addEventListener('pagehide', function() { showBlur(); });
-  window.addEventListener('pageshow', function(e) {
-    // e.persisted = true means restored from bfcache
-    blurTimer = setTimeout(hideBlur, e.persisted ? 2000 : 1800);
-  });
+  // Skip on mobile — back-swipe fires pagehide every time and would flash the overlay
+  if (!isMobileUA) {
+    window.addEventListener('pagehide', function() { showBlur(); });
+    window.addEventListener('pageshow', function(e) {
+      blurTimer = setTimeout(hideBlur, e.persisted ? 2000 : 1800);
+    });
+  }
 
   // ── 6. iOS touch-edge heuristic ──────────────────────────────────
   // iPhone screenshot = Side button + Volume Up pressed simultaneously.
   // Hardware presses register as touches near the screen edges in some cases.
+  // Use a tighter edge threshold (10px) and require BOTH touches to be near
+  // opposite edges — normal 2-finger scroll rarely hits both edges at once.
+  var lastEdgeTouchAt = 0;
   document.addEventListener('touchstart', function(e) {
     if (e.touches.length >= 2) {
-      var hasEdge = false;
+      var now = Date.now();
+      if (now - lastEdgeTouchAt < 800) return; // debounce rapid scroll events
+      var edgeCount = 0;
       for (var i = 0; i < e.touches.length; i++) {
         var t = e.touches[i];
-        if (t.clientX < 25 || t.clientX > window.innerWidth  - 25 ||
-            t.clientY < 25 || t.clientY > window.innerHeight - 25) {
-          hasEdge = true; break;
-        }
+        var onEdge = t.clientX < 10 || t.clientX > window.innerWidth - 10 ||
+                     t.clientY < 10 || t.clientY > window.innerHeight - 10;
+        if (onEdge) edgeCount++;
       }
-      if (hasEdge) showThenHide(2500);
+      // Require both touches near an edge (screenshot combo), not just one (normal scroll)
+      if (edgeCount >= 2) {
+        lastEdgeTouchAt = now;
+        showThenHide(2500);
+      }
     }
   }, { passive: true });
 
   // ── 6b. Desktop rAF stall detector ────────────────────────────────
+  // Only run on desktop — on mobile, the rAF throttling behaviour is
+  // unpredictable and the constant loop itself wastes battery.
+  var isMobileDevice = ('ontouchstart' in window && navigator.maxTouchPoints > 1) ||
+    window.matchMedia('(max-width:768px)').matches;
+  if (!isMobileDevice) {
   // Both the Windows Snipping Tool overlay (screen dims, compositor
   // hands a frame to the capture pipeline) and macOS screenshot capture
   // (Cmd+Shift+3/4/5, or the macOS screenshot toolbar) cause a brief but
@@ -3673,6 +3768,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     lastGeom = g;
   }, 500);
+  } // end !isMobileDevice — sections 6b & 6c skipped on phones
 
   // ── 7. iOS DeviceMotion flash detection ──────────────────────────
   // iOS flashes the screen white for ~120ms when a screenshot is taken.
@@ -3711,12 +3807,9 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // ── 7c. Android focus-poll backstop ───────────────────────────────
-  // Some Android OEM skins (Samsung One UI, MIUI) show a brief system
-  // screenshot/share toolbar overlay that does NOT always fire the
-  // window 'blur' event the way alt-tabbing does, since the page can
-  // stay technically focused underneath. Poll document.hasFocus() as
-  // a backstop — catches the case where blur never fires but focus
-  // briefly reads false during the OS overlay.
+  // Only run on desktop — on mobile we've disabled blur/focus handlers anyway,
+  // and polling every 400ms wastes battery + can cause jank on older phones.
+  if (!isMobileUA) {
   var wasFocused = document.hasFocus();
   setInterval(function() {
     var isFocused = document.hasFocus();
@@ -3727,7 +3820,8 @@ document.addEventListener('DOMContentLoaded', function() {
       blurTimer = setTimeout(hideBlur, 1800);
     }
     wasFocused = isFocused;
-  }, 400);
+  }, 1200); // was 400ms — slower poll prevents jank; blur/focus handles real-time on desktop
+  }
 
   // ── 7d. Viewport-shift heuristic ──────────────────────────────────
   // Some Android OEM screenshot/screen-recorder UIs briefly resize the
@@ -3842,15 +3936,24 @@ document.addEventListener('DOMContentLoaded', function() {
         return '';
       }
     });
-    setInterval(function() { console.log('%c', consoleTrap); }, 1000);
+    setInterval(function() { console.log('%c', consoleTrap); }, 3000);
   } catch (_) {}
 })();
 </script>
 
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// Only load Three.js on non-mobile devices — it's ~600KB and hammers mobile GPUs
+(function() {
+  var isMob = window.matchMedia('(max-width:768px)').matches ||
+    ('ontouchstart' in window && navigator.maxTouchPoints > 1);
+  if (!isMob) {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+    document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>');
+  }
+})();
+</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -4173,7 +4276,7 @@ const API = {
     await db.collection("studies").doc(studyId).update({ status: "active", publishedAt: (/* @__PURE__ */ new Date()).toISOString() });
     Cache.invalidate("studies", "allStudies", "stats");
   },
-  async createStudy({ title, authors, coAuthors, abstract, keywords, categories, year, gdrive, uploadedBy, uploadedByName, uploaderGrade = "", uploaderSection = "", isDraft = false }) {
+  async createStudy({ title, authors, coAuthors, abstract, keywords, categories, year, gdrive, uploadedBy, uploadedByName, uploaderGrade = "", uploaderSection = "", isDraft = false, draftSection = "" }) {
     if (!title || !abstract) throw new Error("Title and abstract are required.");
     if (!(authors == null ? void 0 : authors.length)) throw new Error("At least one author is required.");
     if (!isDraft && !(categories == null ? void 0 : categories.length)) throw new Error("At least one category is required.");
@@ -4198,6 +4301,7 @@ const API = {
       viewCount: 0,
       downloadCount: 0,
       status: isDraft ? "draft" : "active",
+      draftSection: isDraft ? (draftSection || "") : "",
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     });
     await db.collection("users").doc(uploadedBy).update({
@@ -4977,7 +5081,8 @@ const API = {
               const tg = data.targetGrades || [];
               const ts = data.targetSections || [];
               const gradeMatch = !tg.length || tg.includes(user.gradeLevel || "");
-              const sectionMatch = !ts.length || ts.includes((user.section || "").toLowerCase().trim());
+              const userSection = (user.section || "").toLowerCase().trim();
+              const sectionMatch = !ts.length || ts.some((kw) => { const k = kw.toLowerCase().trim(); return userSection.includes(k) || k.includes(userSection); });
               if (!gradeMatch || !sectionMatch) return;
             }
             active.push(__spreadProps(__spreadValues({}, data), { isScheduled: scheduledAt && scheduledAt > now2 }));
@@ -6485,6 +6590,19 @@ function ForgotModal({ onClose }) {
 }
 function useDnaHelix(canvasRef, flashRef) {
   useEffect(() => {
+    // ── Mobile CPU guard ─────────────────────────────────────────────
+    // Three.js WebGL at 60fps is extremely heavy on phones. On any
+    // touch-primary device we skip the 3-D scene entirely and let the
+    // CSS-only fallback background handle the visual.
+    const isMobile = window.matchMedia("(max-width: 768px)").matches ||
+      ('ontouchstart' in window && navigator.maxTouchPoints > 1);
+    if (isMobile) {
+      // Show a simple CSS animated canvas placeholder instead
+      if (canvasRef.current) {
+        canvasRef.current.style.display = 'none';
+      }
+      return;
+    }
     if (!canvasRef.current || typeof THREE === "undefined") return;
     const canvas = canvasRef.current;
     const academicGold = 0xd4af37;
@@ -6496,9 +6614,9 @@ function useDnaHelix(canvasRef, flashRef) {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0c0e12);
     const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
     const dna = new THREE.Group();
     dna.rotation.x = Math.PI / 2;
@@ -6542,7 +6660,7 @@ function useDnaHelix(canvasRef, flashRef) {
     dna.add(new THREE.Mesh(backboneGeo2, backboneMat));
     scene.add(dna);
 
-    const starCount = 3000;
+    const starCount = 800; // reduced from 3000 — still looks great
     const starGeo = new THREE.BufferGeometry();
     const starPos = new Float32Array(starCount * 3);
     const starColors = new Float32Array(starCount * 3);
@@ -6564,7 +6682,7 @@ function useDnaHelix(canvasRef, flashRef) {
     const starfield = new THREE.Points(starGeo, starMat);
     scene.add(starfield);
 
-    const atmosphericCount = 1200;
+    const atmosphericCount = 300; // reduced from 1200
     const atmGeo = new THREE.BufferGeometry();
     const atmPos = new Float32Array(atmosphericCount * 3);
     for (let i = 0; i < atmosphericCount; i++) {
@@ -6577,7 +6695,7 @@ function useDnaHelix(canvasRef, flashRef) {
     const atmosphericParticles = new THREE.Points(atmGeo, atmMat);
     scene.add(atmosphericParticles);
 
-    const burstCount = 1000;
+    const burstCount = 300; // reduced from 1000
     const burstGeo = new THREE.BufferGeometry();
     const burstPos = new Float32Array(burstCount * 3);
     const burstVel = new Float32Array(burstCount * 3);
@@ -6636,7 +6754,7 @@ function useDnaHelix(canvasRef, flashRef) {
         burstParticles.velocities[idx * 3 + 1] = (Math.random() - 0.5) * 0.5;
         burstParticles.velocities[idx * 3 + 2] = (Math.random() - 0.5) * 0.5;
         burstParticles.lifetimes[idx] = 1;
-        burstParticles.nextIndex = (burstParticles.nextIndex + 1) % 1000;
+        burstParticles.nextIndex = (burstParticles.nextIndex + 1) % 300;
       }
       burstParticles.mesh.geometry.attributes.position.needsUpdate = true;
     }
@@ -6692,7 +6810,7 @@ function useDnaHelix(canvasRef, flashRef) {
       }
       atmosphericParticles.geometry.attributes.position.needsUpdate = true;
       const bPos = burstParticles.mesh.geometry.attributes.position.array;
-      for (let i = 0; i < 1000; i++) {
+      for (let i = 0; i < 300; i++) {
         if (burstParticles.lifetimes[i] > 0) {
           bPos[i * 3] += burstParticles.velocities[i * 3];
           bPos[i * 3 + 1] += burstParticles.velocities[i * 3 + 1];
@@ -7981,6 +8099,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
   const [draftStatus, setDraftStatus] = useState(existingDraft ? "saved" : null);
   const [hasDraftRestored, setHasDraftRestored] = useState(!!existingDraft);
   const [isDraft, setIsDraft] = useState(false);
+  const [draftSection, setDraftSection] = useState((existingDraft == null ? void 0 : existingDraft.draftSection) || "");
   const titleCheckTimeout = useRef(null);
   const plagCheckTimeout = useRef(null);
   const draftTimeout = useRef(null);
@@ -7994,7 +8113,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
     draftTimeout.current = setTimeout(() => {
       const hasContent = (newForm.title || "").trim() || (newForm.abstract || "").trim();
       if (hasContent) {
-        saveDraft(draftKey, { form: newForm, authorTags: newTags, selCats: newCats, gdriveUrl: newGdriveUrl, gdriveInfo: newGdriveInfo });
+        saveDraft(draftKey, { form: newForm, authorTags: newTags, selCats: newCats, gdriveUrl: newGdriveUrl, gdriveInfo: newGdriveInfo, draftSection });
         setDraftStatus("saved");
       } else {
         clearDraft(draftKey);
@@ -8057,6 +8176,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
   const discardDraft = () => {
     clearDraft(draftKey);
     setForm({ title: "", abstract: "", keywords: "", year: String((/* @__PURE__ */ new Date()).getFullYear()) });
+    setDraftSection("");
     setAuthorTags([selfTag]);
     setSelCats([]);
     setGdriveUrl("");
@@ -8119,7 +8239,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
       const coAuthors = authorTags.slice(1).map((t) => ({ name: t.name, userId: t.userId || null, registered: !!t.registered }));
       const keywords = form.keywords.split(",").map((k) => k.trim()).filter(Boolean);
       const gdrive = gdriveInfo ? { driveUrl: gdriveInfo.viewUrl, downloadUrl: gdriveInfo.downloadUrl, driveId: gdriveInfo.id } : null;
-      await API.createStudy({ title: form.title, authors, coAuthors, abstract: form.abstract, keywords, categories: selCats, year: form.year, gdrive, uploadedBy: currentUser.id, uploadedByName: currentUser.name, uploaderGrade: currentUser.gradeLevel || "", uploaderSection: currentUser.section || "", isDraft });
+      await API.createStudy({ title: form.title, authors, coAuthors, abstract: form.abstract, keywords, categories: selCats, year: form.year, gdrive, uploadedBy: currentUser.id, uploadedByName: currentUser.name, uploaderGrade: currentUser.gradeLevel || "", uploaderSection: currentUser.section || "", isDraft, draftSection: isDraft ? draftSection : "" });
       clearDraft(draftKey);
       toast.ok(isDraft ? "📝 Saved as unfinished draft! Only you and teachers can see it." : "Study uploaded successfully!");
       onUpload();
@@ -8155,7 +8275,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
       onChange: (e) => handleGdriveInput(e.target.value),
       style: { color: "var(--ink)" }
     }
-  ), gdriveUrl && !gdriveInfo && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--red)", fontSize: "0.75rem", flexShrink: 0 } }, "Invalid link"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4, minHeight: 20 } }, draftStatus === "saving" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saving" }, /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 9, height: 9, borderWidth: 1.5 } }), "Auto-saving draft\u2026"), draftStatus === "saved" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saved" }, "\u2713 Draft saved \u2014 close anytime and resume later")), /* @__PURE__ */ React.createElement("div", { style: { background: isDraft ? "rgba(109,63,168,0.07)" : "var(--surface)", border: `1.5px solid ${isDraft ? "var(--purple)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "12px 14px", marginBottom: 12, cursor: "pointer", transition: "all 0.2s" }, onClick: () => setIsDraft((v) => !v), role: "button", "aria-pressed": isDraft, tabIndex: 0, onKeyDown: (e) => e.key === "Enter" && setIsDraft((v) => !v) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 20, borderRadius: 99, background: isDraft ? "var(--purple)" : "var(--border)", position: "relative", transition: "background 0.2s", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 2, left: isDraft ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.85rem", color: isDraft ? "var(--purple)" : "var(--ink)", marginBottom: 1 } }, "\u{1F512} Save as Unfinished Draft"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)", lineHeight: 1.4 } }, isDraft ? "Only you and your teachers can see this. Teachers can review and comment. You can publish it anytime." : "Toggle on to upload privately \u2014 visible only to you and teachers.")))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: confirmClose }, form.title.trim() || authorTags.length > 1 || form.abstract.trim() ? "\u{1F4BE} Save & Close" : "Cancel"), /* @__PURE__ */ React.createElement("button", { className: `btn ${isDraft ? "btn-purple" : "btn-gold"}`, style: isDraft ? { background: "var(--purple)", color: "#fff", borderColor: "var(--purple)" } : {}, onClick: submit, disabled: loading || (!isDraft && (!!titleDupe || ((_a = plagResults[0]) == null ? void 0 : _a.score) >= 0.5)) }, loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), isDraft ? "Saving\u2026" : "Uploading\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, isDraft ? "\u{1F512} Save as Unfinished Draft" : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.up, null), " Upload Study")))));
+  ), gdriveUrl && !gdriveInfo && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--red)", fontSize: "0.75rem", flexShrink: 0 } }, "Invalid link"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4, minHeight: 20 } }, draftStatus === "saving" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saving" }, /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 9, height: 9, borderWidth: 1.5 } }), "Auto-saving draft\u2026"), draftStatus === "saved" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saved" }, "\u2713 Draft saved \u2014 close anytime and resume later")), /* @__PURE__ */ React.createElement("div", { style: { background: isDraft ? "rgba(109,63,168,0.07)" : "var(--surface)", border: `1.5px solid ${isDraft ? "var(--purple)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "12px 14px", marginBottom: 12, cursor: "pointer", transition: "all 0.2s" }, onClick: () => setIsDraft((v) => !v), role: "button", "aria-pressed": isDraft, tabIndex: 0, onKeyDown: (e) => e.key === "Enter" && setIsDraft((v) => !v) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 20, borderRadius: 99, background: isDraft ? "var(--purple)" : "var(--border)", position: "relative", transition: "background 0.2s", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 2, left: isDraft ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.85rem", color: isDraft ? "var(--purple)" : "var(--ink)", marginBottom: 1 } }, "\u{1F512} Save as Unfinished Draft"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)", lineHeight: 1.4 } }, isDraft ? "Only you and your teachers can see this. Teachers can review and comment. You can publish it anytime." : "Toggle on to upload privately \u2014 visible only to you and teachers.")))), isDraft && /* @__PURE__ */ React.createElement("div", { className: "fg", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("label", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--purple)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("span", null, "\uD83D\uDCCC"), "Which section is this draft? ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, color: "var(--muted)", fontSize: "0.75rem" } }, "(optional)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, [{ value: "", label: "\u2753 Not sure yet", icon: "\u2753" }, { value: "Title & Authors", label: "Title & Authors", icon: "\uD83D\uDCCB" }, { value: "Rationale", label: "Rationale", icon: "\uD83D\uDCA1" }, { value: "Abstract", label: "Abstract", icon: "\uD83D\uDCDD" }, { value: "Introduction", label: "Introduction", icon: "\uD83D\uDCDA" }, { value: "Literature Review", label: "Literature Review", icon: "\uD83D\uDD0D" }, { value: "Methodology", label: "Methodology", icon: "\uD83E\uDDEA" }, { value: "Results", label: "Results", icon: "\uD83D\uDCCA" }, { value: "Discussion", label: "Discussion", icon: "\uD83D\uDCAC" }, { value: "Conclusion", label: "Conclusion", icon: "\u2705" }, { value: "References", label: "References", icon: "\uD83D\uDCD6" }].map(function(opt) { return /* @__PURE__ */ React.createElement("button", { key: opt.value, type: "button", onClick: function() { setDraftSection(opt.value); }, style: { padding: "5px 12px", borderRadius: 99, border: "1.5px solid " + (draftSection === opt.value ? "var(--purple)" : "var(--border)"), background: draftSection === opt.value ? "rgba(109,63,168,0.12)" : "var(--surface)", color: draftSection === opt.value ? "var(--purple)" : "var(--muted)", fontSize: "0.75rem", fontWeight: draftSection === opt.value ? 700 : 500, cursor: "pointer", transition: "all 0.15s", fontFamily: "var(--font-body)" } }, opt.icon, " ", opt.label); }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: confirmClose }, form.title.trim() || authorTags.length > 1 || form.abstract.trim() ? "\u{1F4BE} Save & Close" : "Cancel"), /* @__PURE__ */ React.createElement("button", { className: `btn ${isDraft ? "btn-purple" : "btn-gold"}`, style: isDraft ? { background: "var(--purple)", color: "#fff", borderColor: "var(--purple)" } : {}, onClick: submit, disabled: loading || (!isDraft && (!!titleDupe || ((_a = plagResults[0]) == null ? void 0 : _a.score) >= 0.5)) }, loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), isDraft ? "Saving\u2026" : "Uploading\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, isDraft ? "\u{1F512} Save as Unfinished Draft" : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.up, null), " Upload Study")))));
 }
 function EmptyState({ icon = "\u{1F4ED}", title, message, action = null, compact = false }) {
   return /* @__PURE__ */ React.createElement("div", { className: "empty", style: compact ? { padding: "28px 20px" } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "empty-badge" }, icon), /* @__PURE__ */ React.createElement("h3", null, title), message && /* @__PURE__ */ React.createElement("p", null, message), action && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, action));
@@ -8461,6 +8581,7 @@ function StudiesPage({ currentUser }) {
     setShowUpload(false);
   } }));
 }
+const DRAFT_SECTION_ICONS = { "Title & Authors": "\uD83D\uDCCB", "Rationale": "\uD83D\uDCA1", "Abstract": "\uD83D\uDCDD", "Introduction": "\uD83D\uDCDA", "Literature Review": "\uD83D\uDD0D", "Methodology": "\uD83E\uDDEA", "Results": "\uD83D\uDCCA", "Discussion": "\uD83D\uDCAC", "Conclusion": "\u2705", "References": "\uD83D\uDCD6" };
 function DraftStudiesSection({ currentUser, isAdmin }) {
   const [drafts, setDrafts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -8468,6 +8589,12 @@ function DraftStudiesSection({ currentUser, isAdmin }) {
   const [editing, setEditing] = useState(null);
   const [cats, setCats] = useState([]);
   const [publishing, setPublishing] = useState(null);
+  // --- teacher filters ---
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterGrade, setFilterGrade] = useState("");
+  const [filterSection, setFilterSection] = useState("");
+  const [viewMode, setViewMode] = useState("list"); // "list" | "grouped"
+
   useEffect(() => { API.getCategories().then(setCats).catch(() => {}); }, []);
   const load = async () => {
     setLoading(true);
@@ -8480,6 +8607,7 @@ function DraftStudiesSection({ currentUser, isAdmin }) {
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
+
   const handlePublish = async (study) => {
     if (!confirm(`Publish "${study.title}" to the public repository? Everyone will be able to see it.`)) return;
     setPublishing(study.id);
@@ -8502,50 +8630,140 @@ function DraftStudiesSection({ currentUser, isAdmin }) {
       toast.err("Failed to delete draft.");
     }
   };
-  if (loading) return /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "40px", color: "var(--muted)" } }, /* @__PURE__ */ React.createElement("span", { className: "spin spin-gold", style: { width: 24, height: 24, display: "inline-block", marginBottom: 10 } }), /* @__PURE__ */ React.createElement("p", null, "Loading drafts\u2026"));
-  if (drafts.length === 0) return /* @__PURE__ */ React.createElement("div", null,
-    /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(109,63,168,0.07)", border: "1.5px solid var(--purple)", borderRadius: "var(--radius-lg)", padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "flex-start", gap: 12 } },
-      /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.4rem", flexShrink: 0 } }, "\uD83D\uDD12"),
-      /* @__PURE__ */ React.createElement("div", null,
-        /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: "0.88rem", color: "var(--purple)", marginBottom: 3 } }, isAdmin ? "Unfinished Drafts — Teacher View" : "Your Unfinished Studies"),
-        /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.55 } }, isAdmin ? "These are private unfinished studies uploaded by students. You can review, comment, and give feedback. They are hidden from the public repository." : "Studies saved here are private — only you and your teachers can see them. When your study is ready, you can publish it to the repository.")
+
+  // derive unique grade levels & sections from loaded drafts (teacher view)
+  const allGrades = isAdmin ? [...new Set(drafts.map(d => d.uploaderGrade || "").filter(Boolean))].sort() : [];
+  const allSections = isAdmin ? [...new Set(drafts.filter(d => !filterGrade || d.uploaderGrade === filterGrade).map(d => d.uploaderSection || "").filter(Boolean))].sort() : [];
+
+  // filtered list
+  const q = searchQuery.trim().toLowerCase();
+  const filtered = drafts.filter(study => {
+    if (isAdmin) {
+      if (filterGrade && (study.uploaderGrade || "") !== filterGrade) return false;
+      if (filterSection && (study.uploaderSection || "") !== filterSection) return false;
+      if (q && !(
+        (study.uploadedByName || "").toLowerCase().includes(q) ||
+        (study.title || "").toLowerCase().includes(q) ||
+        (study.authors || []).join(" ").toLowerCase().includes(q)
+      )) return false;
+    }
+    return true;
+  });
+
+  // group by "Grade Level > Section"
+  const grouped = {};
+  if (isAdmin && viewMode === "grouped") {
+    filtered.forEach(study => {
+      const gl = study.uploaderGrade || "Unknown Grade";
+      const sc = study.uploaderSection || "Unknown Section";
+      const key = gl + "|||" + sc;
+      if (!grouped[key]) grouped[key] = { grade: gl, section: sc, studies: [] };
+      grouped[key].studies.push(study);
+    });
+  }
+
+  const renderDraftCard = (study) => /* @__PURE__ */ React.createElement("div", { key: study.id, style: { background: "var(--white)", border: "1.5px solid var(--purple)", borderRadius: "var(--radius-lg)", padding: "18px 20px", position: "relative", boxShadow: "var(--shadow)" } },
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" } },
+      /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } },
+          /* @__PURE__ */ React.createElement("span", { style: { background: "rgba(109,63,168,0.12)", color: "var(--purple)", fontSize: "0.68rem", fontWeight: 700, padding: "2px 9px", borderRadius: 99, border: "1px solid rgba(109,63,168,0.25)" } }, "\uD83D\uDD12 Unfinished Draft"),
+          study.draftSection && study.draftSection !== "" && /* @__PURE__ */ React.createElement("span", { style: { background: "var(--gold-bg)", color: "var(--gold)", fontSize: "0.68rem", fontWeight: 700, padding: "2px 9px", borderRadius: 99, border: "1px solid var(--gold-light)" } }, DRAFT_SECTION_ICONS[study.draftSection] || "\uD83D\uDCCC", " ", study.draftSection),
+          isAdmin && study.uploadedByName && /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.72rem", color: "var(--ink-2)", fontWeight: 600 } },
+            /* @__PURE__ */ React.createElement("span", { style: { width: 20, height: 20, borderRadius: "50%", background: "var(--purple)", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.6rem", flexShrink: 0 } }, (study.uploadedByName || "?").charAt(0).toUpperCase()),
+            study.uploadedByName
+          ),
+          isAdmin && (study.uploaderGrade || study.uploaderSection) && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.68rem", color: "var(--muted)", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 99, padding: "2px 8px" } },
+            [study.uploaderGrade, study.uploaderSection].filter(Boolean).join(" \u00B7 ")
+          ),
+          /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)", marginLeft: "auto" } }, fmtDate(study.createdAt))
+        ),
+        /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--ink)", marginBottom: 6, wordBreak: "break-word" } }, study.title),
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.8rem", color: "var(--muted)", marginBottom: 8 } }, "By: ", (study.authors || []).join(", ")),
+        study.abstract && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "var(--text-sm)", color: "var(--ink-2)", lineHeight: 1.6, marginBottom: 10, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, study.abstract),
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
+          (study.categories || []).filter(c => c !== "Unfinished").map(c => /* @__PURE__ */ React.createElement("span", { key: c, style: { background: "var(--gold-bg)", color: "var(--gold)", fontSize: "0.68rem", fontWeight: 600, padding: "2px 9px", borderRadius: 99, border: "1px solid var(--gold-light)" } }, c))
+        )
+      ),
+      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, flexShrink: 0, minWidth: 120 } },
+        /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { borderColor: "var(--purple)", color: "var(--purple)" }, onClick: () => setSelected(study) }, "\uD83D\uDC41 View"),
+        (currentUser.id === study.uploadedBy) && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setEditing(study) }, "\u270F\uFE0F Edit"),
+        !isAdmin && /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold btn-sm", onClick: () => handlePublish(study), disabled: publishing === study.id, style: { whiteSpace: "nowrap" } }, publishing === study.id ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark", style: { width: 11, height: 11 } }), " Publishing\u2026") : "\uD83C\uDF89 Publish"),
+        /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { color: "var(--red)", borderColor: "var(--red)" }, onClick: () => handleDelete(study.id) }, "\uD83D\uDDD1 Delete")
       )
-    ),
-    /* @__PURE__ */ React.createElement(EmptyState, { icon: "\uD83D\uDCDD", title: isAdmin ? "No unfinished drafts yet" : "No drafts yet", message: isAdmin ? "When students save unfinished studies, they appear here for your review." : "When you save an unfinished study, it will appear here privately." })
+    )
   );
+
+  if (loading) return /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "40px", color: "var(--muted)" } }, /* @__PURE__ */ React.createElement("span", { className: "spin spin-gold", style: { width: 24, height: 24, display: "inline-block", marginBottom: 10 } }), /* @__PURE__ */ React.createElement("p", null, "Loading drafts\u2026"));
+
   return /* @__PURE__ */ React.createElement("div", null,
     /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(109,63,168,0.07)", border: "1.5px solid var(--purple)", borderRadius: "var(--radius-lg)", padding: "14px 18px", marginBottom: 20, display: "flex", alignItems: "flex-start", gap: 12 } },
       /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.2rem", flexShrink: 0 } }, "\uD83D\uDD12"),
-      /* @__PURE__ */ React.createElement("div", null,
-        /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: "0.85rem", color: "var(--purple)", marginBottom: 2 } }, isAdmin ? "Unfinished Drafts — Teacher View" : "Your Private Drafts"),
+      /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } },
+        /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: "0.85rem", color: "var(--purple)", marginBottom: 2 } }, isAdmin ? "Unfinished Drafts \u2014 Teacher View" : "Your Private Drafts"),
         /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5 } }, isAdmin ? "These studies are hidden from all other students. You can review and comment freely." : "Only you and your teachers can see these. Click \u201CPublish\u201D when ready to share with everyone.")
+      ),
+      isAdmin && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexShrink: 0 } },
+        /* @__PURE__ */ React.createElement("button", { onClick: () => setViewMode("list"), style: { padding: "4px 10px", borderRadius: 8, border: "1.5px solid " + (viewMode === "list" ? "var(--purple)" : "var(--border)"), background: viewMode === "list" ? "rgba(109,63,168,0.12)" : "var(--white)", color: viewMode === "list" ? "var(--purple)" : "var(--muted)", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-body)" } }, "\u2630 List"),
+        /* @__PURE__ */ React.createElement("button", { onClick: () => setViewMode("grouped"), style: { padding: "4px 10px", borderRadius: 8, border: "1.5px solid " + (viewMode === "grouped" ? "var(--purple)" : "var(--border)"), background: viewMode === "grouped" ? "rgba(109,63,168,0.12)" : "var(--white)", color: viewMode === "grouped" ? "var(--purple)" : "var(--muted)", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-body)" } }, "\uD83D\uDCC2 By Class")
       )
     ),
-    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
-      drafts.map(study => /* @__PURE__ */ React.createElement("div", { key: study.id, style: { background: "var(--white)", border: "1.5px solid var(--purple)", borderRadius: "var(--radius-lg)", padding: "18px 20px", position: "relative", boxShadow: "var(--shadow)" } },
-        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" } },
-          /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-            /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } },
-              /* @__PURE__ */ React.createElement("span", { style: { background: "rgba(109,63,168,0.12)", color: "var(--purple)", fontSize: "0.68rem", fontWeight: 700, padding: "2px 9px", borderRadius: 99, border: "1px solid rgba(109,63,168,0.25)" } }, "\uD83D\uDD12 Unfinished Draft"),
-              isAdmin && study.uploadedByName && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, "by ", study.uploadedByName),
-              /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)", marginLeft: "auto" } }, fmtDate(study.createdAt))
-            ),
-            /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--ink)", marginBottom: 6, wordBreak: "break-word" } }, study.title),
-            /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.8rem", color: "var(--muted)", marginBottom: 8 } }, "By: ", (study.authors || []).join(", ")),
-            study.abstract && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "var(--text-sm)", color: "var(--ink-2)", lineHeight: 1.6, marginBottom: 10, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, study.abstract),
-            /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
-              (study.categories || []).filter(c => c !== "Unfinished").map(c => /* @__PURE__ */ React.createElement("span", { key: c, style: { background: "var(--gold-bg)", color: "var(--gold)", fontSize: "0.68rem", fontWeight: 600, padding: "2px 9px", borderRadius: 99, border: "1px solid var(--gold-light)" } }, c))
-            )
+
+    isAdmin && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" } },
+      /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 200 } },
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.6px", color: "var(--muted)", marginBottom: 5 } }, "\uD83D\uDD0D Search Students"),
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "0 12px", background: "var(--white)", transition: "border-color 0.2s", minHeight: 40 }, onFocus: (e) => e.currentTarget.style.borderColor = "var(--purple)", onBlur: (e) => e.currentTarget.style.borderColor = "var(--border)" },
+          /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15", fill: "none", stroke: "var(--muted)", strokeWidth: "2", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("circle", { cx: "11", cy: "11", r: "8" }), /* @__PURE__ */ React.createElement("line", { x1: "21", y1: "21", x2: "16.65", y2: "16.65" })),
+          /* @__PURE__ */ React.createElement("input", { value: searchQuery, onChange: e => setSearchQuery(e.target.value), placeholder: "Search by student name or title\u2026", style: { border: "none", background: "none", outline: "none", flex: 1, fontSize: "0.875rem", padding: "9px 0", fontFamily: "var(--font-body)", color: "var(--ink)" } }),
+          searchQuery && /* @__PURE__ */ React.createElement("button", { onClick: () => setSearchQuery(""), style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "1rem", lineHeight: 1, padding: "0 2px" } }, "\u2715")
+        )
+      ),
+      /* @__PURE__ */ React.createElement("div", { style: { minWidth: 150 } },
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.6px", color: "var(--muted)", marginBottom: 5 } }, "\uD83C\uDF93 Grade Level"),
+        /* @__PURE__ */ React.createElement("select", { value: filterGrade, onChange: e => { setFilterGrade(e.target.value); setFilterSection(""); }, style: { width: "100%", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "8px 10px", fontSize: "0.875rem", fontFamily: "var(--font-body)", color: "var(--ink)", background: "var(--white)", outline: "none", minHeight: 40, cursor: "pointer" } },
+          /* @__PURE__ */ React.createElement("option", { value: "" }, "All Grade Levels"),
+          allGrades.map(g => /* @__PURE__ */ React.createElement("option", { key: g, value: g }, g))
+        )
+      ),
+      /* @__PURE__ */ React.createElement("div", { style: { minWidth: 150 } },
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.6px", color: "var(--muted)", marginBottom: 5 } }, "\uD83C\uDFEB Section"),
+        /* @__PURE__ */ React.createElement("select", { value: filterSection, onChange: e => setFilterSection(e.target.value), style: { width: "100%", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", padding: "8px 10px", fontSize: "0.875rem", fontFamily: "var(--font-body)", color: "var(--ink)", background: "var(--white)", outline: "none", minHeight: 40, cursor: "pointer" } },
+          /* @__PURE__ */ React.createElement("option", { value: "" }, filterGrade ? "All Sections" : "All Sections"),
+          allSections.map(s => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s))
+        )
+      ),
+      (searchQuery || filterGrade || filterSection) && /* @__PURE__ */ React.createElement("button", { onClick: () => { setSearchQuery(""); setFilterGrade(""); setFilterSection(""); }, style: { padding: "8px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", color: "var(--muted)", fontSize: "0.8rem", cursor: "pointer", fontFamily: "var(--font-body)", minHeight: 40, alignSelf: "flex-end", transition: "all 0.15s" }, onMouseOver: e => { e.currentTarget.style.borderColor = "var(--red)"; e.currentTarget.style.color = "var(--red)"; }, onMouseOut: e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--muted)"; } }, "\u2715 Clear filters")
+    ),
+
+    isAdmin && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" } },
+      /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.78rem", color: "var(--muted)" } }, filtered.length, " draft", filtered.length !== 1 ? "s" : "", " of ", drafts.length, " total"),
+      filterGrade && /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.72rem", fontWeight: 600, color: "var(--blue)", background: "var(--blue-light)", border: "1px solid var(--blue)", borderRadius: 99, padding: "2px 9px", cursor: "pointer" }, onClick: () => setFilterGrade("") }, "\uD83C\uDF93 ", filterGrade, " \u00D7"),
+      filterSection && /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.72rem", fontWeight: 600, color: "var(--teal)", background: "var(--teal-light)", border: "1px solid var(--teal)", borderRadius: 99, padding: "2px 9px", cursor: "pointer" }, onClick: () => setFilterSection("") }, "\uD83C\uDFEB ", filterSection, " \u00D7"),
+      searchQuery && /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.72rem", fontWeight: 600, color: "var(--purple)", background: "rgba(109,63,168,0.1)", border: "1px solid rgba(109,63,168,0.3)", borderRadius: 99, padding: "2px 9px", cursor: "pointer" }, onClick: () => setSearchQuery("") }, "\uD83D\uDD0D \u201C", searchQuery, "\u201D \u00D7")
+    ),
+
+    filtered.length === 0 && /* @__PURE__ */ React.createElement(EmptyState, { icon: "\uD83D\uDCDD", title: isAdmin ? (q || filterGrade || filterSection ? "No drafts match your filters" : "No unfinished drafts yet") : "No drafts yet", message: isAdmin ? (q || filterGrade || filterSection ? "Try adjusting your search or filters." : "When students save unfinished studies, they appear here for your review.") : "When you save an unfinished study, it will appear here privately." }),
+
+    filtered.length > 0 && viewMode === "list" && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
+      filtered.map(study => renderDraftCard(study))
+    ),
+
+    filtered.length > 0 && viewMode === "grouped" && isAdmin && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 28 } },
+      Object.values(grouped).sort((a, b) => a.grade.localeCompare(b.grade) || a.section.localeCompare(b.section)).map(group => /* @__PURE__ */ React.createElement("div", { key: group.grade + group.section },
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 12 } },
+          /* @__PURE__ */ React.createElement("div", { style: { flex: 1, height: 1, background: "var(--border)" } }),
+          /* @__PURE__ */ React.createElement("div", { style: { display: "flex", align: "center", gap: 8, whiteSpace: "nowrap" } },
+            /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.7px", color: "var(--blue)", background: "var(--blue-light)", border: "1px solid var(--blue)", borderRadius: 99, padding: "3px 11px" } }, "\uD83C\uDF93 ", group.grade),
+            /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.7px", color: "var(--teal)", background: "var(--teal-light)", border: "1px solid var(--teal)", borderRadius: 99, padding: "3px 11px" } }, "\uD83C\uDFEB ", group.section),
+            /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600, padding: "3px 9px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 99 } }, group.studies.length, " draft", group.studies.length !== 1 ? "s" : "")
           ),
-          /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, flexShrink: 0, minWidth: 120 } },
-            /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { borderColor: "var(--purple)", color: "var(--purple)" }, onClick: () => setSelected(study) }, "\uD83D\uDC41 View"),
-            (currentUser.id === study.uploadedBy) && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setEditing(study) }, "\u270F\uFE0F Edit"),
-            !isAdmin && /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold btn-sm", onClick: () => handlePublish(study), disabled: publishing === study.id, style: { whiteSpace: "nowrap" } }, publishing === study.id ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark", style: { width: 11, height: 11 } }), " Publishing\u2026") : "\uD83C\uDF89 Publish"),
-            /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { color: "var(--red)", borderColor: "var(--red)" }, onClick: () => handleDelete(study.id) }, "\uD83D\uDDD1 Delete")
-          )
+          /* @__PURE__ */ React.createElement("div", { style: { flex: 1, height: 1, background: "var(--border)" } })
+        ),
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
+          group.studies.map(study => renderDraftCard(study))
         )
       ))
     ),
+
     selected && /* @__PURE__ */ React.createElement(StudyDetailModal, { study: selected, onClose: () => setSelected(null), currentUser, onDelete: async (id) => { await API.deleteStudy(id); setSelected(null); load(); }, allStudies: drafts, onOpenStudy: () => {} }),
     editing && /* @__PURE__ */ React.createElement(EditStudyModal, { study: editing, cats, onClose: () => setEditing(null), onSaved: () => { setEditing(null); load(); toast.ok("Draft updated!"); } })
   );
@@ -11903,15 +12121,15 @@ function AnnouncementsPage({ currentUser }) {
       "Grade ",
       g
     );
-  }))), /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 200px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.75rem", fontWeight: 600, color: "var(--ink-2)", marginBottom: 6 } }, "Section ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)" } }, "(comma-separated)")), /* @__PURE__ */ React.createElement(
+  }))), /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 200px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.75rem", fontWeight: 600, color: "var(--ink-2)", marginBottom: 6 } }, "Section keywords", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)" } }, "(comma-separated \u2014 partial match)")), /* @__PURE__ */ React.createElement(
     "input",
     {
-      placeholder: "e.g. STE-Isaac Newton",
+      placeholder: "e.g. darwin, newton, ste-11",
       value: targetSections,
       onChange: (e) => setTargetSections(e.target.value),
       style: { marginTop: 0 }
     }
-  ), targetSections.trim() && /* @__PURE__ */ React.createElement("p", { className: "hint", style: { marginTop: 4 } }, "Targeting: ", targetSections.split(",").map((s) => s.trim()).filter(Boolean).map((s) => `"${s}"`).join(", ")))), (targetGrades.length > 0 || targetSections.trim()) && /* @__PURE__ */ React.createElement("p", { className: "hint", style: { color: "var(--blue)", marginTop: 6 } }, "\u{1F4CC} Only students in ", targetGrades.length ? `Grade ${targetGrades.join("/")}` : "", targetGrades.length && targetSections.trim() ? " \xB7 " : "", targetSections.trim() ? `Section: ${targetSections}` : "", " will see this.")), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 5 } }, "\u{1F552} Schedule for later ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)", fontSize: "0.72rem" } }, "(optional \u2014 leave blank to post now)")), /* @__PURE__ */ React.createElement(
+  ), targetSections.trim() && /* @__PURE__ */ React.createElement("p", { className: "hint", style: { marginTop: 4 } }, "Keywords: ", targetSections.split(",").map((s) => s.trim()).filter(Boolean).map((s) => /* @__PURE__ */ React.createElement("span", { key: s, style: { display: "inline-block", background: "var(--teal-light)", color: "var(--teal)", border: "1px solid rgba(26,127,110,0.3)", borderRadius: 99, padding: "1px 8px", fontSize: "0.72rem", fontWeight: 600, marginRight: 4 } }, s)), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--muted)" } }, "\u2014 any section containing these words")))), (targetGrades.length > 0 || targetSections.trim()) && /* @__PURE__ */ React.createElement("p", { className: "hint", style: { color: "var(--blue)", marginTop: 6 } }, "\u{1F4CC} Only students in ", targetGrades.length ? `Grade ${targetGrades.join("/")}` : "", targetGrades.length && targetSections.trim() ? " \xB7 " : "", targetSections.trim() ? `sections matching: ${targetSections.split(",").map(s=>s.trim()).filter(Boolean).join(", ")}` : "", " will see this.")), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 5 } }, "\u{1F552} Schedule for later ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: "var(--muted)", fontSize: "0.72rem" } }, "(optional \u2014 leave blank to post now)")), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "datetime-local",
@@ -12436,8 +12654,11 @@ function useWatermarkWatchdog(stampRef, setRemountKey, isReading) {
       }
     }
     const mo = new MutationObserver(ensureIntact);
-    mo.observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ["style", "class", "id"] });
-    const poll = setInterval(ensureIntact, 1500);
+    // Watch only direct body children (not entire subtree) to avoid firing on every React re-render
+    mo.observe(document.body, { attributes: true, childList: true, subtree: false, attributeFilter: ["style", "class", "id"] });
+    // Poll less aggressively on mobile — 1500ms causes layout/style recalc on every tick
+    const isMobIntact = ('ontouchstart' in window && navigator.maxTouchPoints > 1);
+    const poll = setInterval(ensureIntact, isMobIntact ? 5000 : 1500);
     return () => {
       mo.disconnect();
       clearInterval(poll);
@@ -14434,10 +14655,15 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 
   // Continuous looping progress — since real page load time is unknown,
   // the bar sweeps 0→100 repeatedly rather than stalling once it hits 100%.
+  // Interval is cleared once the loader is removed from the DOM.
   var progress = 0;
   var loaderRoot = document.getElementById('sabnahis-loader');
   var mainInterval = setInterval(function() {
-    if (!document.body.contains(loaderRoot) || loaderRoot.classList.contains('fade-out')) return;
+    if (!loaderRoot || !document.body.contains(loaderRoot)) {
+      clearInterval(mainInterval); // ← stop the interval once loader is gone
+      return;
+    }
+    if (loaderRoot.classList.contains('fade-out')) return;
     var inc = Math.random() > 0.8 ? 0.5 : 1.8;
     progress += inc;
     if (progress >= 100) progress = 0; // loop back around
@@ -14577,6 +14803,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 
   function upgradeFlame(el) {
     if (el.dataset.flameUpgraded) return;
+    // Skip ember particles on mobile — they run CSS animations on many
+    // DOM elements simultaneously and are a significant CPU drain on phones.
+    var isMob = window.matchMedia('(max-width:768px)').matches ||
+      ('ontouchstart' in window && navigator.maxTouchPoints > 1);
+    if (isMob) { el.dataset.flameUpgraded = '1'; return; }
     // Skip flames inside the topbar pill — keep it calm
     var _anc = el.parentNode;
     while (_anc && _anc !== document.body) {
@@ -14717,7 +14948,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
       });
     }
     setTimeout(upgradeCircles, 800);
-    setInterval(upgradeCircles, 2500);
+    // Skip the periodic re-scan on mobile — DOM walks + getComputedStyle on every
+    // element every 2.5s is a significant jank source on older phones.
+    var isCircleMob = window.matchMedia('(pointer:coarse)').matches || ('ontouchstart' in window && navigator.maxTouchPoints > 1);
+    if (!isCircleMob) setInterval(upgradeCircles, 2500);
 
     // streak pill upgrade removed — topbar pill stays calm
   });
@@ -15194,6 +15428,92 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 }
 
 /* XP chips row */
+/* ── Research Impact Summary Banner ─────────── */
+.msp2-impact-banner {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: var(--white, #fff);
+  border: 1.5px solid var(--border, #e2e5f0);
+  border-radius: var(--radius-lg, 16px);
+  overflow: hidden;
+  box-shadow: var(--shadow, 0 2px 12px rgba(13,15,20,0.08));
+  animation: msp2FadeUp .4s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: .15s;
+}
+@keyframes msp2FadeUp {
+  from { opacity:0; transform:translateY(8px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.msp2-ib-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 8px 12px;
+  position: relative;
+  gap: 4px;
+  transition: background .18s;
+  cursor: default;
+}
+.msp2-ib-col + .msp2-ib-col {
+  border-left: 1px solid var(--border, #e2e5f0);
+}
+.msp2-ib-col.clickable { cursor: pointer; }
+.msp2-ib-col.clickable:hover { background: var(--surface, #f5f6fa); }
+.msp2-ib-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.msp2-ib-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--ib-color, var(--ink, #0d0f14));
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  transition: transform .15s;
+}
+.msp2-ib-col.clickable:hover .msp2-ib-val { transform: scale(1.08); }
+.msp2-ib-lbl {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: var(--muted, #7c85a8);
+}
+.msp2-ib-bar-track {
+  width: 100%;
+  height: 3px;
+  background: var(--border, #e2e5f0);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.msp2-ib-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--ib-color, #14b8a6);
+  width: 0;
+  transition: width 1s cubic-bezier(.22,1,.36,1);
+}
+.msp2-ib-divider {
+  width: 1px;
+  background: var(--border, #e2e5f0);
+  align-self: stretch;
+}
+/* avg views per study — special pill */
+.msp2-ib-avg {
+  font-size: 0.58rem;
+  color: var(--muted, #7c85a8);
+  margin-top: 1px;
+}
+@media (max-width:480px) {
+  .msp2-ib-val { font-size: 1.05rem; }
+  .msp2-ib-lbl { font-size: 0.55rem; }
+  .msp2-ib-col { padding: 11px 5px 9px; }
+}
+
 .msp2-chip-row {
   display:flex; flex-wrap:wrap; align-items:center; gap:5px;
   padding:12px 0 14px;
@@ -15863,6 +16183,50 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
     }
     wrap.appendChild(xpCard);
 
+    // ── RESEARCH IMPACT SUMMARY ──────────────────────────────────────
+    // Sits between the XP card and the hero stats — gives a quick at-a-glance
+    // breakdown of engagement quality: views, downloads, citations, avg per study
+    var ibMax = Math.max(stats.views, stats.downloads, stats.citations, 1);
+    var avgViewsPerStudy = stats.uploads > 0 ? Math.round(stats.views / stats.uploads) : 0;
+    var engageScore = Math.round(
+      (stats.views * 1 + stats.downloads * 2 + stats.citations * 4) /
+      Math.max(stats.uploads, 1)
+    );
+    var ibCols = [
+      { icon:'👁',  label:'Views',     val:stats.views,       color:'#14b8a6', pct:Math.round(stats.views/ibMax*100),       drill:'views'     },
+      { icon:'⬇️', label:'Downloads', val:stats.downloads,   color:'#3b82f6', pct:Math.round(stats.downloads/ibMax*100),   drill:'downloads' },
+      { icon:'📋', label:'Citations',  val:stats.citations,   color:'#8b5cf6', pct:Math.round(stats.citations/ibMax*100),   drill:'citations' },
+      { icon:'📄', label:'Uploads',    val:stats.uploads,     color:'#f5c842', pct:100,                                     drill:'studies'   },
+      { icon:'⚡', label:'Impact Score',val:engageScore,      color:'#f0883e', pct:Math.min(Math.round(engageScore/50*100),100), drill:null   },
+    ];
+    var impactBanner = document.createElement('div');
+    impactBanner.className = 'msp2-impact-banner';
+    ibCols.forEach(function(col, idx) {
+      var colEl = document.createElement('div');
+      colEl.className = 'msp2-ib-col' + (col.drill && col.val > 0 ? ' clickable' : '');
+      colEl.style.setProperty('--ib-color', col.color);
+      var avgHint = (col.label === 'Views' && stats.uploads > 0)
+        ? '<div class="msp2-ib-avg">~'+avgViewsPerStudy+' per study</div>' : '';
+      var scoreHint = col.label === 'Impact Score'
+        ? '<div class="msp2-ib-avg">views+dl+cites</div>' : '';
+      colEl.innerHTML =
+        '<div class="msp2-ib-icon">'+col.icon+'</div>'
+        +'<div class="msp2-ib-val" id="msp2-ib-'+idx+'">0</div>'
+        +'<div class="msp2-ib-lbl">'+col.label+'</div>'
+        +avgHint + scoreHint
+        +'<div class="msp2-ib-bar-track"><div class="msp2-ib-bar-fill" id="msp2-ib-bar-'+idx+'" style="background:'+col.color+'"></div></div>';
+      if (col.drill && col.val > 0) {
+        (function(dt, hcol, hlbl){ colEl.addEventListener('click', function(){ openActivityLogModal(dt, hcol, hlbl); }); })(col.drill, col.color, col.label);
+      }
+      impactBanner.appendChild(colEl);
+      setTimeout(function(){ countUp(document.getElementById('msp2-ib-'+idx), col.val, 900); }, 350 + idx*80);
+      setTimeout(function(){
+        var bar = document.getElementById('msp2-ib-bar-'+idx);
+        if (bar) bar.style.width = col.pct + '%';
+      }, 500 + idx*80);
+    });
+    wrap.appendChild(impactBanner);
+
     // ── HERO STATS ROW ──────────────────────────────
     var heroData = [
       {icon:'👁', label:'Total Views',    val:stats.views,     color:'#14b8a6', drillType:'views'},
@@ -15899,6 +16263,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
       {icon:'🤝', label:'Co-authored',   val:stats.coauthored, color:'#14b8a6', drillType:'coauthored'},
       {icon:'📖', label:'Studies Read',  val:stats.reads,      color:'#22c55e', drillType:null},
       {icon:'🔖', label:'Bookmarks',     val:stats.bookmarks,  color:'#94a3b8', drillType:'bookmarks'},
+      {icon:'🔥', label:'Day Streak',    val:stats.streak,     color:'#f0883e', drillType:null},
       {icon:'🏅', label:'Best Streak',   val:stats.bestStreak, color:'#f5c842', drillType:null},
       {icon:'🪙', label:'Tokens',        val:tokens,           color:'#f5c842', drillType:'shop', special:'token'},
       {icon:'❄️', label:'Streak Freezes',val:freezes,          color:'#60a5fa', drillType:null,   special:'freeze'},
@@ -16000,7 +16365,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
     var onStats = h2 && h2.textContent.indexOf('My Stats') !== -1;
     if (onStats) { if (!enhanced) enhanceMyStats(); }
     else { enhanced = false; }
-  }, 700);
+  }, 2000); // was 700ms — polling every 700ms is expensive on mobile
 })();
 </script>
 
