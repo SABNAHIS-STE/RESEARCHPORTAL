@@ -16787,6 +16787,39 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   }
   window.etuklasToast = showToast;
 
+  /* ══ DEBUG HELPER ════════════════════════════════════════
+     Run this from the address bar on the phone itself:
+       javascript:etuklasPushDebug()
+     (Safari may require enabling Settings > Safari > Advanced
+     > JavaScript from Address Bar first, or paste-and-run via
+     a bookmarklet). Reports exactly what state push is in,
+     without needing a Mac or Web Inspector.                  */
+  window.etuklasPushDebug = function() {
+    var lines = [];
+    lines.push('isIOS: ' + isIOS);
+    lines.push('isStandalone: ' + isStandalone);
+    lines.push('Notification.permission: ' + (typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'));
+    lines.push('swReg set: ' + !!swReg);
+    var report = function() { alert(lines.join('\n')); };
+    if (!swReg) { lines.push('No service worker registration yet.'); report(); return; }
+    swReg.pushManager.getSubscription().then(function(sub) {
+      lines.push('Has subscription: ' + !!sub);
+      if (sub) {
+        lines.push('Endpoint: ' + sub.endpoint.substring(0, 60) + '...');
+        var json = sub.toJSON();
+        lines.push('Has keys.auth: ' + !!(json.keys && json.keys.auth));
+        lines.push('Has keys.p256dh: ' + !!(json.keys && json.keys.p256dh));
+      }
+      var user = firebase.auth().currentUser;
+      lines.push('Logged in: ' + !!user);
+      if (user) lines.push('UID: ' + user.uid);
+      report();
+    }).catch(function(e) {
+      lines.push('getSubscription error: ' + e.message);
+      report();
+    });
+  };
+
   /* ══ PROMPT ══════════════════════════════════════════════ */
   function showPrompt(){ var e=document.getElementById('etpush-overlay'); if(e) e.classList.add('active'); }
   function hidePrompt(){ var e=document.getElementById('etpush-overlay'); if(e) e.classList.remove('active'); }
@@ -16877,22 +16910,81 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
       });
       return;
     }
-    swReg.pushManager.getSubscription().then(function(existing) {
-      if (existing) {
-        console.log('[Push] Already subscribed ✓');
-        // ✅ BUG 3 FIX: Use .toJSON() so keys (auth + p256dh) are included
-        saveToFirestore('webpushSubscription', existing.toJSON());
-        return;
-      }
+
+    var currentKeyB64 = VAPID;
+
+    function freshSubscribe() {
       return swReg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlB64ToUint8(VAPID)
+        applicationServerKey: urlB64ToUint8(currentKeyB64)
       }).then(function(sub) {
         console.log('[Push] Native push subscribed ✓');
         // ✅ BUG 3 FIX: Use .toJSON() so keys (auth + p256dh) are included
         saveToFirestore('webpushSubscription', sub.toJSON());
       });
-    }).catch(function(e){ console.warn('[Push] Native subscribe failed:', e.message); });
+    }
+
+    swReg.pushManager.getSubscription().then(function(existing) {
+      if (existing) {
+        // ✅ FIX: An existing subscription may have been created under a
+        // PREVIOUS VAPID key (e.g. before a key rotation). If we just
+        // keep it and save it again, the server will sign pushes with
+        // the NEW private key, which won't match this OS-level
+        // subscription, and sends will fail with no error visible to
+        // the user. Detect a key mismatch by comparing the subscription's
+        // own applicationServerKey to our current VAPID constant, and if
+        // they differ (or can't be read), unsubscribe and create a fresh
+        // one bound to the current key instead of trusting the stale one.
+        var optsKey = null;
+        try {
+          if (existing.options && existing.options.applicationServerKey) {
+            optsKey = existing.options.applicationServerKey;
+          }
+        } catch(e) {}
+
+        var matchesCurrentKey = false;
+        if (optsKey) {
+          try {
+            var existingBytes = new Uint8Array(optsKey);
+            var currentBytes  = urlB64ToUint8(currentKeyB64);
+            matchesCurrentKey = existingBytes.length === currentBytes.length
+              && existingBytes.every(function(b, i){ return b === currentBytes[i]; });
+          } catch(e) { matchesCurrentKey = false; }
+        }
+
+        if (matchesCurrentKey) {
+          console.log('[Push] Already subscribed with current key ✓');
+          saveToFirestore('webpushSubscription', existing.toJSON());
+          return;
+        }
+
+        console.warn('[Push] Existing subscription uses a different/unknown key — refreshing...');
+        return existing.unsubscribe().then(function() {
+          return freshSubscribe();
+        }).catch(function(e) {
+          console.warn('[Push] Unsubscribe of stale key failed, trying fresh subscribe anyway:', e.message);
+          return freshSubscribe();
+        });
+      }
+      return freshSubscribe();
+    }).catch(function(e){
+      console.warn('[Push] Native subscribe failed:', e.message);
+      // ✅ FIX: A common real-world failure here is InvalidAccessError,
+      // which iOS throws when subscribe() is called while a stale
+      // subscription (bound to an old key) still exists at the OS level,
+      // even if getSubscription() above returned it. As a last resort,
+      // explicitly fetch + unsubscribe + retry once.
+      if (e && e.name === 'InvalidAccessError') {
+        swReg.pushManager.getSubscription().then(function(stale) {
+          if (stale) {
+            return stale.unsubscribe().then(freshSubscribe);
+          }
+          return freshSubscribe();
+        }).catch(function(e2) {
+          console.error('[Push] Recovery attempt failed:', e2.message);
+        });
+      }
+    });
   }
 
   /* ══ REGISTER SERVICE WORKER ════════════════════════════ */
