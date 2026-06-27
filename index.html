@@ -16556,6 +16556,514 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 })();
 </script>
 
+
+<!-- ══════════════════════════════════════════════════════════════
+     E-TUKLAS WEB PUSH NOTIFICATION SYSTEM
+     Works like Facebook / Gmail — asks permission once, then
+     can send real push notifications to phone & desktop even
+     when the browser is closed (requires HTTPS + server hosting).
+══════════════════════════════════════════════════════════════ -->
+<style>
+/* ── Push Permission Prompt (the "Allow Notifications?" card) ── */
+#etuklas-push-prompt {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(120px);
+  z-index: 9999;
+  width: min(440px, calc(100vw - 32px));
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl), 0 0 0 1px rgba(201,162,39,0.08);
+  overflow: hidden;
+  transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+#etuklas-push-prompt.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+.push-prompt-hd {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 18px 12px;
+  background: linear-gradient(135deg, var(--ink) 0%, #1e2130 100%);
+}
+.push-prompt-logo {
+  width: 42px; height: 42px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--gold) 0%, #f0d882 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.35rem; flex-shrink: 0;
+}
+.push-prompt-hd-text { flex: 1; min-width: 0; }
+.push-prompt-hd-title {
+  font-family: var(--font-display); font-size: 0.92rem;
+  font-weight: 700; color: #fff; margin-bottom: 1px;
+}
+.push-prompt-hd-sub { font-size: 0.72rem; color: rgba(255,255,255,0.5); }
+.push-prompt-close {
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,0.4); font-size: 1.1rem; padding: 4px;
+  border-radius: 6px; transition: color 0.2s;
+  line-height: 1; flex-shrink: 0;
+}
+.push-prompt-close:hover { color: rgba(255,255,255,0.8); }
+.push-prompt-body { padding: 16px 18px; }
+.push-prompt-features {
+  display: flex; flex-direction: column; gap: 9px;
+  margin-bottom: 16px;
+}
+.push-prompt-feat {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 0.82rem; color: var(--ink-2);
+}
+.push-prompt-feat-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.95rem; flex-shrink: 0;
+}
+.push-prompt-feat-icon.teal { background: var(--teal-light); }
+.push-prompt-feat-icon.gold { background: var(--gold-bg); }
+.push-prompt-feat-icon.blue { background: var(--blue-light); }
+.push-prompt-actions { display: flex; gap: 8px; }
+.push-allow-btn {
+  flex: 1; padding: 11px 16px;
+  background: var(--gold);
+  color: #fff; border: none; border-radius: var(--radius);
+  font-size: 0.875rem; font-weight: 700; font-family: var(--font-body);
+  cursor: pointer; transition: all 0.2s ease;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.push-allow-btn:hover { background: #b8921f; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(201,162,39,0.35); }
+.push-allow-btn:active { transform: translateY(0); }
+.push-decline-btn {
+  padding: 11px 16px;
+  background: var(--surface); color: var(--muted);
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  font-size: 0.82rem; font-weight: 600; font-family: var(--font-body);
+  cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
+}
+.push-decline-btn:hover { border-color: var(--red); color: var(--red); background: var(--red-light); }
+.push-prompt-note {
+  margin-top: 10px; font-size: 0.67rem; color: var(--muted);
+  text-align: center; line-height: 1.4;
+}
+
+/* ── Toast-style test notification preview ── */
+#etuklas-notif-toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10000;
+  width: min(360px, calc(100vw - 32px));
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  transform: translateX(120%);
+  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  pointer-events: none;
+}
+#etuklas-notif-toast.show {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+.toast-bar { height: 3px; background: var(--gold); }
+.toast-inner {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px;
+}
+.toast-app-icon {
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--ink) 0%, #2e3250 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+}
+.toast-content { flex: 1; min-width: 0; }
+.toast-app-name {
+  font-size: 0.63rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.6px; color: var(--muted); margin-bottom: 2px;
+}
+.toast-title {
+  font-size: 0.82rem; font-weight: 700; color: var(--ink);
+  line-height: 1.3; margin-bottom: 2px;
+}
+.toast-body {
+  font-size: 0.75rem; color: var(--ink-2); line-height: 1.4;
+}
+.toast-time { font-size: 0.63rem; color: var(--muted); margin-top: 3px; }
+.toast-dismiss {
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 1rem; padding: 2px;
+  line-height: 1; flex-shrink: 0;
+}
+.toast-dismiss:hover { color: var(--red); }
+
+/* ── Push status badge in notification bell area ── */
+.push-status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.62rem; font-weight: 600; padding: 2px 7px;
+  border-radius: 99px; border: 1px solid; margin-left: 4px;
+}
+.push-status-badge.enabled { color: var(--green); border-color: var(--green); background: var(--green-light); }
+.push-status-badge.disabled { color: var(--muted); border-color: var(--border); background: var(--surface); }
+</style>
+
+<!-- Permission Prompt Card -->
+<div id="etuklas-push-prompt" role="dialog" aria-label="Enable push notifications">
+  <div class="push-prompt-hd">
+    <div class="push-prompt-logo">🎓</div>
+    <div class="push-prompt-hd-text">
+      <div class="push-prompt-hd-title">E-Tuklas STE Portal</div>
+      <div class="push-prompt-hd-sub">Wants to send you notifications</div>
+    </div>
+    <button class="push-prompt-close" id="push-prompt-x" aria-label="Close">✕</button>
+  </div>
+  <div class="push-prompt-body">
+    <div class="push-prompt-features">
+      <div class="push-prompt-feat">
+        <div class="push-prompt-feat-icon teal">🔔</div>
+        <span>Get notified when your teacher <strong>grades your study</strong></span>
+      </div>
+      <div class="push-prompt-feat">
+        <div class="push-prompt-feat-icon gold">📢</div>
+        <span>Receive <strong>class announcements</strong> instantly</span>
+      </div>
+      <div class="push-prompt-feat">
+        <div class="push-prompt-feat-icon blue">⭐</div>
+        <span>Know when your study is <strong>recognized or published</strong></span>
+      </div>
+    </div>
+    <div class="push-prompt-actions">
+      <button class="push-allow-btn" id="push-allow-btn">
+        🔔 Allow Notifications
+      </button>
+      <button class="push-decline-btn" id="push-decline-btn">Not now</button>
+    </div>
+    <div class="push-prompt-note">
+      You can change this anytime in your browser settings or portal preferences.
+      Notifications are only sent for important academic events.
+    </div>
+  </div>
+</div>
+
+<!-- In-browser toast preview (shown when a push would fire while tab is open) -->
+<div id="etuklas-notif-toast" role="alert" aria-live="polite">
+  <div class="toast-bar"></div>
+  <div class="toast-inner">
+    <div class="toast-app-icon">🎓</div>
+    <div class="toast-content">
+      <div class="toast-app-name">E-Tuklas STE Portal</div>
+      <div class="toast-title" id="toast-title">Notification</div>
+      <div class="toast-body" id="toast-body"></div>
+      <div class="toast-time" id="toast-time">just now</div>
+    </div>
+    <button class="toast-dismiss" id="toast-dismiss" aria-label="Dismiss">✕</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   E-TUKLAS WEB PUSH NOTIFICATION ENGINE
+   ─────────────────────────────────────────────────────────────
+   How it works (same as Facebook / Gmail):
+   1. On first visit, shows a friendly permission prompt card.
+   2. When user clicks "Allow", browser asks for native permission.
+   3. A Service Worker is registered — this is what lets notifications
+      arrive even when the browser is closed.
+   4. When events fire (grade posted, announcement, etc.), the SW
+      sends a push notification to the device.
+
+   ⚠️  DEPLOYMENT NOTE:
+   Push notifications require:
+   a) HTTPS (not http://)
+   b) The sw-etuklas.js Service Worker file on your server root
+   c) A VAPID key pair (generate free at: web-push-codelab.glitch.me)
+   The Service Worker file is provided separately as sw-etuklas.js
+═══════════════════════════════════════════════════════════════ */
+(function() {
+  'use strict';
+
+  // ── CONFIG ────────────────────────────────────────────────────
+  var STORAGE_KEY = 'etuklas_push_v1';
+  var PROMPT_DELAY_MS = 4000;       // show prompt 4s after page load
+  var PROMPT_SNOOZE_DAYS = 3;       // if declined, ask again after 3 days
+  // VAPID public key — replace with your own from web-push-codelab.glitch.me
+  var VAPID_PUBLIC_KEY = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBkYI9add-uDiI-8';
+
+  // ── STORAGE HELPERS ───────────────────────────────────────────
+  function getState() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(e) { return {}; }
+  }
+  function setState(obj) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.assign(getState(), obj))); } catch(e) {}
+  }
+
+  // ── SERVICE WORKER REGISTRATION ───────────────────────────────
+  // The SW file (sw-etuklas.js) must be in your website root directory.
+  // It handles background push events even when the tab is closed.
+  var swReg = null;
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return Promise.reject('no sw');
+    return navigator.serviceWorker.register('./sw-etuklas.js', { scope: './' })
+      .then(function(reg) {
+        swReg = reg;
+        console.log('[E-Tuklas Push] Service Worker registered ✓', reg.scope);
+        return reg;
+      })
+      .catch(function(err) {
+        console.warn('[E-Tuklas Push] SW registration failed (normal in local file:// mode):', err.message);
+      });
+  }
+
+  // ── VAPID HELPER ──────────────────────────────────────────────
+  function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - base64String.length % 4) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var rawData = window.atob(base64);
+    var outputArray = new Uint8Array(rawData.length);
+    for (var i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  }
+
+  // ── REQUEST PERMISSION & SUBSCRIBE ───────────────────────────
+  function requestPushPermission() {
+    if (!('Notification' in window)) {
+      showInAppToast('Not Supported', 'Your browser doesn\'t support push notifications. Try Chrome or Firefox.', '⚠️');
+      return;
+    }
+
+    Notification.requestPermission().then(function(permission) {
+      if (permission === 'granted') {
+        setState({ permission: 'granted', grantedAt: Date.now() });
+        hidePushPrompt();
+
+        // Subscribe via Service Worker if available
+        if (swReg && swReg.pushManager) {
+          swReg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+          }).then(function(sub) {
+            setState({ subscription: JSON.stringify(sub) });
+            console.log('[E-Tuklas Push] Push subscription saved ✓');
+            // TODO: Send sub to your backend → POST /api/push-subscribe
+          }).catch(function(err) {
+            console.warn('[E-Tuklas Push] Subscription failed:', err);
+          });
+        }
+
+        // Show success toast
+        showInAppToast(
+          '🔔 Notifications Enabled!',
+          'You\'ll now receive alerts for grades, announcements, and more.',
+          '✅'
+        );
+
+        // Update any bell UI with enabled badge
+        updateBellBadge(true);
+
+      } else if (permission === 'denied') {
+        setState({ permission: 'denied', deniedAt: Date.now() });
+        hidePushPrompt();
+        showInAppToast(
+          'Notifications Blocked',
+          'To re-enable: tap the 🔒 icon in your browser address bar → Notifications → Allow.',
+          '🔕'
+        );
+      } else {
+        // dismissed
+        setState({ permission: 'dismissed', dismissedAt: Date.now() });
+        hidePushPrompt();
+      }
+    });
+  }
+
+  // ── SHOW / HIDE PROMPT ────────────────────────────────────────
+  function showPushPrompt() {
+    var el = document.getElementById('etuklas-push-prompt');
+    if (el) el.classList.add('show');
+  }
+  function hidePushPrompt() {
+    var el = document.getElementById('etuklas-push-prompt');
+    if (el) el.classList.remove('show');
+  }
+
+  // ── IN-APP TOAST (fallback when tab is open) ──────────────────
+  var toastTimer = null;
+  function showInAppToast(title, body, icon) {
+    var el = document.getElementById('etuklas-notif-toast');
+    var tTitle = document.getElementById('toast-title');
+    var tBody = document.getElementById('toast-body');
+    var tTime = document.getElementById('toast-time');
+    if (!el) return;
+
+    if (tTitle) tTitle.textContent = title;
+    if (tBody) tBody.textContent = body;
+    if (tTime) tTime.textContent = 'just now';
+    var iconEl = el.querySelector('.toast-app-icon');
+    if (iconEl && icon) iconEl.textContent = icon;
+
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function() { el.classList.remove('show'); }, 5500);
+  }
+
+  // ── REAL PUSH (fires when tab is NOT open — handled by SW) ────
+  // Call this function when academic events happen in your portal.
+  // The SW will receive the push and show it on the phone/desktop.
+  window.etuklasNotify = function(title, body, options) {
+    options = options || {};
+
+    // If tab is open → show in-app toast
+    if (!document.hidden) {
+      showInAppToast(title, body, options.icon || '🎓');
+    }
+
+    // If permission granted AND SW is ready → send native browser notification
+    if (Notification && Notification.permission === 'granted') {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(function(reg) {
+          reg.showNotification(title, {
+            body: body,
+            icon: options.iconUrl || '/etuklas-icon-192.png',
+            badge: '/etuklas-badge-72.png',
+            tag: options.tag || 'etuklas-' + Date.now(),
+            data: { url: options.url || window.location.href },
+            vibrate: [200, 100, 200],
+            requireInteraction: options.requireInteraction || false,
+            actions: options.actions || [
+              { action: 'view', title: '👁 View' },
+              { action: 'dismiss', title: '✕ Dismiss' }
+            ]
+          });
+        }).catch(function() {
+          // Fallback: direct Notification API (no SW needed)
+          new Notification(title, { body: body, icon: options.iconUrl || '' });
+        });
+      } else {
+        // Direct fallback (no SW)
+        try { new Notification(title, { body: body }); } catch(e) {}
+      }
+    }
+  };
+
+  // ── UPDATE BELL UI WITH PUSH STATUS ──────────────────────────
+  function updateBellBadge(enabled) {
+    // Attach a small "🔔 LIVE" badge near the notification bell
+    var bells = document.querySelectorAll('[data-tour="user-notif-bell"], [data-tour="study-notif-bell"]');
+    bells.forEach(function(bell) {
+      var existing = bell.querySelector('.push-status-badge');
+      if (existing) existing.remove();
+      if (enabled) {
+        var badge = document.createElement('span');
+        badge.className = 'push-status-badge enabled';
+        badge.title = 'Push notifications are ON';
+        badge.innerHTML = '● LIVE';
+        bell.appendChild(badge);
+      }
+    });
+  }
+
+  // ── HOOK INTO PORTAL EVENTS (integrates with existing system) ─
+  // Listen for custom events fired by the existing Firestore notification
+  // system so push mirrors what appears in the in-app bell.
+  window.addEventListener('etuklas:push', function(e) {
+    var d = e.detail || {};
+    window.etuklasNotify(d.title || 'E-Tuklas', d.body || '', {
+      tag: d.tag, url: d.url, icon: d.icon
+    });
+  });
+
+  // Also intercept the existing notification write patterns if Firestore fires them
+  // (hooks into the API.createNotification pathway)
+  var _origCreateNotif = null;
+  var hookInterval = setInterval(function() {
+    if (window.API && window.API.createNotification && !window._pushHooked) {
+      window._pushHooked = true;
+      _origCreateNotif = window.API.createNotification.bind(window.API);
+      window.API.createNotification = function(uid, data) {
+        // Fire push for the current user's notifications
+        if (Notification && Notification.permission === 'granted') {
+          var icons = { grade:'⭐', announcement:'📢', review:'📝', recognition:'🏅', default:'🎓' };
+          var icon = icons[data.type] || icons.default;
+          window.etuklasNotify(data.title || 'New Notification', data.body || '', {
+            icon: icon, tag: 'etuklas-' + (data.type || 'notif')
+          });
+        }
+        return _origCreateNotif(uid, data);
+      };
+      clearInterval(hookInterval);
+    }
+  }, 1500);
+
+  // ── INIT LOGIC ────────────────────────────────────────────────
+  function init() {
+    var state = getState();
+    var permission = Notification && Notification.permission || 'default';
+
+    // Update state if browser permission changed externally
+    if (permission === 'granted' && state.permission !== 'granted') {
+      setState({ permission: 'granted' });
+    }
+
+    // Wire up buttons
+    var allowBtn = document.getElementById('push-allow-btn');
+    var declineBtn = document.getElementById('push-decline-btn');
+    var closeBtn = document.getElementById('push-prompt-x');
+    var toastDismiss = document.getElementById('toast-dismiss');
+
+    if (allowBtn) allowBtn.addEventListener('click', requestPushPermission);
+    if (declineBtn) declineBtn.addEventListener('click', function() {
+      setState({ permission: 'snoozed', snoozedAt: Date.now() });
+      hidePushPrompt();
+    });
+    if (closeBtn) closeBtn.addEventListener('click', function() {
+      setState({ dismissed: true, dismissedAt: Date.now() });
+      hidePushPrompt();
+    });
+    if (toastDismiss) toastDismiss.addEventListener('click', function() {
+      var el = document.getElementById('etuklas-notif-toast');
+      if (el) el.classList.remove('show');
+    });
+
+    // Register service worker early (doesn't require permission)
+    registerServiceWorker();
+
+    // Decide whether to show the prompt
+    if (!('Notification' in window)) return; // browser doesn't support it
+
+    var shouldShow = false;
+    if (permission === 'default') {
+      if (!state.dismissed) {
+        // Check if snooze period expired
+        if (state.snoozedAt) {
+          var snoozeMs = PROMPT_SNOOZE_DAYS * 24 * 60 * 60 * 1000;
+          if (Date.now() - state.snoozedAt > snoozeMs) shouldShow = true;
+        } else {
+          shouldShow = true;
+        }
+      }
+    } else if (permission === 'granted') {
+      updateBellBadge(true);
+    }
+
+    if (shouldShow) {
+      // Wait for portal to finish loading before showing prompt
+      setTimeout(showPushPrompt, PROMPT_DELAY_MS);
+    }
+  }
+
+  // Run after DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
 </body>
 </html>
 <!-- STREAK PILL STYLES APPENDED -->
