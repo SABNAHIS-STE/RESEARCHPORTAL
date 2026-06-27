@@ -16793,18 +16793,93 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
         var d = payload.data || {};
         showToast(n.title || d.title, n.body || d.body, d.icon || '🔔');
       });
-      // Get + save token
+  function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - base64String.length % 4) % 4);
+    var base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var raw     = window.atob(base64);
+    var output  = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; ++i) output[i] = raw.charCodeAt(i);
+    return output;
+  }
+
+  function saveSubscription(sub) {
+    try {
+      var user = firebase.auth().currentUser;
+      if (!user || !sub) return;
+      // Save as both FCM token (Android) and webpush subscription (iOS)
+      var subJson = JSON.stringify(sub);
+      firebase.firestore().collection('users').doc(user.uid).set({
+        webpushSubscription: subJson,
+        webpushUpdatedAt: Date.now()
+      }, { merge: true }).then(function() {
+        console.log('[Push] Subscription saved to Firestore ✓');
+      });
+    } catch(e) { console.warn('[Push] Save failed:', e); }
+  }
+
+  function saveFCMToken(token) {
+    try {
+      var user = firebase.auth().currentUser;
+      if (!user || !token) return;
+      firebase.firestore().collection('users').doc(user.uid).set(
+        { fcmTokens: firebase.firestore.FieldValue.arrayUnion(token) },
+        { merge: true }
+      ).then(function() { console.log('[FCM] Token saved ✓'); });
+    } catch(e) { console.warn('[FCM] Token save failed', e); }
+  }
+
+  var swRegistration = null;
+
+  function setupFCM() {
+    // Try FCM first (Android Chrome)
+    try {
+      var msg = firebase.messaging();
+      msg.onMessage(function(payload) {
+        var n = payload.notification || {};
+        var d = payload.data || {};
+        showToast(n.title || d.title, n.body || d.body, d.icon || '🔔');
+      });
       msg.getToken({ vapidKey: VAPID }).then(function(token) {
         if (token) { saveFCMToken(token); }
-      }).catch(function(e) { console.warn('[FCM] getToken failed:', e.message); });
-    } catch(e) { console.warn('[FCM] setup failed:', e.message); }
+      }).catch(function(e) {
+        console.warn('[FCM] getToken failed, trying native push:', e.message);
+        setupNativePush();
+      });
+    } catch(e) {
+      console.warn('[FCM] Not supported, using native push:', e.message);
+      setupNativePush();
+    }
+  }
+
+  // Native Web Push — works on iOS Safari PWA (iOS 16.4+)
+  function setupNativePush() {
+    if (!swRegistration || !swRegistration.pushManager) {
+      console.warn('[Push] No SW registration yet');
+      return;
+    }
+    swRegistration.pushManager.subscribe({
+      userVisibleOnly:      true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID)
+    }).then(function(sub) {
+      console.log('[Push] Native push subscription ✓');
+      saveSubscription(sub);
+    }).catch(function(e) {
+      console.warn('[Push] Native push subscription failed:', e.message);
+    });
   }
 
   function registerSW() {
     if (!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.register('./firebase-messaging-sw.js')
-      .then(function(reg) { console.log('[FCM] SW registered ✓'); })
-      .catch(function(e) { console.warn('[FCM] SW failed:', e.message); });
+    navigator.serviceWorker.register('./firebase-messaging-sw.js', { scope: '/' })
+      .then(function(reg) {
+        swRegistration = reg;
+        console.log('[SW] Registered ✓');
+        // If already granted, set up push immediately
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          setupFCM();
+        }
+      })
+      .catch(function(e) { console.warn('[SW] Failed:', e.message); });
   }
 
   /* ── ALLOW BUTTON ───────────────────────────────────────── */
