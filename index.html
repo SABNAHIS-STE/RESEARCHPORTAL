@@ -16656,20 +16656,36 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   position: fixed;
   top: 16px;
   right: 16px;
-  z-index: 10000;
-  width: min(360px, calc(100vw - 32px));
-  background: var(--white);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
+  z-index: 99999;
+  width: min(360px, calc(100vw - 24px));
+  background: var(--white, #fff);
+  border: 1.5px solid var(--border, #e2e5f0);
+  border-radius: 14px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10);
   overflow: hidden;
-  transform: translateX(120%);
-  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  transform: translateY(-120px) scale(0.95);
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease;
   pointer-events: none;
 }
 #etuklas-notif-toast.show {
-  transform: translateX(0);
+  transform: translateY(0) scale(1);
+  opacity: 1;
   pointer-events: auto;
+}
+/* On mobile — show from bottom so it clears the top bar */
+@media (max-width: 760px) {
+  #etuklas-notif-toast {
+    top: auto;
+    bottom: 80px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    transform: translateY(120px) scale(0.95);
+  }
+  #etuklas-notif-toast.show {
+    transform: translateY(0) scale(1);
+  }
 }
 .toast-bar { height: 3px; background: var(--gold); }
 .toast-inner {
@@ -16867,7 +16883,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 
         // Get FCM token and save to Firestore
         var msg = getFCMMessaging();
-        if (msg && FCM_VAPID_KEY !== 'YOUR_FCM_WEB_PUSH_VAPID_KEY_HERE') {
+        if (msg && FCM_VAPID_KEY !== 'BCfIpupA7-vtNx4W9AcgD-Jo8BZv-iikibceYNSSU7bMxVsEVZbmhkUWQAjX-maAcmZSwT3zO71YjxVQgQKIb50') {
           msg.getToken({ vapidKey: FCM_VAPID_KEY })
             .then(function(token) {
               if (token) {
@@ -16894,6 +16910,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 
         showInAppToast('🔔 Notifications Enabled!', 'You\'ll now get alerts for grades, announcements, and more.', '✅');
         updateBellBadge(true);
+        setupFCMForeground();
 
       } else if (permission === 'denied') {
         setState({ permission: 'denied', deniedAt: Date.now() });
@@ -16961,61 +16978,78 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
     });
   }
 
-  // ── HOOK INTO PORTAL EVENTS (integrates with existing system) ─
-  // Listen for custom events fired by the existing Firestore notification
-  // system so push mirrors what appears in the in-app bell.
+  // ── HOOK INTO PORTAL EVENTS ───────────────────────────────────
   window.addEventListener('etuklas:push', function(e) {
     var d = e.detail || {};
-    window.etuklasNotify(d.title || 'E-Tuklas', d.body || '', {
-      tag: d.tag, url: d.url, icon: d.icon
-    });
+    window.etuklasNotify(d.title || 'E-Tuklas', d.body || '', { icon: d.icon });
   });
 
-  // Also intercept the existing notification write patterns if Firestore fires them
-  // (hooks into the API.createNotification pathway)
-  var _origCreateNotif = null;
+  // Hook into API.createNotification so every notification write
+  // also triggers the toast for the CURRENT user viewing the page
   var hookInterval = setInterval(function() {
     if (window.API && window.API.createNotification && !window._pushHooked) {
       window._pushHooked = true;
-      _origCreateNotif = window.API.createNotification.bind(window.API);
+      var _orig = window.API.createNotification.bind(window.API);
       window.API.createNotification = function(uid, data) {
-        // Fire push for the current user's notifications
-        if (Notification && Notification.permission === 'granted') {
-          var icons = { grade:'⭐', announcement:'📢', review:'📝', recognition:'🏅', default:'🎓' };
-          var icon = icons[data.type] || icons.default;
-          window.etuklasNotify(data.title || 'New Notification', data.body || '', {
-            icon: icon, tag: 'etuklas-' + (data.type || 'notif')
-          });
+        // Only show toast if the notification is for the current logged-in user
+        var currentUid = '';
+        try { currentUid = firebase.auth().currentUser && firebase.auth().currentUser.uid; } catch(e) {}
+        if (currentUid && uid === currentUid) {
+          var icons = { grade:'⭐', announcement:'📢', review:'📝', recognition:'🏅', coauthor:'🤝', revision:'🔄', default:'🔔' };
+          showInAppToast(
+            data.title || 'New Notification',
+            data.body  || '',
+            icons[data.type] || icons.default
+          );
         }
-        return _origCreateNotif(uid, data);
+        return _orig(uid, data);
       };
       clearInterval(hookInterval);
     }
-  }, 1500);
+  }, 1000);
+
+  // ── SETUP FCM FOREGROUND HANDLER ─────────────────────────────
+  // This fires when a push arrives while the tab IS open.
+  // Must be called regardless of whether user just clicked Allow
+  // or already had permission from a previous visit.
+  function setupFCMForeground() {
+    try {
+      var msg = getFCMMessaging();
+      if (!msg || window._fcmForegroundSet) return;
+      window._fcmForegroundSet = true;
+      msg.onMessage(function(payload) {
+        var n = payload.notification || {};
+        var d = payload.data || {};
+        showInAppToast(
+          n.title || d.title || '🎓 E-Tuklas',
+          n.body  || d.body  || 'You have a new notification.',
+          d.icon  || '🔔'
+        );
+      });
+      console.log('[E-Tuklas FCM] Foreground handler ready ✓');
+    } catch(e) {
+      console.warn('[E-Tuklas FCM] Foreground handler failed:', e.message);
+    }
+  }
 
   // ── INIT LOGIC ────────────────────────────────────────────────
   function init() {
     var state = getState();
-    var permission = Notification && Notification.permission || 'default';
-
-    // Update state if browser permission changed externally
-    if (permission === 'granted' && state.permission !== 'granted') {
-      setState({ permission: 'granted' });
-    }
+    var permission = (typeof Notification !== 'undefined') ? Notification.permission : 'default';
 
     // Wire up buttons
-    var allowBtn = document.getElementById('push-allow-btn');
-    var declineBtn = document.getElementById('push-decline-btn');
-    var closeBtn = document.getElementById('push-prompt-x');
+    var allowBtn    = document.getElementById('push-allow-btn');
+    var declineBtn  = document.getElementById('push-decline-btn');
+    var closeBtn    = document.getElementById('push-prompt-x');
     var toastDismiss = document.getElementById('toast-dismiss');
 
-    if (allowBtn) allowBtn.addEventListener('click', requestPushPermission);
-    if (declineBtn) declineBtn.addEventListener('click', function() {
-      setState({ permission: 'snoozed', snoozedAt: Date.now() });
+    if (allowBtn)     allowBtn.addEventListener('click', requestPushPermission);
+    if (declineBtn)   declineBtn.addEventListener('click', function() {
+      setState({ snoozedAt: Date.now() });
       hidePushPrompt();
     });
-    if (closeBtn) closeBtn.addEventListener('click', function() {
-      setState({ dismissed: true, dismissedAt: Date.now() });
+    if (closeBtn)     closeBtn.addEventListener('click', function() {
+      setState({ dismissed: true });
       hidePushPrompt();
     });
     if (toastDismiss) toastDismiss.addEventListener('click', function() {
@@ -17023,29 +17057,39 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
       if (el) el.classList.remove('show');
     });
 
-    // Register service worker early (doesn't require permission)
-    registerServiceWorker();
+    // Register SW early — needed for FCM to work at all
+    registerServiceWorker().then(function() {
+      // If user already granted permission on a previous visit,
+      // re-subscribe and set up foreground handler right away
+      if (permission === 'granted') {
+        setState({ permission: 'granted' });
+        updateBellBadge(true);
+        setupFCMForeground();
 
-    // Decide whether to show the prompt
-    if (!('Notification' in window)) return; // browser doesn't support it
-
-    var shouldShow = false;
-    if (permission === 'default') {
-      if (!state.dismissed) {
-        // Check if snooze period expired
-        if (state.snoozedAt) {
-          var snoozeMs = PROMPT_SNOOZE_DAYS * 24 * 60 * 60 * 1000;
-          if (Date.now() - state.snoozedAt > snoozeMs) shouldShow = true;
-        } else {
-          shouldShow = true;
+        // Re-fetch FCM token in case it rotated
+        var msg = getFCMMessaging();
+        if (msg && FCM_VAPID_KEY !== 'BCfIpupA7-vtNx4W9AcgD-Jo8BZv-iikibceYNSSU7bMxVsEVZbmhkUWQAjX-maAcmZSwT3zO71YjxVQgQKIb50') {
+          msg.getToken({ vapidKey: FCM_VAPID_KEY }).then(function(token) {
+            if (token) { setState({ fcmToken: token }); saveFCMToken(token); }
+          }).catch(function() {});
         }
       }
-    } else if (permission === 'granted') {
-      updateBellBadge(true);
+    });
+
+    if (typeof Notification === 'undefined') return;
+
+    // Decide whether to show the Allow prompt
+    var shouldShow = false;
+    if (permission === 'default' && !state.dismissed) {
+      if (state.snoozedAt) {
+        var snoozeMs = PROMPT_SNOOZE_DAYS * 24 * 60 * 60 * 1000;
+        if (Date.now() - state.snoozedAt > snoozeMs) shouldShow = true;
+      } else {
+        shouldShow = true;
+      }
     }
 
     if (shouldShow) {
-      // Wait for portal to finish loading before showing prompt
       setTimeout(showPushPrompt, PROMPT_DELAY_MS);
     }
   }
