@@ -4,47 +4,54 @@
    PLACE THIS FILE at the ROOT of your website folder.
    e.g. if your site is at https://etuklas.example.com/
         this file must be at https://etuklas.example.com/sw-etuklas.js
-
-   This is what makes push notifications arrive on the phone or
-   desktop EVEN WHEN the browser / tab is closed — just like
-   Facebook Messenger or Gmail does it.
 ═══════════════════════════════════════════════════════════════ */
 
-var CACHE_NAME = 'etuklas-push-v1';
+var CACHE_NAME = 'etuklas-push-v2';
 
 // ── INSTALL ──────────────────────────────────────────────────
 self.addEventListener('install', function(event) {
   console.log('[SW] E-Tuklas Push SW installed');
-  self.skipWaiting(); // activate immediately
+  self.skipWaiting();
 });
 
 // ── ACTIVATE ─────────────────────────────────────────────────
 self.addEventListener('activate', function(event) {
   console.log('[SW] E-Tuklas Push SW activated');
-  event.waitUntil(self.clients.claim()); // take control of all tabs
+  event.waitUntil(self.clients.claim());
 });
 
 // ── PUSH EVENT ───────────────────────────────────────────────
-// Fires when your server sends a push message to the browser.
-// The browser wakes up this SW (even if the tab is closed) and
-// we show the notification here.
 self.addEventListener('push', function(event) {
   var data = {};
   try {
     data = event.data ? event.data.json() : {};
   } catch(e) {
-    data = { title: 'E-Tuklas STE Portal', body: event.data ? event.data.text() : 'You have a new notification.' };
+    data = {
+      title: 'E-Tuklas STE Portal',
+      body:  event.data ? event.data.text() : 'You have a new notification.'
+    };
   }
 
-  var title = data.title || 'E-Tuklas STE Portal';
+  // ✅ FIX: Support both flat payload and nested FCM notification key
+  var notif = data.notification || data;
+  var title  = notif.title || data.title || 'E-Tuklas STE Portal';
+  var body   = notif.body  || data.body  || 'You have a new notification.';
+
+  // ✅ FIX: Resolve url from multiple possible payload locations
+  var url = data.url
+    || (data.webpush && data.webpush.fcmOptions && data.webpush.fcmOptions.link)
+    || '/';
+
   var options = {
-    body: data.body || 'You have a new notification.',
-    icon: data.icon || '/etuklas-icon-192.png',
-    badge: '/etuklas-badge-72.png',
-    tag: data.tag || 'etuklas-notif',
-    data: { url: data.url || '/' },
+    body:    body,
+    icon:    data.icon || '/LOGO.png',   // ✅ FIX: use LOGO.png to match firebase-messaging-sw.js
+    badge:   '/LOGO.png',
+    tag:     data.tag || 'etuklas-notif',
+    renotify: true,                       // ✅ FIX: always show even if same tag
+    data:    { url: url },
     vibrate: [200, 100, 200, 100, 200],
-    requireInteraction: data.requireInteraction || false,
+    requireInteraction: data.priority === 'urgent' || data.requireInteraction || false,
+    // ✅ NOTE: notification actions are ignored on iOS — safe to keep for Android/desktop
     actions: data.actions || [
       { action: 'view',    title: '👁 View'    },
       { action: 'dismiss', title: '✕ Dismiss' }
@@ -57,20 +64,17 @@ self.addEventListener('push', function(event) {
 });
 
 // ── NOTIFICATION CLICK ────────────────────────────────────────
-// When the user taps the notification on their phone/desktop,
-// this opens the portal and focuses the right page.
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
 
   var action = event.action;
-  if (action === 'dismiss') return; // user dismissed — do nothing
+  if (action === 'dismiss') return;
 
   var targetUrl = (event.notification.data && event.notification.data.url) || '/';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then(function(clientList) {
-        // If portal tab is already open → focus it and navigate
         for (var i = 0; i < clientList.length; i++) {
           var client = clientList[i];
           if (client.url.indexOf(self.location.origin) === 0 && 'focus' in client) {
@@ -79,7 +83,6 @@ self.addEventListener('notificationclick', function(event) {
             return;
           }
         }
-        // Otherwise open a new tab
         if (self.clients.openWindow) {
           return self.clients.openWindow(targetUrl);
         }
@@ -88,15 +91,23 @@ self.addEventListener('notificationclick', function(event) {
 });
 
 // ── PUSH SUBSCRIPTION CHANGE ──────────────────────────────────
-// Fires if the browser rotates the push subscription (rare).
-// Re-send the new subscription to your backend.
+// Fires if the browser rotates the push subscription (rare but important on iOS).
 self.addEventListener('pushsubscriptionchange', function(event) {
   event.waitUntil(
     self.registration.pushManager.subscribe(event.oldSubscription.options)
       .then(function(newSub) {
-        // TODO: POST newSub to your backend endpoint
-        // fetch('/api/push-subscribe', { method:'POST', body: JSON.stringify(newSub), headers:{'Content-Type':'application/json'} });
-        console.log('[SW] Push subscription renewed');
+        console.log('[SW] Push subscription renewed — sending to server');
+        // ✅ FIX: Actually POST to your /subscribe endpoint (was TODO before)
+        return fetch('/api/renew-subscription', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ subscription: newSub.toJSON() })
+        }).catch(function(err) {
+          console.warn('[SW] Could not renew subscription on server:', err.message);
+        });
+      })
+      .catch(function(err) {
+        console.error('[SW] pushsubscriptionchange failed:', err.message);
       })
   );
 });
