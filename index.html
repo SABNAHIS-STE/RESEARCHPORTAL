@@ -4122,6 +4122,15 @@ const firebaseConfig = {
 };
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
+// ✅ FIX: Be explicit about persistence instead of relying on Firebase's
+// implicit default. LOCAL persistence keeps the user signed in across
+// app restarts (via IndexedDB) until they explicitly sign out — this is
+// already the default, but iOS Safari/PWA storage eviction means the
+// underlying data can still be cleared by the OS itself; nothing in JS
+// can override that policy, but being explicit here removes any doubt
+// about our own code being the cause.
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+  .catch(function(e) { console.warn('[Auth] setPersistence failed:', e.message); });
 const db = firebase.firestore();
 const SCHOOL_LOGO_URL = "LOGO.png";
 const SCHOOL_LOGO_URL2 = "LOGO2.png";
@@ -4308,13 +4317,18 @@ const API = {
     Cache.clear();
   },
   async getProfile(uid) {
-    try {
-      const snap = await db.collection("users").doc(uid).get();
-      if (!snap.exists) return null;
-      return __spreadValues({ id: uid }, snap.data());
-    } catch (e) {
-      return null;
-    }
+    // ✅ FIX: Previously this caught ALL errors (network failures, Firestore
+    // timeouts, transient permission hiccups) and returned null — identical
+    // to "no profile exists". The auth listener used that null to sign the
+    // user out, which meant a single flaky network request on app launch
+    // (very common right after an iOS PWA cold start, or while Render's
+    // free-tier server is waking up) would force a real logout even though
+    // the user's Firebase Auth session was completely valid. Now we only
+    // return null for a genuinely missing document, and we re-throw on
+    // actual fetch errors so the caller can retry instead of signing out.
+    const snap = await db.collection("users").doc(uid).get();
+    if (!snap.exists) return null;
+    return __spreadValues({ id: uid }, snap.data());
   },
   async getStudies({ search = "", category = "", year = "", uploadedBy = "", status = "active", grade = "", section = "", page = 1, perPage = 6, sortBy = "newest" } = {}) {
     try {
@@ -13729,28 +13743,55 @@ function App() {
           return;
         }
         if (fbUser) {
-          try {
-            const profile = await API.getProfile(fbUser.uid);
-            if (profile && (profile.status === "approved" || profile.role === "admin")) {
-              setCurrentUser(profile);
-              if (!profile.secQ || !profile.secA || !profile.secQ.trim() || !profile.secA.trim()) setShowSecQ(true);
-              if (profile.role !== "admin") {
-                API.recordDailyVisit(fbUser.uid).then((res) => {
-                  if (res && res.missedDay) setFreezePrompt({ userId: fbUser.uid, freezesAvailable: res.freezesAvailable });
-                }).catch(() => {
-                });
-              }
-              if (profile.role === "admin") {
-                API.getUsers({ role: "student", status: "pending" }).then((p) => setPendingCount(p.length)).catch(() => {
-                });
-                API.getUnreadStudyNotificationCount(fbUser.uid).then((n) => setStudyNotifCount(n)).catch(() => {
-                });
-              }
-            } else {
-              await auth.signOut().catch(() => {
+          // ✅ FIX: getProfile can now throw on transient network/Firestore
+          // errors (common right after an iOS PWA cold start, or while a
+          // free-tier backend is waking up) instead of silently returning
+          // null. We retry a couple of times with a short backoff before
+          // giving up — and even then, we do NOT sign the user out for a
+          // fetch failure. Signing out is reserved for a profile that
+          // genuinely doesn't exist or isn't approved; a network hiccup
+          // should never cost someone their session.
+          let profile = null;
+          let fetchFailed = false;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              profile = await API.getProfile(fbUser.uid);
+              fetchFailed = false;
+              break;
+            } catch (e) {
+              fetchFailed = true;
+              if (attempt < 2) await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+            }
+          }
+
+          if (fetchFailed) {
+            // Couldn't confirm profile status after retries — keep the
+            // session intact rather than guessing. Surface a soft error
+            // so the person knows something's off, without logging out.
+            console.warn('[Auth] Could not load profile after retries — keeping session, will retry on next load.');
+            setInitError('Having trouble reaching the server. Pull to refresh or check your connection — you are still signed in.');
+            setAuthChecked(true);
+            return;
+          }
+
+          if (profile && (profile.status === "approved" || profile.role === "admin")) {
+            setCurrentUser(profile);
+            if (!profile.secQ || !profile.secA || !profile.secQ.trim() || !profile.secA.trim()) setShowSecQ(true);
+            if (profile.role !== "admin") {
+              API.recordDailyVisit(fbUser.uid).then((res) => {
+                if (res && res.missedDay) setFreezePrompt({ userId: fbUser.uid, freezesAvailable: res.freezesAvailable });
+              }).catch(() => {
               });
             }
-          } catch (e) {
+            if (profile.role === "admin") {
+              API.getUsers({ role: "student", status: "pending" }).then((p) => setPendingCount(p.length)).catch(() => {
+              });
+              API.getUnreadStudyNotificationCount(fbUser.uid).then((n) => setStudyNotifCount(n)).catch(() => {
+              });
+            }
+          } else {
+            // profile is null (genuinely missing) or exists but isn't
+            // approved/admin — this IS a legitimate reason to sign out.
             await auth.signOut().catch(() => {
             });
           }
@@ -13783,7 +13824,11 @@ function App() {
     return null;
   }
   if (initError) {
-    return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--ink)", gap: 14, padding: 24 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "2rem" } }, "\u26A0\uFE0F"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-display)", fontSize: "1.1rem", color: "#fff" } }, "Connection Error"), /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(255,255,255,0.07)", borderRadius: 8, padding: "12px 18px", maxWidth: 480, color: "rgba(255,255,255,0.6)", fontSize: "0.85rem", fontFamily: "var(--font-mono)", wordBreak: "break-all" } }, initError), /* @__PURE__ */ React.createElement("p", { style: { color: "rgba(255,255,255,0.4)", fontSize: "0.82rem", textAlign: "center", maxWidth: 400 } }, "Check that your Firebase project is active and the domain is authorized in Firebase Console \u2192 Authentication \u2192 Settings \u2192 Authorized domains."), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: () => window.location.reload() }, "Reload Page"));
+    const isProfileRetryError = initError.indexOf("still signed in") !== -1;
+    const helperText = isProfileRetryError
+      ? "This is usually temporary \u2014 a slow connection or the server waking up. You have not been signed out; reloading should pick up your account again."
+      : "Check that your Firebase project is active and the domain is authorized in Firebase Console \u2192 Authentication \u2192 Settings \u2192 Authorized domains.";
+    return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--ink)", gap: 14, padding: 24 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "2rem" } }, "\u26A0\uFE0F"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-display)", fontSize: "1.1rem", color: "#fff" } }, isProfileRetryError ? "Connection Trouble" : "Connection Error"), /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(255,255,255,0.07)", borderRadius: 8, padding: "12px 18px", maxWidth: 480, color: "rgba(255,255,255,0.6)", fontSize: "0.85rem", fontFamily: "var(--font-mono)", wordBreak: "break-all" } }, initError), /* @__PURE__ */ React.createElement("p", { style: { color: "rgba(255,255,255,0.4)", fontSize: "0.82rem", textAlign: "center", maxWidth: 400 } }, helperText), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: () => window.location.reload() }, "Reload Page"));
   }
   if (!currentUser) {
     return /* @__PURE__ */ React.createElement(ToastProvider, null, /* @__PURE__ */ React.createElement(AuthPage, { onLogin: (user) => {
@@ -16774,8 +16819,51 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   var isStandalone = window.navigator.standalone === true;
   var iosPushReady = isIOS && isStandalone;
 
+  /* ══ NOTIFICATION SOUND ══════════════════════════════════
+     Generated in-browser with the Web Audio API — no external
+     audio file to host, no copyright concerns, works instantly.
+     A short two-note chime (pleasant, not jarring).             */
+  var audioCtx = null;
+  function playChime() {
+    try {
+      if (!audioCtx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        audioCtx = new AC();
+      }
+      // Some browsers suspend the context until a user gesture resumes it —
+      // since this only ever runs in response to a push/message event
+      // (not on page load), that's already satisfied in practice, but
+      // resume() is a safe no-op if it's already running.
+      if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+
+      var now = audioCtx.currentTime;
+      var notes = [
+        { freq: 880,  start: 0,    dur: 0.13 }, // first note
+        { freq: 1175, start: 0.10, dur: 0.18 }  // second note, slight overlap
+      ];
+
+      notes.forEach(function(n) {
+        var osc  = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(n.freq, now + n.start);
+        gain.gain.setValueAtTime(0, now + n.start);
+        gain.gain.linearRampToValueAtTime(0.18, now + n.start + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + n.start + n.dur);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now + n.start);
+        osc.stop(now + n.start + n.dur + 0.02);
+      });
+    } catch(e) {
+      console.warn('[Push] Chime failed:', e.message);
+    }
+  }
+  window.etuklasChime = playChime;
+
   /* ══ TOAST ═══════════════════════════════════════════════ */
-  function showToast(title, body, icon) {
+  function showToast(title, body, icon, opts) {
     var el = document.getElementById('etpush-toast');
     if (!el) return;
     document.getElementById('etpush-toast-title').textContent = title || '';
@@ -16784,6 +16872,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
     el.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 6000);
+    // ✅ NEW: play a short chime alongside the toast so a foreground tab
+    // doesn't go unnoticed. Pass { silent: true } to suppress (e.g. for
+    // repeated/low-priority updates where a sound would be too much).
+    if (!opts || !opts.silent) playChime();
   }
   window.etuklasToast = showToast;
 
