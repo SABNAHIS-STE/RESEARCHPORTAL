@@ -16761,10 +16761,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   var toastTimer = null;
   var swReg      = null;
 
-  /* ── HELPERS ─────────────────────────────────────────── */
   var isIOS        = /iP(hone|ad|od)/.test(navigator.userAgent) && !window.MSStream;
   var isStandalone = window.navigator.standalone === true;
-  // iOS only supports push when running as installed PWA (standalone)
   var iosPushReady = isIOS && isStandalone;
 
   /* ══ TOAST ═══════════════════════════════════════════════ */
@@ -16819,13 +16817,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 
   /* ══ SETUP PUSH AFTER PERMISSION GRANTED ════════════════ */
   function setupPush() {
-    // On iOS standalone, skip FCM entirely — use native web push only
     if (iosPushReady) {
       tryNativePush();
       return;
     }
-
-    // Try FCM first (Android + Chrome desktop)
     try {
       var msg = firebase.messaging();
       if (!window._fcmHandlerSet) {
@@ -16837,30 +16832,26 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
         });
       }
       msg.getToken({ vapidKey: VAPID }).then(function(token) {
-        if (token) {
-          console.log('[FCM] Got token ✓');
-          saveFCMToken(token);
-        } else {
-          console.warn('[FCM] No token — trying native push');
-          tryNativePush();
-        }
+        if (token) { console.log('[FCM] Got token ✓'); saveFCMToken(token); }
+        else { console.warn('[FCM] No token — trying native push'); tryNativePush(); }
       }).catch(function(e) {
         console.warn('[FCM] getToken failed:', e.message, '— trying native push');
         tryNativePush();
       });
     } catch(e) {
-      console.warn('[FCM] Not available:', e.message, '— trying native push');
+      console.warn('[FCM] Not available:', e.message);
       tryNativePush();
     }
   }
 
-  // Native Web Push — for iOS Safari PWA
+  /* ══ NATIVE WEB PUSH (iOS Safari PWA) ═══════════════════ */
   function tryNativePush() {
     if (!swReg || !swReg.pushManager) { console.warn('[Push] No SW yet'); return; }
     swReg.pushManager.getSubscription().then(function(existing) {
       if (existing) {
         console.log('[Push] Already subscribed ✓');
-        saveToFirestore('webpushSubscription', JSON.stringify(existing));
+        // ✅ BUG 3 FIX: Use .toJSON() so keys (auth + p256dh) are included
+        saveToFirestore('webpushSubscription', existing.toJSON());
         return;
       }
       return swReg.pushManager.subscribe({
@@ -16868,7 +16859,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
         applicationServerKey: urlB64ToUint8(VAPID)
       }).then(function(sub) {
         console.log('[Push] Native push subscribed ✓');
-        saveToFirestore('webpushSubscription', JSON.stringify(sub));
+        // ✅ BUG 3 FIX: Use .toJSON() so keys (auth + p256dh) are included
+        saveToFirestore('webpushSubscription', sub.toJSON());
       });
     }).catch(function(e){ console.warn('[Push] Native subscribe failed:', e.message); });
   }
@@ -16880,8 +16872,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
       .then(function(reg) {
         swReg = reg;
         console.log('[SW] Registered ✓');
-        // On iOS standalone, permission may already be granted from a
-        // previous session — call setupPush immediately if so
         if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
           setupPush();
         }
@@ -16892,26 +16882,21 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   /* ══ ALLOW BUTTON ════════════════════════════════════════ */
   function onAllow() {
     hidePrompt();
-
-    // On iOS non-standalone, Notification API doesn't exist.
-    // Show install banner instead of a broken permission request.
     if (isIOS && !isStandalone) {
       var banner = document.getElementById('etpwa-banner');
       if (banner) banner.classList.add('show');
       return;
     }
-
     if (typeof Notification === 'undefined') {
       showToast('⚠️ Not Supported', 'Open in Safari and add to Home Screen first.', '⚠️');
       return;
     }
-
     Notification.requestPermission().then(function(perm) {
       if (perm === 'granted') {
         showToast('🔔 Notifications ON!', "You'll get alerts for grades & announcements.", '✅');
         setupPush();
       } else if (perm === 'denied') {
-        showToast('🔕 Blocked', 'Go to Settings → Safari → [Site] → Notifications → Allow.', '🔕');
+        showToast('🔕 Blocked', 'Go to Settings → [Your Site] → Notifications → Allow.', '🔕');
       }
     });
   }
@@ -17016,17 +17001,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
       document.getElementById('etpush-toast').classList.remove('show');
     });
 
-    // Always register SW regardless of iOS/platform
     registerSW();
-
-    // iOS install banner (only shows in Safari non-standalone)
     initIOSBanner();
 
-    // On iOS non-standalone — Notification API doesn't exist.
-    // The install banner will guide them. Don't show push prompt here.
+    // On iOS non-standalone — Notification API doesn't exist yet
+    // The install banner handles guiding them to add to home screen
     if (isIOS && !isStandalone) return;
 
-    // On all other platforms (including iOS standalone) — check Notification API
     if (typeof Notification === 'undefined') return;
 
     if (Notification.permission === 'granted') {
@@ -17038,7 +17019,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
     if (Date.now() < snoozeUntil) return;
 
     if (Notification.permission === 'default') {
-      // Show prompt sooner on iOS standalone so user sees it right away
       setTimeout(showPrompt, iosPushReady ? 1500 : 4000);
     }
   }
