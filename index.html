@@ -4467,6 +4467,11 @@ const API = {
       titleNorm: normalized,
       authors,
       coAuthors: coAuthors || [],
+      // ✅ Flat array of just the linked co-author userIds, kept in sync
+      // with coAuthors. Security rules can't pattern-match objects inside
+      // an array, so this simple string array is what rules check against
+      // to grant co-authors edit access.
+      coAuthorIds: (coAuthors || []).filter((ca) => ca.userId).map((ca) => ca.userId),
       abstract: abstract.trim(),
       keywords: keywords || [],
       categories,
@@ -4583,6 +4588,7 @@ const API = {
       titleNorm: normalized,
       authors,
       coAuthors: coAuthors || [],
+      coAuthorIds: (coAuthors || []).filter((ca) => ca.userId).map((ca) => ca.userId),
       abstract: abstract.trim(),
       keywords: keywords || [],
       categories,
@@ -4696,6 +4702,25 @@ const API = {
   async isFavorited(userId, studyId) {
     const snap = await db.collection("users").doc(userId).collection("favorites").doc(studyId).get();
     return snap.exists;
+  },
+  /* ── PERSONAL CHECKLIST (student's own custom to-do items) ──
+     Stored as a single doc at users/{uid}/checklist/items so the
+     whole list (add/remove/reorder/toggle) is one cheap read/write
+     instead of N separate documents — this list is personal, never
+     shared or cross-referenced, so a single doc is the simplest
+     correct model.                                                */
+  async getChecklistItems(userId) {
+    const snap = await db.collection("users").doc(userId).collection("checklist").doc("items").get();
+    if (!snap.exists) return [];
+    return snap.data().items || [];
+  },
+  async saveChecklistItems(userId, items) {
+    const ITEM_LIMIT = 50;
+    if (items.length > ITEM_LIMIT) throw new Error(`Checklist limit reached (${ITEM_LIMIT} max).`);
+    await db.collection("users").doc(userId).collection("checklist").doc("items").set({
+      items,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
   },
   async getFavoritedBy(studyId) {
     const snap = await db.collection("studies").doc(studyId).collection("favoriteBy").orderBy("savedAt", "desc").get();
@@ -8460,7 +8485,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
       onChange: (e) => handleGdriveInput(e.target.value),
       style: { color: "var(--ink)" }
     }
-  ), gdriveUrl && !gdriveInfo && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--red)", fontSize: "0.75rem", flexShrink: 0 } }, "Invalid link"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4, minHeight: 20 } }, draftStatus === "saving" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saving" }, /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 9, height: 9, borderWidth: 1.5 } }), "Auto-saving draft\u2026"), draftStatus === "saved" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saved" }, "\u2713 Draft saved \u2014 close anytime and resume later")), /* @__PURE__ */ React.createElement("div", { style: { background: isDraft ? "rgba(109,63,168,0.07)" : "var(--surface)", border: `1.5px solid ${isDraft ? "var(--purple)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "12px 14px", marginBottom: 12, cursor: "pointer", transition: "all 0.2s" }, onClick: () => setIsDraft((v) => !v), role: "button", "aria-pressed": isDraft, tabIndex: 0, onKeyDown: (e) => e.key === "Enter" && setIsDraft((v) => !v) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 20, borderRadius: 99, background: isDraft ? "var(--purple)" : "var(--border)", position: "relative", transition: "background 0.2s", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 2, left: isDraft ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.85rem", color: isDraft ? "var(--purple)" : "var(--ink)", marginBottom: 1 } }, "\u{1F512} Save as Unfinished Draft"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)", lineHeight: 1.4 } }, isDraft ? "Only you and your teachers can see this. Teachers can review and comment. You can publish it anytime." : "Toggle on to upload privately \u2014 visible only to you and teachers.")))), isDraft && /* @__PURE__ */ React.createElement("div", { className: "fg", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("label", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--purple)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("span", null, "\uD83D\uDCCC"), "Which section is this draft? ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, color: "var(--muted)", fontSize: "0.75rem" } }, "(optional)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, [{ value: "", label: "\u2753 Not sure yet", icon: "\u2753" }, { value: "Title & Authors", label: "Title & Authors", icon: "\uD83D\uDCCB" }, { value: "Rationale", label: "Rationale", icon: "\uD83D\uDCA1" }, { value: "Abstract", label: "Abstract", icon: "\uD83D\uDCDD" }, { value: "Introduction", label: "Introduction", icon: "\uD83D\uDCDA" }, { value: "Literature Review", label: "Literature Review", icon: "\uD83D\uDD0D" }, { value: "Methodology", label: "Methodology", icon: "\uD83E\uDDEA" }, { value: "Results", label: "Results", icon: "\uD83D\uDCCA" }, { value: "Discussion", label: "Discussion", icon: "\uD83D\uDCAC" }, { value: "Conclusion", label: "Conclusion", icon: "\u2705" }, { value: "References", label: "References", icon: "\uD83D\uDCD6" }].map(function(opt) { return /* @__PURE__ */ React.createElement("button", { key: opt.value, type: "button", onClick: function() { setDraftSection(opt.value); }, style: { padding: "5px 12px", borderRadius: 99, border: "1.5px solid " + (draftSection === opt.value ? "var(--purple)" : "var(--border)"), background: draftSection === opt.value ? "rgba(109,63,168,0.12)" : "var(--surface)", color: draftSection === opt.value ? "var(--purple)" : "var(--muted)", fontSize: "0.75rem", fontWeight: draftSection === opt.value ? 700 : 500, cursor: "pointer", transition: "all 0.15s", fontFamily: "var(--font-body)" } }, opt.icon, " ", opt.label); }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: confirmClose }, form.title.trim() || authorTags.length > 1 || form.abstract.trim() ? "\u{1F4BE} Save & Close" : "Cancel"), /* @__PURE__ */ React.createElement("button", { className: `btn ${isDraft ? "btn-purple" : "btn-gold"}`, style: isDraft ? { background: "var(--purple)", color: "#fff", borderColor: "var(--purple)" } : {}, onClick: submit, disabled: loading || (!isDraft && (!!titleDupe || ((_a = plagResults[0]) == null ? void 0 : _a.score) >= 0.5)) }, loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), isDraft ? "Saving\u2026" : "Uploading\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, isDraft ? "\u{1F512} Save as Unfinished Draft" : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.up, null), " Upload Study")))));
+  ), gdriveUrl && !gdriveInfo && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--red)", fontSize: "0.75rem", flexShrink: 0 } }, "Invalid link"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4, minHeight: 20 } }, draftStatus === "saving" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saving" }, /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 9, height: 9, borderWidth: 1.5 } }), "Auto-saving draft\u2026"), draftStatus === "saved" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saved" }, "\u2713 Draft saved \u2014 close anytime and resume later")), /* @__PURE__ */ React.createElement("div", { style: { background: isDraft ? "rgba(109,63,168,0.07)" : "var(--surface)", border: `1.5px solid ${isDraft ? "var(--purple)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "12px 14px", marginBottom: 12, cursor: "pointer", transition: "all 0.2s" }, onClick: () => setIsDraft((v) => !v), role: "button", "aria-pressed": isDraft, tabIndex: 0, onKeyDown: (e) => e.key === "Enter" && setIsDraft((v) => !v) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 20, borderRadius: 99, background: isDraft ? "var(--purple)" : "var(--border)", position: "relative", transition: "background 0.2s", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 2, left: isDraft ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.85rem", color: isDraft ? "var(--purple)" : "var(--ink)", marginBottom: 1 } }, "\u{1F512} Save as Unfinished Draft"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)", lineHeight: 1.4 } }, isDraft ? "Only you and your teachers can see this. Teachers can review and comment. You can publish it anytime." : "Toggle on to upload privately \u2014 visible only to you and teachers.")))), isDraft && /* @__PURE__ */ React.createElement("div", { className: "fg", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("label", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--purple)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("span", null, "\uD83D\uDCCC"), "Which section is this draft? ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, color: "var(--muted)", fontSize: "0.75rem" } }, "(optional)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, [{ value: "", label: "\u2753 Not sure yet", icon: "\u2753" }, { value: "Title & Authors", label: "Title & Authors", icon: "\uD83D\uDCCB" }, { value: "Rationale", label: "Rationale", icon: "\uD83D\uDCA1" }, { value: "Abstract", label: "Abstract", icon: "\uD83D\uDCDD" }, { value: "Methodology", label: "Methodology", icon: "\uD83E\uDDEA" }, { value: "Research Plan", label: "Research Plan", icon: "\uD83D\uDDFA\uFE0F" }, { value: "Proposal", label: "Proposal", icon: "\uD83D\uDCC4" }, { value: "Introduction", label: "Introduction", icon: "\uD83D\uDCDA" }, { value: "Literature Review", label: "Literature Review", icon: "\uD83D\uDD0D" }, { value: "Results", label: "Results", icon: "\uD83D\uDCCA" }, { value: "Discussion", label: "Discussion", icon: "\uD83D\uDCAC" }, { value: "Conclusion", label: "Conclusion", icon: "\u2705" }, { value: "References", label: "References", icon: "\uD83D\uDCD6" }].map(function(opt) { return /* @__PURE__ */ React.createElement("button", { key: opt.value, type: "button", onClick: function() { setDraftSection(opt.value); }, style: { padding: "5px 12px", borderRadius: 99, border: "1.5px solid " + (draftSection === opt.value ? "var(--purple)" : "var(--border)"), background: draftSection === opt.value ? "rgba(109,63,168,0.12)" : "var(--surface)", color: draftSection === opt.value ? "var(--purple)" : "var(--muted)", fontSize: "0.75rem", fontWeight: draftSection === opt.value ? 700 : 500, cursor: "pointer", transition: "all 0.15s", fontFamily: "var(--font-body)" } }, opt.icon, " ", opt.label); }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: confirmClose }, form.title.trim() || authorTags.length > 1 || form.abstract.trim() ? "\u{1F4BE} Save & Close" : "Cancel"), /* @__PURE__ */ React.createElement("button", { className: `btn ${isDraft ? "btn-purple" : "btn-gold"}`, style: isDraft ? { background: "var(--purple)", color: "#fff", borderColor: "var(--purple)" } : {}, onClick: submit, disabled: loading || (!isDraft && (!!titleDupe || ((_a = plagResults[0]) == null ? void 0 : _a.score) >= 0.5)) }, loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), isDraft ? "Saving\u2026" : "Uploading\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, isDraft ? "\u{1F512} Save as Unfinished Draft" : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.up, null), " Upload Study")))));
 }
 function EmptyState({ icon = "\u{1F4ED}", title, message, action = null, compact = false }) {
   return /* @__PURE__ */ React.createElement("div", { className: "empty", style: compact ? { padding: "28px 20px" } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "empty-badge" }, icon), /* @__PURE__ */ React.createElement("h3", null, title), message && /* @__PURE__ */ React.createElement("p", null, message), action && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, action));
@@ -8766,7 +8791,7 @@ function StudiesPage({ currentUser }) {
     setShowUpload(false);
   } }));
 }
-const DRAFT_SECTION_ICONS = { "Title & Authors": "\uD83D\uDCCB", "Rationale": "\uD83D\uDCA1", "Abstract": "\uD83D\uDCDD", "Introduction": "\uD83D\uDCDA", "Literature Review": "\uD83D\uDD0D", "Methodology": "\uD83E\uDDEA", "Results": "\uD83D\uDCCA", "Discussion": "\uD83D\uDCAC", "Conclusion": "\u2705", "References": "\uD83D\uDCD6" };
+const DRAFT_SECTION_ICONS = { "Title & Authors": "\uD83D\uDCCB", "Rationale": "\uD83D\uDCA1", "Abstract": "\uD83D\uDCDD", "Methodology": "\uD83E\uDDEA", "Research Plan": "\uD83D\uDDFA\uFE0F", "Proposal": "\uD83D\uDCC4", "Introduction": "\uD83D\uDCDA", "Literature Review": "\uD83D\uDD0D", "Results": "\uD83D\uDCCA", "Discussion": "\uD83D\uDCAC", "Conclusion": "\u2705", "References": "\uD83D\uDCD6" };
 function DraftStudiesSection({ currentUser, isAdmin }) {
   const [drafts, setDrafts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -9776,6 +9801,361 @@ function GradeOverviewPage({ currentUser }) {
       return /* @__PURE__ */ React.createElement("div", { key: u.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "var(--surface)", borderRadius: 8 } }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 30, height: 30, fontSize: "0.68rem", background: GRADE_COLORS[u.gradeLevel] || "var(--ink-3)", flexShrink: 0 } }, initials(u.name)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.85rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, u.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.65rem", color: "var(--muted)" } }, u.email)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, ownStudies.length, " upload", ownStudies.length !== 1 ? "s" : "", coaStudies.length > 0 && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 4, color: "var(--teal)", fontWeight: 600 } }, "+", coaStudies.length, " co-authored")), graded.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } }, graded.map((s) => /* @__PURE__ */ React.createElement("span", { key: s.id, title: s._role === "coauthor" ? `Co-authored: ${s.title}` : s.title, style: { fontSize: "0.65rem", fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: s._role === "coauthor" ? "var(--teal-light)" : "var(--blue-light)", color: gradeColor(s.teacherGrade), border: `1px solid ${gradeColor(s.teacherGrade)}`, opacity: s._role === "coauthor" ? 0.85 : 1 } }, s._role === "coauthor" && /* @__PURE__ */ React.createElement("span", { style: { marginRight: 3 } }, "\u{1F91D}"), s.teacherGrade))), avg != null && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.72rem", fontWeight: 700, color: "var(--blue)" } }, avg, "/100"), graded.length === 0 && uStudies.length > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.68rem", color: "var(--muted)" } }, "Not graded yet"), uStudies.length === 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.68rem", color: "var(--red)", fontWeight: 600 } }, "No uploads")));
     })));
   }));
+}
+/* ═══════════════════════════════════════════════════════════════
+   STUDY CHECKLIST PAGE (Student)
+   A progress checklist through the research study lifecycle:
+   account setup → draft → submission → review → grading → recognition.
+   Each step reflects the student's real data — not a static list —
+   so it stays accurate as their work actually progresses.
+═══════════════════════════════════════════════════════════════ */
+function ChecklistPage({ currentUser }) {
+  const [loading, setLoading] = useState(true);
+  const [drafts, setDrafts] = useState([]);
+  const [published, setPublished] = useState([]);
+  const [coAuthored, setCoAuthored] = useState([]);
+  const [myItems, setMyItems] = useState([]);
+  const [myItemsLoading, setMyItemsLoading] = useState(true);
+  const [newItemText, setNewItemText] = useState("");
+  const [savingItems, setSavingItems] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [draftRes, activeRes, coAuth] = await Promise.all([
+        API.getDraftStudies(currentUser.id, false),
+        API.getStudies({ uploadedBy: currentUser.id, status: "active", perPage: 100 }),
+        API.getCoAuthoredStudies ? API.getCoAuthoredStudies(currentUser.id).catch(() => []) : Promise.resolve([])
+      ]);
+      setDrafts(draftRes || []);
+      setPublished((activeRes && activeRes.data) || []);
+      setCoAuthored(coAuth || []);
+    } catch (e) {
+      console.warn("Checklist load failed:", e.message);
+    }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    setMyItemsLoading(true);
+    API.getChecklistItems(currentUser.id)
+      .then((items) => setMyItems(items))
+      .catch((e) => console.warn("Personal checklist load failed:", e.message))
+      .finally(() => setMyItemsLoading(false));
+  }, []);
+
+  // Persist after every change. Debounced slightly isn't necessary here
+  // since edits are discrete clicks/submits, not continuous typing.
+  const persistItems = async (next) => {
+    setMyItems(next);
+    setSavingItems(true);
+    try {
+      await API.saveChecklistItems(currentUser.id, next);
+    } catch (e) {
+      console.warn("Could not save checklist:", e.message);
+    }
+    setSavingItems(false);
+  };
+
+  const addItem = () => {
+    const text = newItemText.trim();
+    if (!text) return;
+    const item = { id: "ci-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7), text, done: false };
+    persistItems([...myItems, item]);
+    setNewItemText("");
+  };
+  const toggleItem = (id) => {
+    persistItems(myItems.map((it) => it.id === id ? { ...it, done: !it.done } : it));
+  };
+  const removeItem = (id) => {
+    persistItems(myItems.filter((it) => it.id !== id));
+  };
+  const moveItem = (id, dir) => {
+    const idx = myItems.findIndex((it) => it.id === id);
+    const newIdx = idx + dir;
+    if (idx === -1 || newIdx < 0 || newIdx >= myItems.length) return;
+    const next = [...myItems];
+    const [moved] = next.splice(idx, 1);
+    next.splice(newIdx, 0, moved);
+    persistItems(next);
+  };
+
+  // ✅ The research-paper section sequence, in the order requested.
+  // A draft only carries ONE current "draftSection" tag at a time (the
+  // section the student most recently flagged they're working on), so we
+  // treat reaching a later tag on ANY draft as having passed the earlier
+  // stages too — this is a forward progress marker, not independent
+  // per-section checkboxes. That's an honest reflection of what the data
+  // actually tracks today.
+  const SEQUENCE = ["Abstract", "Methodology", "Research Plan", "Proposal"];
+  const allMyStudies = [...published, ...coAuthored];
+  const gradedStudies = allMyStudies.filter((s) => s.teacherGrade);
+  const passedStudies = gradedStudies.filter((s) => PASSING_GRADES.has(s.teacherGrade));
+  const hasSecQ = !!(currentUser.secQ && currentUser.secA && currentUser.secQ.trim() && currentUser.secA.trim());
+
+  // Furthest stage reached across all current drafts' section tags.
+  const furthestIndex = drafts.reduce((max, d) => {
+    const idx = SEQUENCE.indexOf(d.draftSection);
+    return idx > max ? idx : max;
+  }, allMyStudies.length > 0 || drafts.length > 0 ? -1 : -2);
+  // -2: hasn't started anything yet. -1: has a draft, but no section tagged yet.
+
+  const sectionDone = (stageName) => {
+    const idx = SEQUENCE.indexOf(stageName);
+    return furthestIndex >= idx || allMyStudies.length > 0; // publishing implies every section was finished
+  };
+
+  const steps = [
+    {
+      key: "account",
+      title: "Account approved",
+      desc: "Your teacher has reviewed and approved your account.",
+      done: currentUser.status === "approved" || currentUser.role === "admin",
+      icon: Ico.chk,
+      action: null
+    },
+    {
+      key: "secq",
+      title: "Set a security question",
+      desc: "Lets you recover your account if you forget your password.",
+      done: hasSecQ,
+      icon: Ico.settings,
+      action: hasSecQ ? null : { label: "Set it up in your profile", tab: "dashboard" }
+    },
+    {
+      key: "abstract",
+      title: "Write your Abstract",
+      desc: "A short summary of what your study is about and why it matters.",
+      done: sectionDone("Abstract"),
+      pending: drafts.length > 0 && !sectionDone("Abstract"),
+      icon: Ico.doc,
+      action: !sectionDone("Abstract") ? { label: "Start a draft", tab: "repository" } : null
+    },
+    {
+      key: "methodology",
+      title: "Write your Methodology",
+      desc: "How you ran your study \u2014 methods, materials, and procedure.",
+      done: sectionDone("Methodology"),
+      pending: sectionDone("Abstract") && !sectionDone("Methodology"),
+      icon: Ico.doc,
+      action: (sectionDone("Abstract") && !sectionDone("Methodology")) ? { label: "Continue your draft", tab: "repository" } : null
+    },
+    {
+      key: "research-plan",
+      title: "Complete your Research Plan",
+      desc: "Your overall plan \u2014 timeline, scope, and approach for the study.",
+      done: sectionDone("Research Plan"),
+      pending: sectionDone("Methodology") && !sectionDone("Research Plan"),
+      icon: Ico.doc,
+      action: (sectionDone("Methodology") && !sectionDone("Research Plan")) ? { label: "Continue your draft", tab: "repository" } : null
+    },
+    {
+      key: "proposal",
+      title: "Finish your Proposal",
+      desc: "The formal write-up tying your idea, plan, and methodology together.",
+      done: sectionDone("Proposal"),
+      pending: sectionDone("Research Plan") && !sectionDone("Proposal"),
+      icon: Ico.doc,
+      action: (sectionDone("Research Plan") && !sectionDone("Proposal")) ? { label: "Continue your draft", tab: "repository" } : null
+    },
+    {
+      key: "paper",
+      title: "Complete your Paper",
+      desc: "Pull everything together into your full research paper.",
+      done: allMyStudies.length > 0 || drafts.length > 0 && sectionDone("Proposal"),
+      pending: sectionDone("Proposal") && allMyStudies.length === 0,
+      icon: Ico.book,
+      action: (allMyStudies.length === 0 && drafts.length > 0) ? { label: `You have ${drafts.length} draft${drafts.length !== 1 ? "s" : ""} in progress`, tab: "my-stats" } : null
+    },
+    {
+      key: "publish",
+      title: "Publish your study",
+      desc: "Submit your finished paper for your teacher to review and grade.",
+      done: allMyStudies.length > 0,
+      pending: false,
+      icon: Ico.book,
+      action: allMyStudies.length === 0 ? { label: "Go to Repository to publish", tab: "repository" } : null
+    },
+    {
+      key: "review",
+      title: "Awaiting teacher review",
+      desc: "Your teacher reads and grades submitted studies.",
+      done: gradedStudies.length > 0,
+      pending: allMyStudies.length > 0 && gradedStudies.length === 0,
+      icon: Ico.eye,
+      action: null
+    },
+    {
+      key: "graded",
+      title: "Receive your grade & feedback",
+      desc: "Check My Stats for scores and teacher comments.",
+      done: gradedStudies.length > 0,
+      icon: Ico.award,
+      action: gradedStudies.length > 0 ? { label: "View your feedback", tab: "my-stats" } : null
+    },
+    {
+      key: "recognized",
+      title: "Get recognized",
+      desc: "A passing grade earns a spot in Recognized Studies and a certificate.",
+      done: passedStudies.length > 0,
+      icon: Ico.award,
+      action: passedStudies.length > 0 ? { label: "View Recognized Studies", tab: "recognized" } : null
+    }
+  ];
+
+  const completedCount = steps.filter((s) => s.done).length;
+  const pct = Math.round((completedCount / steps.length) * 100);
+
+  if (loading) {
+    return /* @__PURE__ */ React.createElement("div", null,
+      /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 22 } },
+        /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", marginBottom: 3 } }, "✅ Student Checklist"),
+        /* @__PURE__ */ React.createElement("p", { className: "muted" }, "Loading your progress…")
+      ),
+      /* @__PURE__ */ React.createElement(StatsSkeleton, { count: 1 })
+    );
+  }
+
+  return /* @__PURE__ */ React.createElement("div", null,
+    /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 22 } },
+      /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", marginBottom: 3 } }, "✅ Student Checklist"),
+      /* @__PURE__ */ React.createElement("p", { className: "muted" }, "Your step-by-step path from idea to a recognized study.")
+    ),
+
+    /* Progress summary card */
+    /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 18 } },
+      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 } },
+        /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "var(--text-sm)" } }, completedCount, " of ", steps.length, " steps complete"),
+        /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, color: "var(--gold)", fontSize: "var(--text-lg)" } }, pct, "%")
+      ),
+      /* @__PURE__ */ React.createElement("div", { style: { height: 10, background: "var(--surface)", borderRadius: 99, overflow: "hidden", border: "1px solid var(--border)" } },
+        /* @__PURE__ */ React.createElement("div", { style: { height: "100%", width: pct + "%", background: "linear-gradient(90deg, var(--gold), #e0b84a)", borderRadius: 99, transition: "width .4s ease" } })
+      ),
+      drafts.length > 0 && allMyStudies.length === 0 && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.74rem", color: "var(--muted)", marginTop: 10 } }, "📌 Tip: tag your draft with its current section (e.g. \"Methodology\") when saving \u2014 this checklist follows that tag to track your progress.")
+    ),
+
+    /* Step list */
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
+      steps.map((step, i) => {
+        const statusColor = step.done ? "var(--green)" : step.pending ? "var(--gold)" : "var(--muted)";
+        return /* @__PURE__ */ React.createElement("div", {
+          key: step.key,
+          className: "card",
+          style: {
+            padding: "14px 16px",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12,
+            borderLeft: `3px solid ${statusColor}`,
+            opacity: step.done ? 1 : 0.92
+          }
+        },
+          /* @__PURE__ */ React.createElement("div", {
+            style: {
+              width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: step.done ? statusColor : "var(--surface)",
+              color: step.done ? "#fff" : "var(--muted)",
+              border: step.done ? "none" : "1.5px solid var(--border)",
+              fontSize: "0.85rem", fontWeight: 700
+            }
+          }, step.done ? /* @__PURE__ */ React.createElement(Ico.chk, null) : (i + 1)),
+          /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+            /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+              /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "var(--text-sm)" } }, step.title),
+              step.pending && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", padding: "2px 8px", borderRadius: 99, background: "var(--gold-bg)", color: "var(--gold)" } }, "In progress")
+            ),
+            /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.78rem", color: "var(--muted)", marginTop: 3, lineHeight: 1.5 } }, step.desc),
+            step.action && /* @__PURE__ */ React.createElement("button", {
+              className: "btn btn-ol btn-sm",
+              style: { marginTop: 8 },
+              onClick: () => window.dispatchEvent(new CustomEvent("sabnahis:nav", { detail: step.action.tab }))
+            }, step.action.label, " →")
+          )
+        );
+      })
+    ),
+
+    /* ── MY CHECKLIST (student's own custom to-do items) ──────── */
+    /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginTop: 24 } },
+      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 6 } },
+        /* @__PURE__ */ React.createElement("h3", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-lg)", margin: 0 } }, "📝 My Checklist"),
+        savingItems && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 9, height: 9, borderWidth: 1.5 } }), "Saving…")
+      ),
+      /* @__PURE__ */ React.createElement("p", { className: "muted", style: { fontSize: "0.78rem", marginBottom: 14 } }, "Your own personal to-do list — add, reorder, or remove items freely."),
+
+      /* Add new item */
+      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14 } },
+        /* @__PURE__ */ React.createElement("input", {
+          type: "text",
+          value: newItemText,
+          onChange: (e) => setNewItemText(e.target.value),
+          onKeyDown: (e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } },
+          placeholder: "Add a task… e.g. Ask Ma'am for feedback on Chapter 2",
+          style: { flex: 1 },
+          maxLength: 200
+        }),
+        /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold btn-sm", onClick: addItem, disabled: !newItemText.trim() }, "+ Add")
+      ),
+
+      myItemsLoading ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--muted)", fontSize: "0.82rem", padding: "10px 0" } }, "Loading…") :
+      myItems.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "24px 10px", color: "var(--muted)", fontSize: "0.82rem" } }, "No items yet — add your first task above.") :
+      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+        myItems.map((item, idx) => /* @__PURE__ */ React.createElement("div", {
+          key: item.id,
+          style: {
+            display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+            background: "var(--surface)", borderRadius: 8, border: "1px solid var(--border)"
+          }
+        },
+          /* @__PURE__ */ React.createElement("input", {
+            type: "checkbox",
+            checked: !!item.done,
+            onChange: () => toggleItem(item.id),
+            style: { width: 16, height: 16, flexShrink: 0, cursor: "pointer" }
+          }),
+          /* @__PURE__ */ React.createElement("span", {
+            style: {
+              flex: 1, fontSize: "0.85rem", minWidth: 0, wordBreak: "break-word",
+              color: item.done ? "var(--muted)" : "var(--ink)",
+              textDecoration: item.done ? "line-through" : "none"
+            }
+          }, item.text),
+          /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 2, flexShrink: 0 } },
+            /* @__PURE__ */ React.createElement("button", {
+              "aria-label": "Move up",
+              onClick: () => moveItem(item.id, -1),
+              disabled: idx === 0,
+              style: { width: 24, height: 24, border: "none", background: "transparent", color: "var(--muted)", cursor: idx === 0 ? "default" : "pointer", opacity: idx === 0 ? 0.3 : 1, fontSize: "0.8rem" }
+            }, "▲"),
+            /* @__PURE__ */ React.createElement("button", {
+              "aria-label": "Move down",
+              onClick: () => moveItem(item.id, 1),
+              disabled: idx === myItems.length - 1,
+              style: { width: 24, height: 24, border: "none", background: "transparent", color: "var(--muted)", cursor: idx === myItems.length - 1 ? "default" : "pointer", opacity: idx === myItems.length - 1 ? 0.3 : 1, fontSize: "0.8rem" }
+            }, "▼"),
+            /* @__PURE__ */ React.createElement("button", {
+              "aria-label": "Remove",
+              onClick: () => removeItem(item.id),
+              style: { width: 24, height: 24, border: "none", background: "transparent", color: "var(--red)", cursor: "pointer", fontSize: "0.9rem" }
+            }, "✕")
+          )
+        ))
+      )
+    ),
+
+    pct === 100 && /* @__PURE__ */ React.createElement("div", {
+      className: "card",
+      style: { marginTop: 18, padding: "16px 18px", background: "linear-gradient(135deg,#fdf8ec,#fff9f0)", border: "1.5px solid var(--gold)", display: "flex", alignItems: "center", gap: 12 }
+    },
+      /* @__PURE__ */ React.createElement("span", { style: { fontSize: "1.6rem" } }, "🏆"),
+      /* @__PURE__ */ React.createElement("div", null,
+        /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, color: "var(--gold)", fontSize: "var(--text-sm)" } }, "You've completed every step!"),
+        /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.78rem", color: "var(--muted)", marginTop: 2 } }, "Great work — check Recognized Studies to see your certificate.")
+      )
+    )
+  );
 }
 function StudentDash({ currentUser }) {
   const [myStudies, setMyStudies] = useState([]);
@@ -12564,6 +12944,7 @@ const Sidebar = memo(function Sidebar2({ currentUser, activeTab, setActiveTab, o
   ];
   const studentNav = [
     { id: "dashboard", label: "Dashboard", icon: /* @__PURE__ */ React.createElement(Ico.home, null) },
+    { id: "checklist", label: "Student Checklist", icon: /* @__PURE__ */ React.createElement(Ico.chk, null) },
     { id: "my-stats", label: "My Stats", icon: /* @__PURE__ */ React.createElement(Ico.eye, null) },
     { id: "shop", label: "Token Shop", icon: /* @__PURE__ */ React.createElement(Ico.shop, null) },
     { id: "reading-progress", label: "Reading Progress", icon: /* @__PURE__ */ React.createElement(Ico.book, null) },
@@ -13812,7 +14193,7 @@ function App() {
       }
     };
   }, []);
-  const titles = { dashboard: "Dashboard", users: "User Management", analytics: "Class Analytics", "grade-overview": "Grade Overview", announcements: "Announcements", "studies-admin": "Manage Studies", categories: "Manage Categories", "audit-log": "Audit Log", repository: "Research Repository", chatbot: "AI Research Assistant", recognized: "Recognized Studies", "my-stats": "My Stats", "stat-analysis": "Statistical Analysis", "teacher-analytics": "Teacher Dashboard", "approval-workflow": "Approval Queue", "reading-progress": "Reading Progress", "notif-center": "Notifications", "shop": "Token Shop", "shop-admin": "Shop Management", "shop-log": "Redemption Log" };
+  const titles = { dashboard: "Dashboard", users: "User Management", analytics: "Class Analytics", "grade-overview": "Grade Overview", announcements: "Announcements", "studies-admin": "Manage Studies", categories: "Manage Categories", "audit-log": "Audit Log", repository: "Research Repository", chatbot: "AI Research Assistant", recognized: "Recognized Studies", "my-stats": "My Stats", "checklist": "Student Checklist", "stat-analysis": "Statistical Analysis", "teacher-analytics": "Teacher Dashboard", "approval-workflow": "Approval Queue", "reading-progress": "Reading Progress", "notif-center": "Notifications", "shop": "Token Shop", "shop-admin": "Shop Management", "shop-log": "Redemption Log" };
   if (!authChecked || !loaderDone) {
     if (authChecked && !loaderDone) {
       if (typeof window.sabnahisLoaderDone === "function") {
@@ -13871,6 +14252,8 @@ function App() {
         return isAdmin ? /* @__PURE__ */ React.createElement(BatchGradingPage, { currentUser }) : null;
       case "my-stats":
         return !isAdmin ? /* @__PURE__ */ React.createElement(MyStatsPage, { currentUser }) : null;
+      case "checklist":
+        return !isAdmin ? /* @__PURE__ */ React.createElement(ChecklistPage, { currentUser }) : null;
       case "stat-analysis":
         return /* @__PURE__ */ React.createElement(StatAnalysisTool, { currentUser });
       case "audit-log":
