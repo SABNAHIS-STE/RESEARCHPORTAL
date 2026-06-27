@@ -16827,20 +16827,74 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   /* ── HOOK INTO EXISTING NOTIFICATION SYSTEM ─────────────── */
   // Shows a toast whenever a notification is written to Firestore for the current user
   var hookDone = false;
+  var annHookDone = false;
+  var annListener = null;
+  var seenAnnIds = {};
+
   function tryHook() {
-    if (hookDone || !window.API || !window.API.createNotification) return;
-    hookDone = true;
-    var orig = window.API.createNotification.bind(window.API);
-    window.API.createNotification = function(uid, data) {
+    if (!hookDone && window.API && window.API.createNotification) {
+      hookDone = true;
+      var orig = window.API.createNotification.bind(window.API);
+      window.API.createNotification = function(uid, data) {
+        try {
+          var me = firebase.auth().currentUser;
+          if (me && me.uid === uid) {
+            var icons = { grade:'⭐', announcement:'📢', review:'📝', recognition:'🏅', coauthor:'🤝', revision:'🔄' };
+            showToast(data.title || 'New Notification', data.body || '', icons[data.type] || '🔔');
+          }
+        } catch(e) {}
+        return orig(uid, data);
+      };
+    }
+
+    // Also hook createAnnouncement — teacher posts → ALL students see toast
+    if (!annHookDone && window.API && window.API.createAnnouncement) {
+      annHookDone = true;
+      var origAnn = window.API.createAnnouncement.bind(window.API);
+      window.API.createAnnouncement = function(opts) {
+        // Show toast to the teacher immediately
+        showToast('📢 ' + (opts.title || 'Announcement'), opts.body || '', '📢');
+        return origAnn(opts);
+      };
+    }
+
+    // Real-time Firestore listener — when a NEW announcement is added,
+    // show a toast to ALL students currently viewing the portal
+    if (!annListener) {
       try {
         var me = firebase.auth().currentUser;
-        if (me && me.uid === uid) {
-          var icons = { grade:'⭐', announcement:'📢', review:'📝', recognition:'🏅', coauthor:'🤝', revision:'🔄' };
-          showToast(data.title || 'New Notification', data.body || '', icons[data.type] || '🔔');
-        }
-      } catch(e) {}
-      return orig(uid, data);
-    };
+        if (!me) return; // not logged in yet, will retry
+
+        var now = new Date().toISOString();
+        annListener = firebase.firestore()
+          .collection('announcements')
+          .orderBy('createdAt', 'desc')
+          .limit(5)
+          .onSnapshot(function(snap) {
+            snap.docChanges().forEach(function(change) {
+              if (change.type !== 'added') return;
+              var doc = change.doc;
+              var id  = doc.id;
+              if (seenAnnIds[id]) return; // already seen this one
+              seenAnnIds[id] = true;
+
+              var data = doc.data();
+              // Only show for announcements created after page load (not old ones)
+              if (data.createdAt && data.createdAt < now) return;
+
+              showToast(
+                '📢 ' + (data.title || 'New Announcement'),
+                data.body || '',
+                data.priority === 'urgent' ? '🚨' : data.priority === 'important' ? '❗' : '📢'
+              );
+            });
+          }, function(err) {
+            console.warn('[E-Tuklas] Announcement listener error:', err.message);
+          });
+      } catch(e) {
+        console.warn('[E-Tuklas] Could not start announcement listener:', e.message);
+      }
+    }
   }
   setInterval(tryHook, 1000);
 
