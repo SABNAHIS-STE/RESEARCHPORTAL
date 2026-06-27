@@ -1,109 +1,97 @@
 /* ═══════════════════════════════════════════════════════════════
-   E-TUKLAS STE PORTAL — FIREBASE CLOUD MESSAGING SERVICE WORKER
-   firebase-messaging-sw.js
-   ─────────────────────────────────────────────────────────────
-   ⚠️  PLACE THIS FILE at the ROOT of your website on GitHub:
-       yourusername.github.io/firebase-messaging-sw.js
-
-   This is what delivers push notifications to students' phones
-   even when their browser is completely closed — just like
-   Facebook Messenger and Gmail do it.
-
-   HOW IT WORKS:
-   1. Student visits your portal and clicks "Allow Notifications"
-   2. Firebase gives their device a unique token (like a phone number)
-   3. That token is saved to Firestore under their user profile
-   4. When you post an announcement / grade a study, Firebase
-      sends a push to ALL saved tokens instantly
-   5. This service worker wakes up on their phone and shows it
+   E-TUKLAS — FIREBASE MESSAGING SERVICE WORKER
+   Rewritten for iOS Safari PWA compatibility
 ═══════════════════════════════════════════════════════════════ */
 
-// ── Import Firebase scripts (must match version in your portal) ─
-importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
+/* iOS Safari PWA does not support importScripts with Firebase SDK.
+   Instead we use the native Push API directly here, and let the
+   Firebase Admin SDK on Render.com handle the actual sending.    */
 
-// ── Your Firebase config (same as in your portal HTML) ──────────
-firebase.initializeApp({
-  apiKey:            "AIzaSyD_2lO2W9OvEh0c8uMO_AEUZcQz8YTqZU8",
-  authDomain:        "sabnahis-portal.firebaseapp.com",
-  projectId:         "sabnahis-portal",
-  storageBucket:     "sabnahis-portal.firebasestorage.app",
-  messagingSenderId: "155537469341",
-  appId:             "1:155537469341:web:85650f06744d422dc58974"
+self.addEventListener('install', function(e) {
+  console.log('[SW] Installing...');
+  self.skipWaiting();
 });
 
-const messaging = firebase.messaging();
-
-// ── BACKGROUND PUSH HANDLER ──────────────────────────────────────
-// This fires when the student's tab is CLOSED or phone is locked.
-// Firebase automatically shows the notification — you can customize
-// how it looks here.
-messaging.onBackgroundMessage(function(payload) {
-  console.log('[E-Tuklas FCM] Background message received:', payload);
-
-  const data        = payload.data || {};
-  const notification = payload.notification || {};
-
-  const title = notification.title || data.title || '🎓 E-Tuklas STE Portal';
-  const body  = notification.body  || data.body  || 'You have a new notification.';
-
-  // Emoji icons by notification type
-  const typeIcons = {
-    announcement : '📢',
-    grade        : '⭐',
-    review       : '📝',
-    recognition  : '🏅',
-    coauthor     : '🤝',
-    revision     : '🔄',
-    default      : '🎓'
-  };
-  const icon = typeIcons[data.type] || typeIcons.default;
-
-  const options = {
-    body    : body,
-    icon    : '/etuklas-icon-192.png',   // add this image to your GitHub repo
-    badge   : '/etuklas-badge-72.png',   // small monochrome icon (Android)
-    tag     : data.tag || 'etuklas-' + (data.type || 'notif'),
-    data    : { url: data.url || '/' },
-    vibrate : [200, 100, 200],
-    requireInteraction: data.requireInteraction === 'true',
-    actions : [
-      { action: 'view',    title: '👁 View'     },
-      { action: 'dismiss', title: '✕ Dismiss'  }
-    ]
-  };
-
-  return self.registration.showNotification(title, options);
+self.addEventListener('activate', function(e) {
+  console.log('[SW] Activated');
+  e.waitUntil(self.clients.claim());
 });
 
-// ── NOTIFICATION CLICK HANDLER ───────────────────────────────────
-// When the student taps the notification on their phone,
-// this opens your portal and focuses the correct page.
-self.addEventListener('notificationclick', function(event) {
-  event.notification.close();
+/* ── PUSH EVENT ─────────────────────────────────────────────────
+   Fires when Render server sends a push — works on ALL browsers
+   including iOS Safari PWA (iOS 16.4+)                          */
+self.addEventListener('push', function(e) {
+  console.log('[SW] Push received');
 
-  if (event.action === 'dismiss') return;
+  var data = {};
+  try {
+    data = e.data ? e.data.json() : {};
+  } catch(err) {
+    data = {
+      title: 'E-Tuklas STE Portal',
+      body:  e.data ? e.data.text() : 'You have a new notification.'
+    };
+  }
 
-  const targetUrl = (event.notification.data && event.notification.data.url)
-    ? event.notification.data.url
-    : '/';
+  var title = data.title || '🎓 E-Tuklas STE Portal';
+  var body  = data.body  || 'You have a new notification.';
 
-  event.waitUntil(
+  var options = {
+    body:    body,
+    icon:    '/LOGO.png',
+    badge:   '/LOGO.png',
+    tag:     data.tag || 'etuklas-notif',
+    data:    { url: data.url || '/' },
+    vibrate: [200, 100, 200],
+    requireInteraction: data.priority === 'urgent',
+  };
+
+  e.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+/* ── NOTIFICATION CLICK ─────────────────────────────────────── */
+self.addEventListener('notificationclick', function(e) {
+  e.notification.close();
+  var url = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then(function(clientList) {
-        // If portal already open in a tab → focus it
-        for (let i = 0; i < clientList.length; i++) {
-          const client = clientList[i];
-          if (client.url.includes(self.location.origin) && 'focus' in client) {
-            client.focus();
-            if ('navigate' in client) client.navigate(targetUrl);
+      .then(function(list) {
+        for (var i = 0; i < list.length; i++) {
+          if ('focus' in list[i]) {
+            list[i].focus();
             return;
           }
         }
-        // Otherwise open a new tab
-        if (clients.openWindow) {
-          return clients.openWindow(targetUrl);
-        }
+        if (clients.openWindow) return clients.openWindow(url);
       })
   );
 });
+
+/* ── FIREBASE BACKGROUND MESSAGES (Android Chrome) ─────────────
+   Only loaded if importScripts works (non-iOS browsers)         */
+try {
+  importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
+
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey:            "AIzaSyD_2lO2W9OvEh0c8uMO_AEUZcQz8YTqZU8",
+      authDomain:        "sabnahis-portal.firebaseapp.com",
+      projectId:         "sabnahis-portal",
+      storageBucket:     "sabnahis-portal.firebasestorage.app",
+      messagingSenderId: "155537469341",
+      appId:             "1:155537469341:web:85650f06744d422dc58974"
+    });
+  }
+
+  const messaging = firebase.messaging();
+  messaging.onBackgroundMessage(function(payload) {
+    // Already handled by push event above — skip to avoid double notification
+    console.log('[SW] FCM background message (handled by push event)');
+  });
+} catch(e) {
+  // iOS Safari — importScripts not supported, push event handles it above
+  console.log('[SW] Running in iOS mode — push event handles notifications');
+}
