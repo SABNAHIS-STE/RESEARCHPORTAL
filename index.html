@@ -16765,34 +16765,29 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
-   E-TUKLAS WEB PUSH NOTIFICATION ENGINE
+   E-TUKLAS FCM PUSH NOTIFICATION ENGINE (Firebase Cloud Messaging)
    ─────────────────────────────────────────────────────────────
-   How it works (same as Facebook / Gmail):
-   1. On first visit, shows a friendly permission prompt card.
-   2. When user clicks "Allow", browser asks for native permission.
-   3. A Service Worker is registered — this is what lets notifications
-      arrive even when the browser is closed.
-   4. When events fire (grade posted, announcement, etc.), the SW
-      sends a push notification to the device.
-
-   ⚠️  DEPLOYMENT NOTE:
-   Push notifications require:
-   a) HTTPS (not http://)
-   b) The sw-etuklas.js Service Worker file on your server root
-   c) A VAPID key pair (generate free at: web-push-codelab.glitch.me)
-   The Service Worker file is provided separately as sw-etuklas.js
+   ✅ Tab open   → toast pop-up slides in (top-right corner)
+   ✅ Tab closed → real phone/desktop notification
+   ✅ Phone locked → shows on lock screen
+   ✅ Student taps it → opens your portal automatically
 ═══════════════════════════════════════════════════════════════ */
 (function() {
   'use strict';
 
   // ── CONFIG ────────────────────────────────────────────────────
   var STORAGE_KEY = 'etuklas_push_v1';
-  var PROMPT_DELAY_MS = 4000;       // show prompt 4s after page load
-  var PROMPT_SNOOZE_DAYS = 3;       // if declined, ask again after 3 days
-  // VAPID public key — replace with your own from web-push-codelab.glitch.me
-  var VAPID_PUBLIC_KEY = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBkYI9add-uDiI-8';
+  var PROMPT_DELAY_MS = 4000;
+  var PROMPT_SNOOZE_DAYS = 3;
+
+  // ── YOUR FCM WEB PUSH CERTIFICATE KEY ────────────────────────
+  // Get this from Firebase Console → Project Settings → Cloud Messaging
+  // → Web Push certificates → Key pair (the long string)
+  // Replace the placeholder below with your actual key:
+  var FCM_VAPID_KEY = 'BCfIpupA7-vtNx4W9AcgD-Jo8BZv-iikibceYNSSU7bMxVsEVZbmhkUWQAjX-maAcmZSwT3zO71YjxVQgQKIb50';
 
   // ── STORAGE HELPERS ───────────────────────────────────────────
   function getState() {
@@ -16805,31 +16800,60 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   // ── SERVICE WORKER REGISTRATION ───────────────────────────────
   // The SW file (sw-etuklas.js) must be in your website root directory.
   // It handles background push events even when the tab is closed.
-  var swReg = null;
+  // ── FCM MESSAGING INSTANCE ────────────────────────────────────
+  // Uses the Firebase app already initialized in your portal
+  var messaging = null;
+  function getFCMMessaging() {
+    if (messaging) return messaging;
+    try {
+      // firebase is already initialized above in your portal
+      messaging = firebase.messaging();
+    } catch(e) {
+      console.warn('[E-Tuklas FCM] Could not get messaging:', e.message);
+    }
+    return messaging;
+  }
+
+  // ── REGISTER FCM SERVICE WORKER ───────────────────────────────
   function registerServiceWorker() {
-    if (!('serviceWorker' in navigator)) return Promise.reject('no sw');
-    return navigator.serviceWorker.register('./sw-etuklas.js', { scope: './' })
+    if (!('serviceWorker' in navigator)) return Promise.resolve();
+    // Firebase requires the SW to be named firebase-messaging-sw.js
+    return navigator.serviceWorker.register('./firebase-messaging-sw.js', { scope: './' })
       .then(function(reg) {
-        swReg = reg;
-        console.log('[E-Tuklas Push] Service Worker registered ✓', reg.scope);
+        console.log('[E-Tuklas FCM] Service Worker registered ✓');
         return reg;
       })
       .catch(function(err) {
-        console.warn('[E-Tuklas Push] SW registration failed (normal in local file:// mode):', err.message);
+        console.warn('[E-Tuklas FCM] SW registration failed (normal on local file://):', err.message);
       });
   }
 
-  // ── VAPID HELPER ──────────────────────────────────────────────
-  function urlBase64ToUint8Array(base64String) {
-    var padding = '='.repeat((4 - base64String.length % 4) % 4);
-    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    var rawData = window.atob(base64);
-    var outputArray = new Uint8Array(rawData.length);
-    for (var i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-    return outputArray;
+  // ── SAVE FCM TOKEN TO FIRESTORE ───────────────────────────────
+  // This is how Firebase knows which device to send the push to.
+  // The token is saved under the user's Firestore profile.
+  function saveFCMToken(token) {
+    try {
+      // Get current logged-in user from your portal's auth
+      var user = firebase.auth().currentUser;
+      if (!user) return;
+      var db = firebase.firestore();
+      db.collection('users').doc(user.uid).update({
+        fcmTokens: firebase.firestore.FieldValue.arrayUnion(token),
+        fcmTokenUpdatedAt: Date.now()
+      }).then(function() {
+        console.log('[E-Tuklas FCM] Token saved to Firestore ✓');
+      }).catch(function(e) {
+        // Try set() if user doc doesn't have the field yet
+        db.collection('users').doc(user.uid).set({
+          fcmTokens: [token]
+        }, { merge: true });
+      });
+    } catch(e) {
+      console.warn('[E-Tuklas FCM] Could not save token:', e);
+    }
   }
 
-  // ── REQUEST PERMISSION & SUBSCRIBE ───────────────────────────
+  // ── REQUEST PERMISSION & GET FCM TOKEN ───────────────────────
   function requestPushPermission() {
     if (!('Notification' in window)) {
       showInAppToast('Not Supported', 'Your browser doesn\'t support push notifications. Try Chrome or Firefox.', '⚠️');
@@ -16841,40 +16865,41 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
         setState({ permission: 'granted', grantedAt: Date.now() });
         hidePushPrompt();
 
-        // Subscribe via Service Worker if available
-        if (swReg && swReg.pushManager) {
-          swReg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-          }).then(function(sub) {
-            setState({ subscription: JSON.stringify(sub) });
-            console.log('[E-Tuklas Push] Push subscription saved ✓');
-            // TODO: Send sub to your backend → POST /api/push-subscribe
-          }).catch(function(err) {
-            console.warn('[E-Tuklas Push] Subscription failed:', err);
+        // Get FCM token and save to Firestore
+        var msg = getFCMMessaging();
+        if (msg && FCM_VAPID_KEY !== 'YOUR_FCM_WEB_PUSH_VAPID_KEY_HERE') {
+          msg.getToken({ vapidKey: FCM_VAPID_KEY })
+            .then(function(token) {
+              if (token) {
+                setState({ fcmToken: token });
+                saveFCMToken(token);
+                console.log('[E-Tuklas FCM] Got token ✓', token.substring(0,20) + '...');
+              }
+            })
+            .catch(function(err) {
+              console.warn('[E-Tuklas FCM] getToken failed:', err.message);
+            });
+
+          // Handle foreground messages (tab is open)
+          msg.onMessage(function(payload) {
+            var n = payload.notification || {};
+            var d = payload.data || {};
+            showInAppToast(
+              n.title || d.title || '🎓 E-Tuklas',
+              n.body  || d.body  || 'New notification',
+              d.icon  || '🔔'
+            );
           });
         }
 
-        // Show success toast
-        showInAppToast(
-          '🔔 Notifications Enabled!',
-          'You\'ll now receive alerts for grades, announcements, and more.',
-          '✅'
-        );
-
-        // Update any bell UI with enabled badge
+        showInAppToast('🔔 Notifications Enabled!', 'You\'ll now get alerts for grades, announcements, and more.', '✅');
         updateBellBadge(true);
 
       } else if (permission === 'denied') {
         setState({ permission: 'denied', deniedAt: Date.now() });
         hidePushPrompt();
-        showInAppToast(
-          'Notifications Blocked',
-          'To re-enable: tap the 🔒 icon in your browser address bar → Notifications → Allow.',
-          '🔕'
-        );
+        showInAppToast('Notifications Blocked', 'To re-enable: tap the 🔒 in your address bar → Notifications → Allow.', '🔕');
       } else {
-        // dismissed
         setState({ permission: 'dismissed', dismissedAt: Date.now() });
         hidePushPrompt();
       }
@@ -16911,43 +16936,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
     toastTimer = setTimeout(function() { el.classList.remove('show'); }, 5500);
   }
 
-  // ── REAL PUSH (fires when tab is NOT open — handled by SW) ────
-  // Call this function when academic events happen in your portal.
-  // The SW will receive the push and show it on the phone/desktop.
+  // ── NOTIFY HELPER (for manual triggers in your portal code) ──
+  // Call window.etuklasNotify('Title', 'Body') anywhere in your code.
+  // When tab is open → shows toast. FCM handles the closed-tab case.
   window.etuklasNotify = function(title, body, options) {
     options = options || {};
-
-    // If tab is open → show in-app toast
-    if (!document.hidden) {
-      showInAppToast(title, body, options.icon || '🎓');
-    }
-
-    // If permission granted AND SW is ready → send native browser notification
-    if (Notification && Notification.permission === 'granted') {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then(function(reg) {
-          reg.showNotification(title, {
-            body: body,
-            icon: options.iconUrl || '/etuklas-icon-192.png',
-            badge: '/etuklas-badge-72.png',
-            tag: options.tag || 'etuklas-' + Date.now(),
-            data: { url: options.url || window.location.href },
-            vibrate: [200, 100, 200],
-            requireInteraction: options.requireInteraction || false,
-            actions: options.actions || [
-              { action: 'view', title: '👁 View' },
-              { action: 'dismiss', title: '✕ Dismiss' }
-            ]
-          });
-        }).catch(function() {
-          // Fallback: direct Notification API (no SW needed)
-          new Notification(title, { body: body, icon: options.iconUrl || '' });
-        });
-      } else {
-        // Direct fallback (no SW)
-        try { new Notification(title, { body: body }); } catch(e) {}
-      }
-    }
+    showInAppToast(title, body, options.icon || '🎓');
   };
 
   // ── UPDATE BELL UI WITH PUSH STATUS ──────────────────────────
