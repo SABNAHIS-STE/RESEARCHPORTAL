@@ -16944,6 +16944,265 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   }
 })();
 </script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     E-TUKLAS PWA INSTALL PROMPT (iPhone / iOS Safari)
+     Shows a friendly guide telling iPhone users to add the
+     portal to their home screen so push notifications work.
+══════════════════════════════════════════════════════════════ -->
+<style>
+/* ── iOS Install Banner ── */
+#etpwa-banner {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0; right: 0;
+  z-index: 999999;
+  background: #fff;
+  border-top: 1.5px solid #e2e5f0;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
+  padding: 20px 20px 32px;
+  animation: etpwa-up 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+[data-theme="dark"] #etpwa-banner {
+  background: #1a1d2e;
+  border-color: #2a2e42;
+}
+@keyframes etpwa-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+#etpwa-banner.show { display: block; }
+#etpwa-banner-hd {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+#etpwa-banner-title {
+  display: flex; align-items: center; gap: 10px;
+}
+#etpwa-banner-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: linear-gradient(135deg, #0d0f14, #2e3250);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem;
+}
+#etpwa-banner-name { font-weight: 700; font-size: 0.95rem; color: #0d0f14; }
+[data-theme="dark"] #etpwa-banner-name { color: #e8eaf2; }
+#etpwa-banner-sub { font-size: 0.72rem; color: #7c85a8; }
+#etpwa-banner-close {
+  background: #f0f2f8; border: none; cursor: pointer;
+  color: #4a5174; font-size: 1rem; 
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+#etpwa-steps {
+  display: flex; flex-direction: column; gap: 12px;
+  margin-bottom: 18px;
+}
+.etpwa-step {
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.etpwa-step-num {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: #c9a227; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+  margin-top: 1px;
+}
+.etpwa-step-text { font-size: 0.82rem; color: #4a5174; line-height: 1.5; }
+[data-theme="dark"] .etpwa-step-text { color: #b0b5cc; }
+.etpwa-step-text strong { color: #0d0f14; }
+[data-theme="dark"] .etpwa-step-text strong { color: #e8eaf2; }
+.etpwa-step-icon {
+  display: inline-block;
+  background: #f0f2f8; border-radius: 6px;
+  padding: 1px 6px; font-size: 0.85rem;
+  vertical-align: middle; margin: 0 2px;
+}
+#etpwa-got-it {
+  width: 100%; padding: 13px;
+  background: linear-gradient(135deg, #0d0f14, #2e3250);
+  color: #fff; border: none; border-radius: 12px;
+  font-size: 0.9rem; font-weight: 700; cursor: pointer;
+  font-family: inherit;
+}
+#etpwa-arrow {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 2rem;
+  animation: etpwa-bounce 1s infinite;
+  z-index: 1000000;
+  display: none;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+@keyframes etpwa-bounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%       { transform: translateX(-50%) translateY(6px); }
+}
+
+/* ── Floating Install Button ── */
+#etpwa-fab {
+  display: none !important;
+  position: fixed;
+  bottom: 80px;
+  right: 16px;
+  z-index: 99998;
+  background: linear-gradient(135deg, #0d0f14, #2e3250);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 10px 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: etpwa-pulse 2.5s infinite;
+}
+@keyframes etpwa-pulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+  50%       { box-shadow: 0 4px 30px rgba(201,162,39,0.5); }
+}
+</style>
+
+<!-- iOS Install Banner -->
+<div id="etpwa-banner">
+  <div id="etpwa-banner-hd">
+    <div id="etpwa-banner-title">
+      <div id="etpwa-banner-icon">🎓</div>
+      <div>
+        <div id="etpwa-banner-name">Install E-Tuklas</div>
+        <div id="etpwa-banner-sub">Get notifications on your iPhone</div>
+      </div>
+    </div>
+    <button id="etpwa-banner-close">✕</button>
+  </div>
+
+  <div id="etpwa-steps">
+    <div class="etpwa-step">
+      <div class="etpwa-step-num">1</div>
+      <div class="etpwa-step-text">
+        Tap the <span class="etpwa-step-icon">⬆️ Share</span> button at the
+        <strong>bottom of your Safari browser</strong>
+      </div>
+    </div>
+    <div class="etpwa-step">
+      <div class="etpwa-step-num">2</div>
+      <div class="etpwa-step-text">
+        Scroll down and tap
+        <strong>"Add to Home Screen"</strong>
+        <span class="etpwa-step-icon">➕</span>
+      </div>
+    </div>
+    <div class="etpwa-step">
+      <div class="etpwa-step-num">3</div>
+      <div class="etpwa-step-text">
+        Tap <strong>"Add"</strong> in the top right corner
+      </div>
+    </div>
+    <div class="etpwa-step">
+      <div class="etpwa-step-num">4</div>
+      <div class="etpwa-step-text">
+        Open the <strong>E-Tuklas icon</strong> from your home screen
+        and tap <strong>"Allow Notifications"</strong> ✅
+      </div>
+    </div>
+  </div>
+
+  <button id="etpwa-got-it">Got it! I'll add it now 👍</button>
+</div>
+
+<!-- Floating Install Button -->
+<button id="etpwa-fab" onclick="document.getElementById('etpwa-banner').classList.add('show')">
+  📲 Install for Notifications
+</button>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── Detect iPhone / iOS Safari ────────────────────────────
+  var isIOS     = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  var isSafari  = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  var isStandalone = window.navigator.standalone === true;
+  var isMobile  = /Mobi|Android/i.test(navigator.userAgent) || isIOS;
+
+  var INSTALL_KEY = 'etpwa_install_dismissed';
+
+  function dismissBanner() {
+    var banner = document.getElementById('etpwa-banner');
+    var fab    = document.getElementById('etpwa-fab');
+    if (banner) banner.classList.remove('show');
+    if (fab)    fab.style.display = 'flex';
+    localStorage.setItem(INSTALL_KEY, Date.now());
+  }
+
+  function initPWA() {
+    // Strict iPhone-only check — exit immediately on PC/Mac/Android
+    var ua = navigator.userAgent;
+    var isRealIphone = /iPhone|iPod/.test(ua) && !window.MSStream && typeof window.orientation !== 'undefined';
+    if (!isRealIphone) {
+      // Hide all PWA elements completely on non-iPhone
+      var banner = document.getElementById('etpwa-banner');
+      var fab    = document.getElementById('etpwa-fab');
+      if (banner) banner.remove();
+      if (fab)    fab.remove();
+      return;
+    }
+    if (isStandalone) return;
+
+    var dismissed = parseInt(localStorage.getItem(INSTALL_KEY) || '0');
+    if (Date.now() - dismissed < 24 * 60 * 60 * 1000) return;
+
+    var closeBtn = document.getElementById('etpwa-banner-close');
+    var gotItBtn = document.getElementById('etpwa-got-it');
+    var fab      = document.getElementById('etpwa-fab');
+
+    if (closeBtn) closeBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      dismissBanner();
+    });
+    if (gotItBtn) gotItBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      dismissBanner();
+    });
+    if (fab) {
+      fab.style.display = 'flex';
+      fab.addEventListener('click', function() {
+        var banner = document.getElementById('etpwa-banner');
+        if (banner) banner.classList.add('show');
+      });
+    }
+
+    setTimeout(function() {
+      var banner = document.getElementById('etpwa-banner');
+      if (banner) banner.classList.add('show');
+    }, 5000);
+  }
+
+  // If already installed as PWA on iPhone → notifications work normally
+  // so show the normal push permission prompt instead
+  if (isIOS && isStandalone) {
+    console.log('[PWA] Running as installed PWA on iOS ✓ — push notifications available');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPWA);
+  } else {
+    initPWA();
+  }
+})();
+</script>
 </body>
 </html>
 <!-- STREAK PILL STYLES APPENDED -->
