@@ -16557,167 +16557,161 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 </script>
 
 
-
-<!-- ══════════════════════════════════════════════════════════════
-     E-TUKLAS PUSH NOTIFICATION SYSTEM v3 — COMPLETE REWRITE
-     Fixes: prompt never showing, toast not visible, mobile issues
-══════════════════════════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════════
+     E-TUKLAS PUSH NOTIFICATION SYSTEM v4 — CLEAN REBUILD
+════════════════════════════════════════════════════════════ -->
 <style>
-/* ── Permission Prompt ── */
 #etpush-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 999998;
+  display: none; position: fixed; inset: 0; z-index: 999998;
   background: rgba(0,0,0,0.45);
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 24px;
-  padding-left: 12px;
-  padding-right: 12px;
+  align-items: flex-end; justify-content: center;
+  padding: 0 12px 24px;
 }
 #etpush-overlay.active { display: flex; }
 #etpush-card {
-  background: #fff;
-  border-radius: 20px;
-  width: 100%;
-  max-width: 420px;
-  overflow: hidden;
+  background: #fff; border-radius: 20px;
+  width: 100%; max-width: 420px; overflow: hidden;
   box-shadow: 0 24px 64px rgba(0,0,0,0.35);
-  animation: etpush-up 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  animation: slideup 0.4s cubic-bezier(0.34,1.56,0.64,1);
 }
 [data-theme="dark"] #etpush-card { background: #1a1d2e; }
-@keyframes etpush-up {
+@keyframes slideup {
   from { transform: translateY(60px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
+  to   { transform: translateY(0); opacity: 1; }
 }
-#etpush-header {
-  background: linear-gradient(135deg, #0d0f14, #2e3250);
+#etpush-hd {
+  background: linear-gradient(135deg,#0d0f14,#2e3250);
   padding: 18px 20px 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  display: flex; align-items: center; gap: 12px;
 }
-#etpush-logo {
-  width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
-  background: linear-gradient(135deg, #c9a227, #f0d882);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.5rem;
+#etpush-hd-icon {
+  width:46px;height:46px;border-radius:12px;flex-shrink:0;
+  background:linear-gradient(135deg,#c9a227,#f0d882);
+  display:flex;align-items:center;justify-content:center;font-size:1.5rem;
 }
-#etpush-header-text h3 { color: #fff; font-size: 1rem; margin: 0 0 2px; font-weight: 700; }
-#etpush-header-text p  { color: rgba(255,255,255,0.5); font-size: 0.75rem; margin: 0; }
-#etpush-body { padding: 18px 20px; }
-#etpush-features { list-style: none; padding: 0; margin: 0 0 18px; display: flex; flex-direction: column; gap: 10px; }
-#etpush-features li { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #333; }
-[data-theme="dark"] #etpush-features li { color: #cdd0e0; }
-#etpush-features li span.icon {
-  width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center; font-size: 1rem;
-}
-.icon-teal { background: #e6f5f2; }
-.icon-gold { background: #fdf8ec; }
-.icon-blue { background: #e6f0fd; }
-#etpush-btns { display: flex; gap: 8px; }
+#etpush-hd h3 { color:#fff;font-size:1rem;margin:0 0 2px;font-weight:700; }
+#etpush-hd p  { color:rgba(255,255,255,0.5);font-size:0.75rem;margin:0; }
+#etpush-body  { padding:18px 20px; }
+#etpush-feats { list-style:none;padding:0;margin:0 0 18px;display:flex;flex-direction:column;gap:10px; }
+#etpush-feats li { display:flex;align-items:center;gap:10px;font-size:0.85rem;color:#333; }
+[data-theme="dark"] #etpush-feats li { color:#cdd0e0; }
+.epf-icon { width:32px;height:32px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1rem; }
+.epf-teal{background:#e6f5f2;}.epf-gold{background:#fdf8ec;}.epf-blue{background:#e6f0fd;}
+#etpush-btns { display:flex;gap:8px; }
 #etpush-allow {
-  flex: 1; padding: 12px; border: none; border-radius: 10px;
-  background: #c9a227; color: #fff; font-weight: 700; font-size: 0.9rem;
-  cursor: pointer; transition: background 0.2s;
+  flex:1;padding:12px;border:none;border-radius:10px;
+  background:#c9a227;color:#fff;font-weight:700;font-size:0.9rem;
+  cursor:pointer;font-family:inherit;transition:background 0.2s;
 }
-#etpush-allow:hover { background: #b8921f; }
+#etpush-allow:hover { background:#b8921f; }
 #etpush-later {
-  padding: 12px 16px; border: 1.5px solid #e2e5f0; border-radius: 10px;
-  background: none; color: #7c85a8; font-size: 0.82rem; font-weight: 600;
-  cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  padding:12px 16px;border:1.5px solid #e2e5f0;border-radius:10px;
+  background:none;color:#7c85a8;font-size:0.82rem;font-weight:600;
+  cursor:pointer;font-family:inherit;white-space:nowrap;
 }
-#etpush-later:hover { border-color: #c0392b; color: #c0392b; }
-#etpush-note {
-  margin-top: 10px; font-size: 0.68rem; color: #7c85a8;
-  text-align: center; line-height: 1.5;
-}
-
-/* ── Toast Notification ── */
+/* Toast */
 #etpush-toast {
-  position: fixed;
-  z-index: 999999;
-  left: 50%;
-  transform: translateX(-50%) translateY(-120px);
-  top: 16px;
-  width: min(380px, calc(100vw - 24px));
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.22);
-  overflow: hidden;
-  transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease;
-  opacity: 0;
-  pointer-events: none;
+  position:fixed;z-index:999999;
+  left:50%;transform:translateX(-50%) translateY(-120px);
+  top:16px;width:min(380px,calc(100vw - 24px));
+  background:#fff;border-radius:16px;
+  box-shadow:0 8px 40px rgba(0,0,0,0.22);
+  overflow:hidden;opacity:0;pointer-events:none;
+  transition:transform 0.45s cubic-bezier(0.34,1.56,0.64,1),opacity 0.3s ease;
 }
-[data-theme="dark"] #etpush-toast { background: #1a1d2e; border: 1px solid #2a2e42; }
+[data-theme="dark"] #etpush-toast { background:#1a1d2e;border:1px solid #2a2e42; }
 #etpush-toast.show {
-  transform: translateX(-50%) translateY(0);
-  opacity: 1;
-  pointer-events: auto;
+  transform:translateX(-50%) translateY(0);opacity:1;pointer-events:auto;
 }
-/* Mobile: show from bottom above nav */
-@media (max-width: 760px) {
+@media(max-width:760px){
   #etpush-toast {
-    top: auto;
-    bottom: 76px;
-    left: 12px;
-    right: 12px;
-    width: auto;
-    transform: translateX(0) translateY(40px);
+    top:auto;bottom:76px;left:12px;right:12px;width:auto;
+    transform:translateX(0) translateY(40px);
   }
-  #etpush-toast.show {
-    transform: translateX(0) translateY(0);
-  }
+  #etpush-toast.show { transform:translateX(0) translateY(0); }
 }
-#etpush-toast-bar { height: 3px; background: #c9a227; }
-#etpush-toast-inner {
-  display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px;
+#etpush-toast-bar { height:3px;background:#c9a227; }
+#etpush-toast-inner { display:flex;align-items:flex-start;gap:12px;padding:12px 14px; }
+#etpush-toast-icon {
+  width:38px;height:38px;border-radius:10px;flex-shrink:0;
+  background:linear-gradient(135deg,#0d0f14,#2e3250);
+  display:flex;align-items:center;justify-content:center;font-size:1.1rem;
 }
-#etpush-toast-appicon {
-  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
-  background: linear-gradient(135deg, #0d0f14, #2e3250);
-  display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
-}
-#etpush-toast-content { flex: 1; min-width: 0; }
-#etpush-toast-appname {
-  font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.7px; color: #7c85a8; margin-bottom: 2px;
-}
-#etpush-toast-title { font-size: 0.85rem; font-weight: 700; color: #0d0f14; margin-bottom: 2px; line-height: 1.3; }
-[data-theme="dark"] #etpush-toast-title { color: #e8eaf2; }
-#etpush-toast-body { font-size: 0.76rem; color: #4a5174; line-height: 1.4; }
-[data-theme="dark"] #etpush-toast-body { color: #b0b5cc; }
-#etpush-toast-time { font-size: 0.62rem; color: #7c85a8; margin-top: 3px; }
+#etpush-toast-content { flex:1;min-width:0; }
+#etpush-toast-app  { font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#7c85a8;margin-bottom:2px; }
+#etpush-toast-title{ font-size:0.85rem;font-weight:700;color:#0d0f14;margin-bottom:2px;line-height:1.3; }
+[data-theme="dark"] #etpush-toast-title { color:#e8eaf2; }
+#etpush-toast-body { font-size:0.76rem;color:#4a5174;line-height:1.4; }
+[data-theme="dark"] #etpush-toast-body { color:#b0b5cc; }
 #etpush-toast-close {
-  background: none; border: none; cursor: pointer;
-  color: #7c85a8; font-size: 1rem; padding: 2px; flex-shrink: 0; line-height: 1;
+  background:none;border:none;cursor:pointer;
+  color:#7c85a8;font-size:1rem;padding:2px;flex-shrink:0;line-height:1;
 }
-#etpush-toast-close:hover { color: #c0392b; }
+/* iOS PWA install banner */
+#etpwa-banner {
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:999999;
+  background:#fff;border-top:1.5px solid #e2e5f0;
+  border-radius:20px 20px 0 0;
+  box-shadow:0 -8px 40px rgba(0,0,0,0.18);
+  padding:20px 20px 36px;
+}
+[data-theme="dark"] #etpwa-banner { background:#1a1d2e;border-color:#2a2e42; }
+#etpwa-banner.show { display:block; }
+#etpwa-banner-hd { display:flex;align-items:center;justify-content:space-between;margin-bottom:16px; }
+#etpwa-banner-title { display:flex;align-items:center;gap:10px; }
+#etpwa-banner-icon {
+  width:44px;height:44px;border-radius:12px;
+  background:linear-gradient(135deg,#0d0f14,#2e3250);
+  display:flex;align-items:center;justify-content:center;font-size:1.4rem;
+}
+#etpwa-banner-name { font-weight:700;font-size:0.95rem;color:#0d0f14; }
+[data-theme="dark"] #etpwa-banner-name { color:#e8eaf2; }
+#etpwa-banner-sub { font-size:0.72rem;color:#7c85a8; }
+#etpwa-banner-close {
+  width:32px;height:32px;border-radius:50%;
+  background:#f0f2f8;border:none;cursor:pointer;
+  color:#4a5174;font-size:1rem;
+  display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;flex-shrink:0;
+}
+#etpwa-steps { list-style:none;padding:0;margin:0 0 18px;display:flex;flex-direction:column;gap:12px; }
+#etpwa-steps li { display:flex;align-items:flex-start;gap:12px; }
+.etpwa-num {
+  width:26px;height:26px;border-radius:50%;background:#c9a227;color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.75rem;font-weight:700;flex-shrink:0;margin-top:1px;
+}
+.etpwa-txt { font-size:0.83rem;color:#4a5174;line-height:1.5; }
+[data-theme="dark"] .etpwa-txt { color:#b0b5cc; }
+.etpwa-txt strong { color:#0d0f14; }
+[data-theme="dark"] .etpwa-txt strong { color:#e8eaf2; }
+#etpwa-gotit {
+  width:100%;padding:13px;background:linear-gradient(135deg,#0d0f14,#2e3250);
+  color:#fff;border:none;border-radius:12px;
+  font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;
+}
 </style>
 
 <!-- Permission Prompt -->
 <div id="etpush-overlay">
   <div id="etpush-card">
-    <div id="etpush-header">
-      <div id="etpush-logo">🎓</div>
-      <div id="etpush-header-text">
+    <div id="etpush-hd">
+      <div id="etpush-hd-icon">🎓</div>
+      <div>
         <h3>E-Tuklas STE Portal</h3>
         <p>Wants to send you notifications</p>
       </div>
     </div>
     <div id="etpush-body">
-      <ul id="etpush-features">
-        <li><span class="icon icon-teal">🔔</span> Get notified when your teacher <strong>grades your study</strong></li>
-        <li><span class="icon icon-gold">📢</span> Receive <strong>class announcements</strong> instantly</li>
-        <li><span class="icon icon-blue">⭐</span> Know when your study is <strong>recognized or published</strong></li>
+      <ul id="etpush-feats">
+        <li><span class="epf-icon epf-teal">🔔</span> Get notified when your teacher <strong>grades your study</strong></li>
+        <li><span class="epf-icon epf-gold">📢</span> Receive <strong>class announcements</strong> instantly</li>
+        <li><span class="epf-icon epf-blue">⭐</span> Know when your study is <strong>recognized</strong></li>
       </ul>
       <div id="etpush-btns">
         <button id="etpush-allow">🔔 Allow Notifications</button>
         <button id="etpush-later">Not now</button>
       </div>
-      <p id="etpush-note">You can change this anytime in your browser settings.</p>
     </div>
   </div>
 </div>
@@ -16726,431 +16720,17 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 <div id="etpush-toast" role="alert">
   <div id="etpush-toast-bar"></div>
   <div id="etpush-toast-inner">
-    <div id="etpush-toast-appicon">🎓</div>
+    <div id="etpush-toast-icon">🎓</div>
     <div id="etpush-toast-content">
-      <div id="etpush-toast-appname">E-Tuklas STE Portal</div>
-      <div id="etpush-toast-title">Notification</div>
+      <div id="etpush-toast-app">E-Tuklas STE Portal</div>
+      <div id="etpush-toast-title"></div>
       <div id="etpush-toast-body"></div>
-      <div id="etpush-toast-time">just now</div>
     </div>
     <button id="etpush-toast-close">✕</button>
   </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<script>
-(function() {
-  'use strict';
-
-  var VAPID = 'BCfIpupA7-vtNx4W9AcgD-Jo8BZv-iikibceYNSSU7bMxVsEVZbmhkUWQAjX-maAcmZSwT3zO71YjxVQgQKIb50';
-  var SNOOZE_KEY = 'etpush_snoozed_until';
-  var toastTimer = null;
-
-  /* ── TOAST ─────────────────────────────────────────────── */
-  function showToast(title, body, icon) {
-    var el = document.getElementById('etpush-toast');
-    if (!el) return;
-    document.getElementById('etpush-toast-title').textContent = title || '';
-    document.getElementById('etpush-toast-body').textContent  = body  || '';
-    document.getElementById('etpush-toast-appicon').textContent = icon || '🎓';
-    document.getElementById('etpush-toast-time').textContent  = 'just now';
-    el.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function() { el.classList.remove('show'); }, 6000);
-  }
-  window.etuklasToast = showToast; // expose globally
-
-  /* ── PROMPT ─────────────────────────────────────────────── */
-  function showPrompt() {
-    var el = document.getElementById('etpush-overlay');
-    if (el) el.classList.add('active');
-  }
-  function hidePrompt() {
-    var el = document.getElementById('etpush-overlay');
-    if (el) el.classList.remove('active');
-  }
-
-  /* ── FCM SETUP ──────────────────────────────────────────── */
-  function saveFCMToken(token) {
-    try {
-      var user = firebase.auth().currentUser;
-      if (!user || !token) return;
-      firebase.firestore().collection('users').doc(user.uid).set(
-        { fcmTokens: firebase.firestore.FieldValue.arrayUnion(token) },
-        { merge: true }
-      ).then(function() {
-        console.log('[FCM] Token saved ✓');
-      });
-    } catch(e) { console.warn('[FCM] Token save failed', e); }
-  }
-
-  function setupFCM() {
-    try {
-      var msg = firebase.messaging();
-      // Foreground messages (tab is open)
-      msg.onMessage(function(payload) {
-        var n = payload.notification || {};
-        var d = payload.data || {};
-        showToast(n.title || d.title, n.body || d.body, d.icon || '🔔');
-      });
-  function urlBase64ToUint8Array(base64String) {
-    var padding = '='.repeat((4 - base64String.length % 4) % 4);
-    var base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    var raw     = window.atob(base64);
-    var output  = new Uint8Array(raw.length);
-    for (var i = 0; i < raw.length; ++i) output[i] = raw.charCodeAt(i);
-    return output;
-  }
-
-  function saveSubscription(sub) {
-    try {
-      var user = firebase.auth().currentUser;
-      if (!user || !sub) return;
-      // Save as both FCM token (Android) and webpush subscription (iOS)
-      var subJson = JSON.stringify(sub);
-      firebase.firestore().collection('users').doc(user.uid).set({
-        webpushSubscription: subJson,
-        webpushUpdatedAt: Date.now()
-      }, { merge: true }).then(function() {
-        console.log('[Push] Subscription saved to Firestore ✓');
-      });
-    } catch(e) { console.warn('[Push] Save failed:', e); }
-  }
-
-  function saveFCMToken(token) {
-    try {
-      var user = firebase.auth().currentUser;
-      if (!user || !token) return;
-      firebase.firestore().collection('users').doc(user.uid).set(
-        { fcmTokens: firebase.firestore.FieldValue.arrayUnion(token) },
-        { merge: true }
-      ).then(function() { console.log('[FCM] Token saved ✓'); });
-    } catch(e) { console.warn('[FCM] Token save failed', e); }
-  }
-
-  var swRegistration = null;
-
-  function setupFCM() {
-    // Try FCM first (Android Chrome)
-    try {
-      var msg = firebase.messaging();
-      msg.onMessage(function(payload) {
-        var n = payload.notification || {};
-        var d = payload.data || {};
-        showToast(n.title || d.title, n.body || d.body, d.icon || '🔔');
-      });
-      msg.getToken({ vapidKey: VAPID }).then(function(token) {
-        if (token) { saveFCMToken(token); }
-      }).catch(function(e) {
-        console.warn('[FCM] getToken failed, trying native push:', e.message);
-        setupNativePush();
-      });
-    } catch(e) {
-      console.warn('[FCM] Not supported, using native push:', e.message);
-      setupNativePush();
-    }
-  }
-
-  // Native Web Push — works on iOS Safari PWA (iOS 16.4+)
-  function setupNativePush() {
-    if (!swRegistration || !swRegistration.pushManager) {
-      console.warn('[Push] No SW registration yet');
-      return;
-    }
-    swRegistration.pushManager.subscribe({
-      userVisibleOnly:      true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID)
-    }).then(function(sub) {
-      console.log('[Push] Native push subscription ✓');
-      saveSubscription(sub);
-    }).catch(function(e) {
-      console.warn('[Push] Native push subscription failed:', e.message);
-    });
-  }
-
-  function registerSW() {
-    if (!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.register('./firebase-messaging-sw.js', { scope: '/' })
-      .then(function(reg) {
-        swRegistration = reg;
-        console.log('[SW] Registered ✓');
-        // If already granted, set up push immediately
-        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-          setupFCM();
-        }
-      })
-      .catch(function(e) { console.warn('[SW] Failed:', e.message); });
-  }
-
-  /* ── ALLOW BUTTON ───────────────────────────────────────── */
-  function onAllow() {
-    hidePrompt();
-    if (!('Notification' in window)) {
-      showToast('Not Supported', 'Try Chrome or Firefox for notifications.', '⚠️');
-      return;
-    }
-    Notification.requestPermission().then(function(perm) {
-      if (perm === 'granted') {
-        showToast('🔔 Notifications ON!', "You'll get alerts for grades, announcements & more.", '✅');
-        setupFCM();
-      } else if (perm === 'denied') {
-        showToast('Blocked', 'Tap the 🔒 in your address bar → Notifications → Allow.', '🔕');
-      }
-    });
-  }
-
-  /* ── HOOK INTO EXISTING NOTIFICATION SYSTEM ─────────────── */
-  // Shows a toast whenever a notification is written to Firestore for the current user
-  var hookDone = false;
-  var annHookDone = false;
-  var annListener = null;
-  var seenAnnIds = {};
-
-  function tryHook() {
-    if (!hookDone && window.API && window.API.createNotification) {
-      hookDone = true;
-      var orig = window.API.createNotification.bind(window.API);
-      window.API.createNotification = function(uid, data) {
-        try {
-          var me = firebase.auth().currentUser;
-          if (me && me.uid === uid) {
-            var icons = { grade:'⭐', announcement:'📢', review:'📝', recognition:'🏅', coauthor:'🤝', revision:'🔄' };
-            showToast(data.title || 'New Notification', data.body || '', icons[data.type] || '🔔');
-          }
-        } catch(e) {}
-        return orig(uid, data);
-      };
-    }
-
-    // Also hook createAnnouncement — teacher posts → ALL students see toast
-    if (!annHookDone && window.API && window.API.createAnnouncement) {
-      annHookDone = true;
-      var origAnn = window.API.createAnnouncement.bind(window.API);
-      window.API.createAnnouncement = function(opts) {
-        // Show toast to the teacher immediately
-        showToast('📢 ' + (opts.title || 'Announcement'), opts.body || '', '📢');
-        return origAnn(opts);
-      };
-    }
-
-    // Real-time Firestore listener — when a NEW announcement is added,
-    // show a toast to ALL students currently viewing the portal
-    if (!annListener) {
-      try {
-        var me = firebase.auth().currentUser;
-        if (!me) return; // not logged in yet, will retry
-
-        var now = new Date().toISOString();
-        annListener = firebase.firestore()
-          .collection('announcements')
-          .orderBy('createdAt', 'desc')
-          .limit(5)
-          .onSnapshot(function(snap) {
-            snap.docChanges().forEach(function(change) {
-              if (change.type !== 'added') return;
-              var doc = change.doc;
-              var id  = doc.id;
-              if (seenAnnIds[id]) return; // already seen this one
-              seenAnnIds[id] = true;
-
-              var data = doc.data();
-              // Only show for announcements created after page load (not old ones)
-              if (data.createdAt && data.createdAt < now) return;
-
-              showToast(
-                '📢 ' + (data.title || 'New Announcement'),
-                data.body || '',
-                data.priority === 'urgent' ? '🚨' : data.priority === 'important' ? '❗' : '📢'
-              );
-            });
-          }, function(err) {
-            console.warn('[E-Tuklas] Announcement listener error:', err.message);
-          });
-      } catch(e) {
-        console.warn('[E-Tuklas] Could not start announcement listener:', e.message);
-      }
-    }
-  }
-  setInterval(tryHook, 1000);
-
-  /* ── INIT ───────────────────────────────────────────────── */
-  function init() {
-    // Wire buttons
-    var allowBtn = document.getElementById('etpush-allow');
-    var laterBtn = document.getElementById('etpush-later');
-    var closeBtn = document.getElementById('etpush-toast-close');
-
-    if (allowBtn) allowBtn.addEventListener('click', onAllow);
-    if (laterBtn) laterBtn.addEventListener('click', function() {
-      hidePrompt();
-      // Snooze for 3 days
-      localStorage.setItem(SNOOZE_KEY, Date.now() + 3 * 24 * 60 * 60 * 1000);
-    });
-    if (closeBtn) closeBtn.addEventListener('click', function() {
-      document.getElementById('etpush-toast').classList.remove('show');
-    });
-
-    // Register SW (needed for background push)
-    registerSW();
-
-    // If already granted → set up FCM immediately
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      setupFCM();
-      return; // don't show prompt again
-    }
-
-    // Check if notifications are supported
-    if (typeof Notification === 'undefined') return;
-
-    // Check snooze
-    var snoozedUntil = parseInt(localStorage.getItem(SNOOZE_KEY) || '0');
-    if (Date.now() < snoozedUntil) return; // still snoozed
-
-    // Show prompt after 4s if permission not yet decided
-    if (Notification.permission === 'default') {
-      setTimeout(showPrompt, 4000);
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-})();
-</script>
-
-<!-- ══════════════════════════════════════════════════════════════
-     E-TUKLAS PWA INSTALL PROMPT (iPhone / iOS Safari)
-     Shows a friendly guide telling iPhone users to add the
-     portal to their home screen so push notifications work.
-══════════════════════════════════════════════════════════════ -->
-<style>
-/* ── iOS Install Banner ── */
-#etpwa-banner {
-  display: none;
-  position: fixed;
-  bottom: 0;
-  left: 0; right: 0;
-  z-index: 999999;
-  background: #fff;
-  border-top: 1.5px solid #e2e5f0;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
-  padding: 20px 20px 32px;
-  animation: etpwa-up 0.4s cubic-bezier(0.34,1.56,0.64,1);
-}
-[data-theme="dark"] #etpwa-banner {
-  background: #1a1d2e;
-  border-color: #2a2e42;
-}
-@keyframes etpwa-up {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
-}
-#etpwa-banner.show { display: block; }
-#etpwa-banner-hd {
-  display: flex; align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-#etpwa-banner-title {
-  display: flex; align-items: center; gap: 10px;
-}
-#etpwa-banner-icon {
-  width: 44px; height: 44px; border-radius: 12px;
-  background: linear-gradient(135deg, #0d0f14, #2e3250);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.4rem;
-}
-#etpwa-banner-name { font-weight: 700; font-size: 0.95rem; color: #0d0f14; }
-[data-theme="dark"] #etpwa-banner-name { color: #e8eaf2; }
-#etpwa-banner-sub { font-size: 0.72rem; color: #7c85a8; }
-#etpwa-banner-close {
-  background: #f0f2f8; border: none; cursor: pointer;
-  color: #4a5174; font-size: 1rem; 
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-}
-#etpwa-steps {
-  display: flex; flex-direction: column; gap: 12px;
-  margin-bottom: 18px;
-}
-.etpwa-step {
-  display: flex; align-items: flex-start; gap: 12px;
-}
-.etpwa-step-num {
-  width: 26px; height: 26px; border-radius: 50%;
-  background: #c9a227; color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
-  margin-top: 1px;
-}
-.etpwa-step-text { font-size: 0.82rem; color: #4a5174; line-height: 1.5; }
-[data-theme="dark"] .etpwa-step-text { color: #b0b5cc; }
-.etpwa-step-text strong { color: #0d0f14; }
-[data-theme="dark"] .etpwa-step-text strong { color: #e8eaf2; }
-.etpwa-step-icon {
-  display: inline-block;
-  background: #f0f2f8; border-radius: 6px;
-  padding: 1px 6px; font-size: 0.85rem;
-  vertical-align: middle; margin: 0 2px;
-}
-#etpwa-got-it {
-  width: 100%; padding: 13px;
-  background: linear-gradient(135deg, #0d0f14, #2e3250);
-  color: #fff; border: none; border-radius: 12px;
-  font-size: 0.9rem; font-weight: 700; cursor: pointer;
-  font-family: inherit;
-}
-#etpwa-arrow {
-  position: fixed;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 2rem;
-  animation: etpwa-bounce 1s infinite;
-  z-index: 1000000;
-  display: none;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-}
-@keyframes etpwa-bounce {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50%       { transform: translateX(-50%) translateY(6px); }
-}
-
-/* ── Floating Install Button ── */
-#etpwa-fab {
-  display: none !important;
-  position: fixed;
-  bottom: 80px;
-  right: 16px;
-  z-index: 99998;
-  background: linear-gradient(135deg, #0d0f14, #2e3250);
-  color: #fff;
-  border: none;
-  border-radius: 50px;
-  padding: 10px 16px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  animation: etpwa-pulse 2.5s infinite;
-}
-@keyframes etpwa-pulse {
-  0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-  50%       { box-shadow: 0 4px 30px rgba(201,162,39,0.5); }
-}
-</style>
-
-<!-- iOS Install Banner -->
+<!-- iOS PWA Install Banner -->
 <div id="etpwa-banner">
   <div id="etpwa-banner-hd">
     <div id="etpwa-banner-title">
@@ -17162,119 +16742,311 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
     </div>
     <button id="etpwa-banner-close">✕</button>
   </div>
-
-  <div id="etpwa-steps">
-    <div class="etpwa-step">
-      <div class="etpwa-step-num">1</div>
-      <div class="etpwa-step-text">
-        Tap the <span class="etpwa-step-icon">⬆️ Share</span> button at the
-        <strong>bottom of your Safari browser</strong>
-      </div>
-    </div>
-    <div class="etpwa-step">
-      <div class="etpwa-step-num">2</div>
-      <div class="etpwa-step-text">
-        Scroll down and tap
-        <strong>"Add to Home Screen"</strong>
-        <span class="etpwa-step-icon">➕</span>
-      </div>
-    </div>
-    <div class="etpwa-step">
-      <div class="etpwa-step-num">3</div>
-      <div class="etpwa-step-text">
-        Tap <strong>"Add"</strong> in the top right corner
-      </div>
-    </div>
-    <div class="etpwa-step">
-      <div class="etpwa-step-num">4</div>
-      <div class="etpwa-step-text">
-        Open the <strong>E-Tuklas icon</strong> from your home screen
-        and tap <strong>"Allow Notifications"</strong> ✅
-      </div>
-    </div>
-  </div>
-
-  <button id="etpwa-got-it">Got it! I'll add it now 👍</button>
+  <ul id="etpwa-steps">
+    <li><span class="etpwa-num">1</span><span class="etpwa-txt">Tap the <strong>⬆️ Share</strong> button at the bottom of Safari</span></li>
+    <li><span class="etpwa-num">2</span><span class="etpwa-txt">Scroll down and tap <strong>"Add to Home Screen" ➕</strong></span></li>
+    <li><span class="etpwa-num">3</span><span class="etpwa-txt">Tap <strong>"Add"</strong> in the top right</span></li>
+    <li><span class="etpwa-num">4</span><span class="etpwa-txt">Open the <strong>E-Tuklas icon</strong> from home screen → tap <strong>Allow Notifications ✅</strong></span></li>
+  </ul>
+  <button id="etpwa-gotit">Got it! I'll add it now 👍</button>
 </div>
 
-<!-- Floating Install Button -->
-<button id="etpwa-fab" onclick="document.getElementById('etpwa-banner').classList.add('show')">
-  📲 Install for Notifications
-</button>
-
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script>
 (function() {
   'use strict';
 
-  // ── Detect iPhone / iOS Safari ────────────────────────────
-  var isIOS     = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  var isSafari  = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  var VAPID      = 'BCfIpupA7-vtNx4W9AcgD-Jo8BZv-iikibceYNSSU7bMxVsEVZbmhkUWQAjX-maAcmZSwT3zO71YjxVQgQKIb50';
+  var SNOOZE_KEY = 'etpush_snooze';
+  var toastTimer = null;
+  var swReg      = null;
+
+  /* ── HELPERS ─────────────────────────────────────────── */
+  var isIOS        = /iP(hone|ad|od)/.test(navigator.userAgent) && !window.MSStream;
   var isStandalone = window.navigator.standalone === true;
-  var isMobile  = /Mobi|Android/i.test(navigator.userAgent) || isIOS;
+  // iOS only supports push when running as installed PWA (standalone)
+  var iosPushReady = isIOS && isStandalone;
 
-  var INSTALL_KEY = 'etpwa_install_dismissed';
+  /* ══ TOAST ═══════════════════════════════════════════════ */
+  function showToast(title, body, icon) {
+    var el = document.getElementById('etpush-toast');
+    if (!el) return;
+    document.getElementById('etpush-toast-title').textContent = title || '';
+    document.getElementById('etpush-toast-body').textContent  = body  || '';
+    document.getElementById('etpush-toast-icon').textContent  = icon  || '🎓';
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 6000);
+  }
+  window.etuklasToast = showToast;
 
-  function dismissBanner() {
-    var banner = document.getElementById('etpwa-banner');
-    var fab    = document.getElementById('etpwa-fab');
-    if (banner) banner.classList.remove('show');
-    if (fab)    fab.style.display = 'flex';
-    localStorage.setItem(INSTALL_KEY, Date.now());
+  /* ══ PROMPT ══════════════════════════════════════════════ */
+  function showPrompt(){ var e=document.getElementById('etpush-overlay'); if(e) e.classList.add('active'); }
+  function hidePrompt(){ var e=document.getElementById('etpush-overlay'); if(e) e.classList.remove('active'); }
+
+  /* ══ SAVE TOKEN / SUBSCRIPTION TO FIRESTORE ═════════════ */
+  function saveToFirestore(key, value) {
+    try {
+      var user = firebase.auth().currentUser;
+      if (!user) { setTimeout(function(){ saveToFirestore(key,value); }, 2000); return; }
+      var update = {};
+      update[key] = value;
+      firebase.firestore().collection('users').doc(user.uid)
+        .set(update, { merge: true })
+        .then(function(){ console.log('[Push] Saved', key, '✓'); });
+    } catch(e){ console.warn('[Push] Save failed:', e.message); }
   }
 
-  function initPWA() {
-    // Strict iPhone-only check — exit immediately on PC/Mac/Android
-    var ua = navigator.userAgent;
-    var isRealIphone = /iPhone|iPod/.test(ua) && !window.MSStream && typeof window.orientation !== 'undefined';
-    if (!isRealIphone) {
-      // Hide all PWA elements completely on non-iPhone
-      var banner = document.getElementById('etpwa-banner');
-      var fab    = document.getElementById('etpwa-fab');
-      if (banner) banner.remove();
-      if (fab)    fab.remove();
+  function saveFCMToken(token) {
+    try {
+      var user = firebase.auth().currentUser;
+      if (!user) { setTimeout(function(){ saveFCMToken(token); }, 2000); return; }
+      firebase.firestore().collection('users').doc(user.uid).set(
+        { fcmTokens: firebase.firestore.FieldValue.arrayUnion(token) },
+        { merge: true }
+      ).then(function(){ console.log('[FCM] Token saved ✓'); });
+    } catch(e){ console.warn('[FCM] Token save failed:', e.message); }
+  }
+
+  /* ══ VAPID HELPER ════════════════════════════════════════ */
+  function urlB64ToUint8(b64) {
+    var pad = '='.repeat((4 - b64.length % 4) % 4);
+    var raw = atob((b64 + pad).replace(/-/g,'+').replace(/_/g,'/'));
+    var out = new Uint8Array(raw.length);
+    for (var i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i);
+    return out;
+  }
+
+  /* ══ SETUP PUSH AFTER PERMISSION GRANTED ════════════════ */
+  function setupPush() {
+    // On iOS standalone, skip FCM entirely — use native web push only
+    if (iosPushReady) {
+      tryNativePush();
       return;
     }
-    if (isStandalone) return;
 
-    var dismissed = parseInt(localStorage.getItem(INSTALL_KEY) || '0');
-    if (Date.now() - dismissed < 24 * 60 * 60 * 1000) return;
-
-    var closeBtn = document.getElementById('etpwa-banner-close');
-    var gotItBtn = document.getElementById('etpwa-got-it');
-    var fab      = document.getElementById('etpwa-fab');
-
-    if (closeBtn) closeBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      dismissBanner();
-    });
-    if (gotItBtn) gotItBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      dismissBanner();
-    });
-    if (fab) {
-      fab.style.display = 'flex';
-      fab.addEventListener('click', function() {
-        var banner = document.getElementById('etpwa-banner');
-        if (banner) banner.classList.add('show');
+    // Try FCM first (Android + Chrome desktop)
+    try {
+      var msg = firebase.messaging();
+      if (!window._fcmHandlerSet) {
+        window._fcmHandlerSet = true;
+        msg.onMessage(function(payload) {
+          var n = payload.notification || {};
+          var d = payload.data || {};
+          showToast(n.title || d.title, n.body || d.body, d.icon || '🔔');
+        });
+      }
+      msg.getToken({ vapidKey: VAPID }).then(function(token) {
+        if (token) {
+          console.log('[FCM] Got token ✓');
+          saveFCMToken(token);
+        } else {
+          console.warn('[FCM] No token — trying native push');
+          tryNativePush();
+        }
+      }).catch(function(e) {
+        console.warn('[FCM] getToken failed:', e.message, '— trying native push');
+        tryNativePush();
       });
+    } catch(e) {
+      console.warn('[FCM] Not available:', e.message, '— trying native push');
+      tryNativePush();
     }
+  }
 
-    setTimeout(function() {
+  // Native Web Push — for iOS Safari PWA
+  function tryNativePush() {
+    if (!swReg || !swReg.pushManager) { console.warn('[Push] No SW yet'); return; }
+    swReg.pushManager.getSubscription().then(function(existing) {
+      if (existing) {
+        console.log('[Push] Already subscribed ✓');
+        saveToFirestore('webpushSubscription', JSON.stringify(existing));
+        return;
+      }
+      return swReg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlB64ToUint8(VAPID)
+      }).then(function(sub) {
+        console.log('[Push] Native push subscribed ✓');
+        saveToFirestore('webpushSubscription', JSON.stringify(sub));
+      });
+    }).catch(function(e){ console.warn('[Push] Native subscribe failed:', e.message); });
+  }
+
+  /* ══ REGISTER SERVICE WORKER ════════════════════════════ */
+  function registerSW() {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('./firebase-messaging-sw.js', { scope: './' })
+      .then(function(reg) {
+        swReg = reg;
+        console.log('[SW] Registered ✓');
+        // On iOS standalone, permission may already be granted from a
+        // previous session — call setupPush immediately if so
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          setupPush();
+        }
+      })
+      .catch(function(e){ console.warn('[SW] Failed:', e.message); });
+  }
+
+  /* ══ ALLOW BUTTON ════════════════════════════════════════ */
+  function onAllow() {
+    hidePrompt();
+
+    // On iOS non-standalone, Notification API doesn't exist.
+    // Show install banner instead of a broken permission request.
+    if (isIOS && !isStandalone) {
       var banner = document.getElementById('etpwa-banner');
       if (banner) banner.classList.add('show');
+      return;
+    }
+
+    if (typeof Notification === 'undefined') {
+      showToast('⚠️ Not Supported', 'Open in Safari and add to Home Screen first.', '⚠️');
+      return;
+    }
+
+    Notification.requestPermission().then(function(perm) {
+      if (perm === 'granted') {
+        showToast('🔔 Notifications ON!', "You'll get alerts for grades & announcements.", '✅');
+        setupPush();
+      } else if (perm === 'denied') {
+        showToast('🔕 Blocked', 'Go to Settings → Safari → [Site] → Notifications → Allow.', '🔕');
+      }
+    });
+  }
+
+  /* ══ HOOK INTO ANNOUNCEMENT SYSTEM ══════════════════════ */
+  var annListener   = null;
+  var seenAnnIds    = {};
+  var hooksDone     = { notif: false, ann: false };
+  var pageLoadTime  = new Date().toISOString();
+
+  function tryHooks() {
+    if (!hooksDone.notif && window.API && window.API.createNotification) {
+      hooksDone.notif = true;
+      var orig = window.API.createNotification.bind(window.API);
+      window.API.createNotification = function(uid, data) {
+        try {
+          var me = firebase.auth().currentUser;
+          if (me && me.uid === uid) {
+            var icons = { grade:'⭐', announcement:'📢', review:'📝', recognition:'🏅', coauthor:'🤝', revision:'🔄' };
+            showToast(data.title || 'New Notification', data.body || '', icons[data.type] || '🔔');
+          }
+        } catch(e) {}
+        return orig(uid, data);
+      };
+      console.log('[Push] createNotification hooked ✓');
+    }
+
+    if (!hooksDone.ann && window.API && window.API.createAnnouncement) {
+      hooksDone.ann = true;
+      var origAnn = window.API.createAnnouncement.bind(window.API);
+      window.API.createAnnouncement = function(opts) {
+        showToast('📢 ' + (opts.title || 'Announcement'), opts.body || '', '📢');
+        return origAnn(opts);
+      };
+      console.log('[Push] createAnnouncement hooked ✓');
+    }
+
+    if (!annListener) {
+      try {
+        var user = firebase.auth && firebase.auth().currentUser;
+        if (!user) return;
+        annListener = firebase.firestore()
+          .collection('announcements')
+          .orderBy('createdAt', 'desc')
+          .limit(5)
+          .onSnapshot(function(snap) {
+            snap.docChanges().forEach(function(change) {
+              if (change.type !== 'added') return;
+              var id   = change.doc.id;
+              var data = change.doc.data();
+              if (seenAnnIds[id]) return;
+              seenAnnIds[id] = true;
+              if (!data.createdAt || data.createdAt < pageLoadTime) return;
+              var icon = data.priority === 'urgent' ? '🚨' : data.priority === 'important' ? '❗' : '📢';
+              showToast(icon + ' ' + (data.title || 'New Announcement'), data.body || '', icon);
+            });
+          }, function(e){ console.warn('[Push] Ann listener error:', e.message); });
+        console.log('[Push] Announcement listener active ✓');
+      } catch(e){ console.warn('[Push] Listener failed:', e.message); }
+    }
+  }
+  setInterval(tryHooks, 1000);
+
+  /* ══ iOS PWA INSTALL BANNER ══════════════════════════════ */
+  function initIOSBanner() {
+    if (!isIOS || isStandalone) {
+      var b = document.getElementById('etpwa-banner');
+      if (b) b.remove();
+      return;
+    }
+    var dismissed = parseInt(localStorage.getItem('etpwa_dismissed') || '0');
+    if (Date.now() - dismissed < 24*60*60*1000) return;
+
+    var closeBtn = document.getElementById('etpwa-banner-close');
+    var gotItBtn = document.getElementById('etpwa-gotit');
+    function dismiss() {
+      var el = document.getElementById('etpwa-banner');
+      if (el) el.classList.remove('show');
+      localStorage.setItem('etpwa_dismissed', Date.now());
+    }
+    if (closeBtn) closeBtn.addEventListener('click', dismiss);
+    if (gotItBtn) gotItBtn.addEventListener('click', dismiss);
+
+    setTimeout(function(){
+      var el = document.getElementById('etpwa-banner');
+      if (el) el.classList.add('show');
     }, 5000);
   }
 
-  // If already installed as PWA on iPhone → notifications work normally
-  // so show the normal push permission prompt instead
-  if (isIOS && isStandalone) {
-    console.log('[PWA] Running as installed PWA on iOS ✓ — push notifications available');
+  /* ══ INIT ════════════════════════════════════════════════ */
+  function init() {
+    var allowBtn   = document.getElementById('etpush-allow');
+    var laterBtn   = document.getElementById('etpush-later');
+    var closeToast = document.getElementById('etpush-toast-close');
+
+    if (allowBtn)  allowBtn.addEventListener('click', onAllow);
+    if (laterBtn)  laterBtn.addEventListener('click', function() {
+      hidePrompt();
+      localStorage.setItem(SNOOZE_KEY, Date.now() + 3*24*60*60*1000);
+    });
+    if (closeToast) closeToast.addEventListener('click', function() {
+      document.getElementById('etpush-toast').classList.remove('show');
+    });
+
+    // Always register SW regardless of iOS/platform
+    registerSW();
+
+    // iOS install banner (only shows in Safari non-standalone)
+    initIOSBanner();
+
+    // On iOS non-standalone — Notification API doesn't exist.
+    // The install banner will guide them. Don't show push prompt here.
+    if (isIOS && !isStandalone) return;
+
+    // On all other platforms (including iOS standalone) — check Notification API
+    if (typeof Notification === 'undefined') return;
+
+    if (Notification.permission === 'granted') {
+      setupPush();
+      return;
+    }
+
+    var snoozeUntil = parseInt(localStorage.getItem(SNOOZE_KEY) || '0');
+    if (Date.now() < snoozeUntil) return;
+
+    if (Notification.permission === 'default') {
+      // Show prompt sooner on iOS standalone so user sees it right away
+      setTimeout(showPrompt, iosPushReady ? 1500 : 4000);
+    }
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initPWA);
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    initPWA();
+    init();
   }
 })();
 </script>
