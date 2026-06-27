@@ -16765,7 +16765,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 (function() {
   'use strict';
 
-  var VAPID      = 'BCfIpupA7-vtNx4W9AcgD-Jo8BZv-iikibceYNSSU7bMxVsEVZbmhkUWQAjX-maAcmZSwT3zO71YjxVQgQKIb50';
+  var VAPID      = 'BM5epUb6uXi82b5QOhzMYZ3q6PdQFFORBG0doU2qqCio_5dK3-UFXyblK0GR33mGrQCH5fRH7Y82giJlBVPBQds';
   var SNOOZE_KEY = 'etpush_snooze';
   var toastTimer = null;
   var swReg      = null;
@@ -16831,7 +16831,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
       return;
     }
     try {
+      // ✅ FIX: Pass our already-registered SW explicitly. Without this,
+      // the Firebase SDK defaults to looking for a service worker at
+      // './firebase-messaging-sw.js', which we no longer register —
+      // that would silently break FCM token retrieval on Android/Chrome.
       var msg = firebase.messaging();
+      if (swReg) {
+        msg.useServiceWorker ? msg.useServiceWorker(swReg) : null;
+      }
       if (!window._fcmHandlerSet) {
         window._fcmHandlerSet = true;
         msg.onMessage(function(payload) {
@@ -16840,7 +16847,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
           showToast(n.title || d.title, n.body || d.body, d.icon || '🔔');
         });
       }
-      msg.getToken({ vapidKey: VAPID }).then(function(token) {
+      msg.getToken({ vapidKey: VAPID, serviceWorkerRegistration: swReg || undefined }).then(function(token) {
         if (token) { console.log('[FCM] Got token ✓'); saveFCMToken(token); }
         else { console.warn('[FCM] No token — trying native push'); tryNativePush(); }
       }).catch(function(e) {
@@ -16855,7 +16862,21 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 
   /* ══ NATIVE WEB PUSH (iOS Safari PWA) ═══════════════════ */
   function tryNativePush() {
-    if (!swReg || !swReg.pushManager) { console.warn('[Push] No SW yet'); return; }
+    // ✅ FIX: Don't give up if registerSW()'s promise hasn't resolved yet.
+    // Notification.requestPermission() can resolve before swReg is set,
+    // which previously caused this to silently no-op and never subscribe.
+    // navigator.serviceWorker.ready resolves as soon as a SW is active —
+    // immediately if registration already finished, or as soon as it does.
+    if (!swReg || !swReg.pushManager) {
+      console.warn('[Push] No SW yet — waiting for registration...');
+      navigator.serviceWorker.ready.then(function(reg) {
+        swReg = reg;
+        tryNativePush();
+      }).catch(function(e) {
+        console.warn('[Push] serviceWorker.ready failed:', e.message);
+      });
+      return;
+    }
     swReg.pushManager.getSubscription().then(function(existing) {
       if (existing) {
         console.log('[Push] Already subscribed ✓');
@@ -16877,7 +16898,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   /* ══ REGISTER SERVICE WORKER ════════════════════════════ */
   function registerSW() {
     if (!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.register('./firebase-messaging-sw.js', { scope: './' })
+    // ✅ FIX: Register the unified sw-etuklas.js (handles iOS native push,
+    // notification actions, pushsubscriptionchange renewal, AND
+    // Android/Chrome FCM background messages) instead of
+    // firebase-messaging-sw.js, which is no longer used.
+    navigator.serviceWorker.register('./sw-etuklas.js', { scope: './' })
       .then(function(reg) {
         swReg = reg;
         console.log('[SW] Registered ✓');
