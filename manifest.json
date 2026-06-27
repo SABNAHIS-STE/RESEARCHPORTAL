@@ -1,0 +1,29 @@
+{
+  "name": "E-Tuklas STE Portal",
+  "short_name": "E-Tuklas",
+  "description": "SABNAHIS STE Research Portal — Science, Technology & Engineering",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d0f14",
+  "theme_color": "#0d0f14",
+  "orientation": "portrait-primary",
+  "lang": "en-PH",
+  "categories": ["education"],
+  "icons": [
+    {
+      "src": "/LOGO.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/LOGO.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
