@@ -16557,544 +16557,332 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
 </script>
 
 
+
 <!-- ══════════════════════════════════════════════════════════════
-     E-TUKLAS WEB PUSH NOTIFICATION SYSTEM
-     Works like Facebook / Gmail — asks permission once, then
-     can send real push notifications to phone & desktop even
-     when the browser is closed (requires HTTPS + server hosting).
+     E-TUKLAS PUSH NOTIFICATION SYSTEM v3 — COMPLETE REWRITE
+     Fixes: prompt never showing, toast not visible, mobile issues
 ══════════════════════════════════════════════════════════════ -->
 <style>
-/* ── Push Permission Prompt (the "Allow Notifications?" card) ── */
-#etuklas-push-prompt {
+/* ── Permission Prompt ── */
+#etpush-overlay {
+  display: none;
   position: fixed;
-  bottom: 24px;
+  inset: 0;
+  z-index: 999998;
+  background: rgba(0,0,0,0.45);
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 24px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+#etpush-overlay.active { display: flex; }
+#etpush-card {
+  background: #fff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 420px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+  animation: etpush-up 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+[data-theme="dark"] #etpush-card { background: #1a1d2e; }
+@keyframes etpush-up {
+  from { transform: translateY(60px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+#etpush-header {
+  background: linear-gradient(135deg, #0d0f14, #2e3250);
+  padding: 18px 20px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+#etpush-logo {
+  width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
+  background: linear-gradient(135deg, #c9a227, #f0d882);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem;
+}
+#etpush-header-text h3 { color: #fff; font-size: 1rem; margin: 0 0 2px; font-weight: 700; }
+#etpush-header-text p  { color: rgba(255,255,255,0.5); font-size: 0.75rem; margin: 0; }
+#etpush-body { padding: 18px 20px; }
+#etpush-features { list-style: none; padding: 0; margin: 0 0 18px; display: flex; flex-direction: column; gap: 10px; }
+#etpush-features li { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #333; }
+[data-theme="dark"] #etpush-features li { color: #cdd0e0; }
+#etpush-features li span.icon {
+  width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 1rem;
+}
+.icon-teal { background: #e6f5f2; }
+.icon-gold { background: #fdf8ec; }
+.icon-blue { background: #e6f0fd; }
+#etpush-btns { display: flex; gap: 8px; }
+#etpush-allow {
+  flex: 1; padding: 12px; border: none; border-radius: 10px;
+  background: #c9a227; color: #fff; font-weight: 700; font-size: 0.9rem;
+  cursor: pointer; transition: background 0.2s;
+}
+#etpush-allow:hover { background: #b8921f; }
+#etpush-later {
+  padding: 12px 16px; border: 1.5px solid #e2e5f0; border-radius: 10px;
+  background: none; color: #7c85a8; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+#etpush-later:hover { border-color: #c0392b; color: #c0392b; }
+#etpush-note {
+  margin-top: 10px; font-size: 0.68rem; color: #7c85a8;
+  text-align: center; line-height: 1.5;
+}
+
+/* ── Toast Notification ── */
+#etpush-toast {
+  position: fixed;
+  z-index: 999999;
   left: 50%;
-  transform: translateX(-50%) translateY(120px);
-  z-index: 9999;
-  width: min(440px, calc(100vw - 32px));
-  background: var(--white);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl), 0 0 0 1px rgba(201,162,39,0.08);
+  transform: translateX(-50%) translateY(-120px);
+  top: 16px;
+  width: min(380px, calc(100vw - 24px));
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.22);
   overflow: hidden;
   transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease;
   opacity: 0;
   pointer-events: none;
 }
-#etuklas-push-prompt.show {
+[data-theme="dark"] #etpush-toast { background: #1a1d2e; border: 1px solid #2a2e42; }
+#etpush-toast.show {
   transform: translateX(-50%) translateY(0);
   opacity: 1;
   pointer-events: auto;
 }
-.push-prompt-hd {
-  display: flex; align-items: center; gap: 12px;
-  padding: 16px 18px 12px;
-  background: linear-gradient(135deg, var(--ink) 0%, #1e2130 100%);
-}
-.push-prompt-logo {
-  width: 42px; height: 42px; border-radius: 12px;
-  background: linear-gradient(135deg, var(--gold) 0%, #f0d882 100%);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.35rem; flex-shrink: 0;
-}
-.push-prompt-hd-text { flex: 1; min-width: 0; }
-.push-prompt-hd-title {
-  font-family: var(--font-display); font-size: 0.92rem;
-  font-weight: 700; color: #fff; margin-bottom: 1px;
-}
-.push-prompt-hd-sub { font-size: 0.72rem; color: rgba(255,255,255,0.5); }
-.push-prompt-close {
-  background: none; border: none; cursor: pointer;
-  color: rgba(255,255,255,0.4); font-size: 1.1rem; padding: 4px;
-  border-radius: 6px; transition: color 0.2s;
-  line-height: 1; flex-shrink: 0;
-}
-.push-prompt-close:hover { color: rgba(255,255,255,0.8); }
-.push-prompt-body { padding: 16px 18px; }
-.push-prompt-features {
-  display: flex; flex-direction: column; gap: 9px;
-  margin-bottom: 16px;
-}
-.push-prompt-feat {
-  display: flex; align-items: center; gap: 10px;
-  font-size: 0.82rem; color: var(--ink-2);
-}
-.push-prompt-feat-icon {
-  width: 30px; height: 30px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.95rem; flex-shrink: 0;
-}
-.push-prompt-feat-icon.teal { background: var(--teal-light); }
-.push-prompt-feat-icon.gold { background: var(--gold-bg); }
-.push-prompt-feat-icon.blue { background: var(--blue-light); }
-.push-prompt-actions { display: flex; gap: 8px; }
-.push-allow-btn {
-  flex: 1; padding: 11px 16px;
-  background: var(--gold);
-  color: #fff; border: none; border-radius: var(--radius);
-  font-size: 0.875rem; font-weight: 700; font-family: var(--font-body);
-  cursor: pointer; transition: all 0.2s ease;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-}
-.push-allow-btn:hover { background: #b8921f; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(201,162,39,0.35); }
-.push-allow-btn:active { transform: translateY(0); }
-.push-decline-btn {
-  padding: 11px 16px;
-  background: var(--surface); color: var(--muted);
-  border: 1.5px solid var(--border); border-radius: var(--radius);
-  font-size: 0.82rem; font-weight: 600; font-family: var(--font-body);
-  cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
-}
-.push-decline-btn:hover { border-color: var(--red); color: var(--red); background: var(--red-light); }
-.push-prompt-note {
-  margin-top: 10px; font-size: 0.67rem; color: var(--muted);
-  text-align: center; line-height: 1.4;
-}
-
-/* ── Toast-style test notification preview ── */
-#etuklas-notif-toast {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  z-index: 99999;
-  width: min(360px, calc(100vw - 24px));
-  background: var(--white, #fff);
-  border: 1.5px solid var(--border, #e2e5f0);
-  border-radius: 14px;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10);
-  overflow: hidden;
-  transform: translateY(-120px) scale(0.95);
-  opacity: 0;
-  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease;
-  pointer-events: none;
-}
-#etuklas-notif-toast.show {
-  transform: translateY(0) scale(1);
-  opacity: 1;
-  pointer-events: auto;
-}
-/* On mobile — show from bottom so it clears the top bar */
+/* Mobile: show from bottom above nav */
 @media (max-width: 760px) {
-  #etuklas-notif-toast {
+  #etpush-toast {
     top: auto;
-    bottom: 80px;
-    right: 12px;
+    bottom: 76px;
     left: 12px;
+    right: 12px;
     width: auto;
-    transform: translateY(120px) scale(0.95);
+    transform: translateX(0) translateY(40px);
   }
-  #etuklas-notif-toast.show {
-    transform: translateY(0) scale(1);
+  #etpush-toast.show {
+    transform: translateX(0) translateY(0);
   }
 }
-.toast-bar { height: 3px; background: var(--gold); }
-.toast-inner {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 12px 14px;
+#etpush-toast-bar { height: 3px; background: #c9a227; }
+#etpush-toast-inner {
+  display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px;
 }
-.toast-app-icon {
-  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
-  background: linear-gradient(135deg, var(--ink) 0%, #2e3250 100%);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.1rem;
+#etpush-toast-appicon {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  background: linear-gradient(135deg, #0d0f14, #2e3250);
+  display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
 }
-.toast-content { flex: 1; min-width: 0; }
-.toast-app-name {
-  font-size: 0.63rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.6px; color: var(--muted); margin-bottom: 2px;
+#etpush-toast-content { flex: 1; min-width: 0; }
+#etpush-toast-appname {
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.7px; color: #7c85a8; margin-bottom: 2px;
 }
-.toast-title {
-  font-size: 0.82rem; font-weight: 700; color: var(--ink);
-  line-height: 1.3; margin-bottom: 2px;
-}
-.toast-body {
-  font-size: 0.75rem; color: var(--ink-2); line-height: 1.4;
-}
-.toast-time { font-size: 0.63rem; color: var(--muted); margin-top: 3px; }
-.toast-dismiss {
+#etpush-toast-title { font-size: 0.85rem; font-weight: 700; color: #0d0f14; margin-bottom: 2px; line-height: 1.3; }
+[data-theme="dark"] #etpush-toast-title { color: #e8eaf2; }
+#etpush-toast-body { font-size: 0.76rem; color: #4a5174; line-height: 1.4; }
+[data-theme="dark"] #etpush-toast-body { color: #b0b5cc; }
+#etpush-toast-time { font-size: 0.62rem; color: #7c85a8; margin-top: 3px; }
+#etpush-toast-close {
   background: none; border: none; cursor: pointer;
-  color: var(--muted); font-size: 1rem; padding: 2px;
-  line-height: 1; flex-shrink: 0;
+  color: #7c85a8; font-size: 1rem; padding: 2px; flex-shrink: 0; line-height: 1;
 }
-.toast-dismiss:hover { color: var(--red); }
-
-/* ── Push status badge in notification bell area ── */
-.push-status-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 0.62rem; font-weight: 600; padding: 2px 7px;
-  border-radius: 99px; border: 1px solid; margin-left: 4px;
-}
-.push-status-badge.enabled { color: var(--green); border-color: var(--green); background: var(--green-light); }
-.push-status-badge.disabled { color: var(--muted); border-color: var(--border); background: var(--surface); }
+#etpush-toast-close:hover { color: #c0392b; }
 </style>
 
-<!-- Permission Prompt Card -->
-<div id="etuklas-push-prompt" role="dialog" aria-label="Enable push notifications">
-  <div class="push-prompt-hd">
-    <div class="push-prompt-logo">🎓</div>
-    <div class="push-prompt-hd-text">
-      <div class="push-prompt-hd-title">E-Tuklas STE Portal</div>
-      <div class="push-prompt-hd-sub">Wants to send you notifications</div>
-    </div>
-    <button class="push-prompt-close" id="push-prompt-x" aria-label="Close">✕</button>
-  </div>
-  <div class="push-prompt-body">
-    <div class="push-prompt-features">
-      <div class="push-prompt-feat">
-        <div class="push-prompt-feat-icon teal">🔔</div>
-        <span>Get notified when your teacher <strong>grades your study</strong></span>
-      </div>
-      <div class="push-prompt-feat">
-        <div class="push-prompt-feat-icon gold">📢</div>
-        <span>Receive <strong>class announcements</strong> instantly</span>
-      </div>
-      <div class="push-prompt-feat">
-        <div class="push-prompt-feat-icon blue">⭐</div>
-        <span>Know when your study is <strong>recognized or published</strong></span>
+<!-- Permission Prompt -->
+<div id="etpush-overlay">
+  <div id="etpush-card">
+    <div id="etpush-header">
+      <div id="etpush-logo">🎓</div>
+      <div id="etpush-header-text">
+        <h3>E-Tuklas STE Portal</h3>
+        <p>Wants to send you notifications</p>
       </div>
     </div>
-    <div class="push-prompt-actions">
-      <button class="push-allow-btn" id="push-allow-btn">
-        🔔 Allow Notifications
-      </button>
-      <button class="push-decline-btn" id="push-decline-btn">Not now</button>
-    </div>
-    <div class="push-prompt-note">
-      You can change this anytime in your browser settings or portal preferences.
-      Notifications are only sent for important academic events.
+    <div id="etpush-body">
+      <ul id="etpush-features">
+        <li><span class="icon icon-teal">🔔</span> Get notified when your teacher <strong>grades your study</strong></li>
+        <li><span class="icon icon-gold">📢</span> Receive <strong>class announcements</strong> instantly</li>
+        <li><span class="icon icon-blue">⭐</span> Know when your study is <strong>recognized or published</strong></li>
+      </ul>
+      <div id="etpush-btns">
+        <button id="etpush-allow">🔔 Allow Notifications</button>
+        <button id="etpush-later">Not now</button>
+      </div>
+      <p id="etpush-note">You can change this anytime in your browser settings.</p>
     </div>
   </div>
 </div>
 
-<!-- In-browser toast preview (shown when a push would fire while tab is open) -->
-<div id="etuklas-notif-toast" role="alert" aria-live="polite">
-  <div class="toast-bar"></div>
-  <div class="toast-inner">
-    <div class="toast-app-icon">🎓</div>
-    <div class="toast-content">
-      <div class="toast-app-name">E-Tuklas STE Portal</div>
-      <div class="toast-title" id="toast-title">Notification</div>
-      <div class="toast-body" id="toast-body"></div>
-      <div class="toast-time" id="toast-time">just now</div>
+<!-- Toast -->
+<div id="etpush-toast" role="alert">
+  <div id="etpush-toast-bar"></div>
+  <div id="etpush-toast-inner">
+    <div id="etpush-toast-appicon">🎓</div>
+    <div id="etpush-toast-content">
+      <div id="etpush-toast-appname">E-Tuklas STE Portal</div>
+      <div id="etpush-toast-title">Notification</div>
+      <div id="etpush-toast-body"></div>
+      <div id="etpush-toast-time">just now</div>
     </div>
-    <button class="toast-dismiss" id="toast-dismiss" aria-label="Dismiss">✕</button>
+    <button id="etpush-toast-close">✕</button>
   </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script>
-/* ═══════════════════════════════════════════════════════════════
-   E-TUKLAS FCM PUSH NOTIFICATION ENGINE (Firebase Cloud Messaging)
-   ─────────────────────────────────────────────────────────────
-   ✅ Tab open   → toast pop-up slides in (top-right corner)
-   ✅ Tab closed → real phone/desktop notification
-   ✅ Phone locked → shows on lock screen
-   ✅ Student taps it → opens your portal automatically
-═══════════════════════════════════════════════════════════════ */
 (function() {
   'use strict';
 
-  // ── CONFIG ────────────────────────────────────────────────────
-  var STORAGE_KEY = 'etuklas_push_v1';
-  var PROMPT_DELAY_MS = 4000;
-  var PROMPT_SNOOZE_DAYS = 3;
-
-  // ── YOUR FCM WEB PUSH CERTIFICATE KEY ────────────────────────
-  // Get this from Firebase Console → Project Settings → Cloud Messaging
-  // → Web Push certificates → Key pair (the long string)
-  // Replace the placeholder below with your actual key:
-  var FCM_VAPID_KEY = 'BCfIpupA7-vtNx4W9AcgD-Jo8BZv-iikibceYNSSU7bMxVsEVZbmhkUWQAjX-maAcmZSwT3zO71YjxVQgQKIb50';
-
-  // ── STORAGE HELPERS ───────────────────────────────────────────
-  function getState() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(e) { return {}; }
-  }
-  function setState(obj) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.assign(getState(), obj))); } catch(e) {}
-  }
-
-  // ── SERVICE WORKER REGISTRATION ───────────────────────────────
-  // The SW file (sw-etuklas.js) must be in your website root directory.
-  // It handles background push events even when the tab is closed.
-  // ── FCM MESSAGING INSTANCE ────────────────────────────────────
-  // Uses the Firebase app already initialized in your portal
-  var messaging = null;
-  function getFCMMessaging() {
-    if (messaging) return messaging;
-    try {
-      // firebase is already initialized above in your portal
-      messaging = firebase.messaging();
-    } catch(e) {
-      console.warn('[E-Tuklas FCM] Could not get messaging:', e.message);
-    }
-    return messaging;
-  }
-
-  // ── REGISTER FCM SERVICE WORKER ───────────────────────────────
-  function registerServiceWorker() {
-    if (!('serviceWorker' in navigator)) return Promise.resolve();
-    // Firebase requires the SW to be named firebase-messaging-sw.js
-    return navigator.serviceWorker.register('./firebase-messaging-sw.js', { scope: './' })
-      .then(function(reg) {
-        console.log('[E-Tuklas FCM] Service Worker registered ✓');
-        return reg;
-      })
-      .catch(function(err) {
-        console.warn('[E-Tuklas FCM] SW registration failed (normal on local file://):', err.message);
-      });
-  }
-
-  // ── SAVE FCM TOKEN TO FIRESTORE ───────────────────────────────
-  // This is how Firebase knows which device to send the push to.
-  // The token is saved under the user's Firestore profile.
-  function saveFCMToken(token) {
-    try {
-      // Get current logged-in user from your portal's auth
-      var user = firebase.auth().currentUser;
-      if (!user) return;
-      var db = firebase.firestore();
-      db.collection('users').doc(user.uid).update({
-        fcmTokens: firebase.firestore.FieldValue.arrayUnion(token),
-        fcmTokenUpdatedAt: Date.now()
-      }).then(function() {
-        console.log('[E-Tuklas FCM] Token saved to Firestore ✓');
-      }).catch(function(e) {
-        // Try set() if user doc doesn't have the field yet
-        db.collection('users').doc(user.uid).set({
-          fcmTokens: [token]
-        }, { merge: true });
-      });
-    } catch(e) {
-      console.warn('[E-Tuklas FCM] Could not save token:', e);
-    }
-  }
-
-  // ── REQUEST PERMISSION & GET FCM TOKEN ───────────────────────
-  function requestPushPermission() {
-    if (!('Notification' in window)) {
-      showInAppToast('Not Supported', 'Your browser doesn\'t support push notifications. Try Chrome or Firefox.', '⚠️');
-      return;
-    }
-
-    Notification.requestPermission().then(function(permission) {
-      if (permission === 'granted') {
-        setState({ permission: 'granted', grantedAt: Date.now() });
-        hidePushPrompt();
-
-        // Get FCM token and save to Firestore
-        var msg = getFCMMessaging();
-        if (msg && FCM_VAPID_KEY !== 'BCfIpupA7-vtNx4W9AcgD-Jo8BZv-iikibceYNSSU7bMxVsEVZbmhkUWQAjX-maAcmZSwT3zO71YjxVQgQKIb50') {
-          msg.getToken({ vapidKey: FCM_VAPID_KEY })
-            .then(function(token) {
-              if (token) {
-                setState({ fcmToken: token });
-                saveFCMToken(token);
-                console.log('[E-Tuklas FCM] Got token ✓', token.substring(0,20) + '...');
-              }
-            })
-            .catch(function(err) {
-              console.warn('[E-Tuklas FCM] getToken failed:', err.message);
-            });
-
-          // Handle foreground messages (tab is open)
-          msg.onMessage(function(payload) {
-            var n = payload.notification || {};
-            var d = payload.data || {};
-            showInAppToast(
-              n.title || d.title || '🎓 E-Tuklas',
-              n.body  || d.body  || 'New notification',
-              d.icon  || '🔔'
-            );
-          });
-        }
-
-        showInAppToast('🔔 Notifications Enabled!', 'You\'ll now get alerts for grades, announcements, and more.', '✅');
-        updateBellBadge(true);
-        setupFCMForeground();
-
-      } else if (permission === 'denied') {
-        setState({ permission: 'denied', deniedAt: Date.now() });
-        hidePushPrompt();
-        showInAppToast('Notifications Blocked', 'To re-enable: tap the 🔒 in your address bar → Notifications → Allow.', '🔕');
-      } else {
-        setState({ permission: 'dismissed', dismissedAt: Date.now() });
-        hidePushPrompt();
-      }
-    });
-  }
-
-  // ── SHOW / HIDE PROMPT ────────────────────────────────────────
-  function showPushPrompt() {
-    var el = document.getElementById('etuklas-push-prompt');
-    if (el) el.classList.add('show');
-  }
-  function hidePushPrompt() {
-    var el = document.getElementById('etuklas-push-prompt');
-    if (el) el.classList.remove('show');
-  }
-
-  // ── IN-APP TOAST (fallback when tab is open) ──────────────────
+  var VAPID = 'BCfIpupA7-vtNx4W9AcgD-Jo8BZv-iikibceYNSSU7bMxVsEVZbmhkUWQAjX-maAcmZSwT3zO71YjxVQgQKIb50';
+  var SNOOZE_KEY = 'etpush_snoozed_until';
   var toastTimer = null;
-  function showInAppToast(title, body, icon) {
-    var el = document.getElementById('etuklas-notif-toast');
-    var tTitle = document.getElementById('toast-title');
-    var tBody = document.getElementById('toast-body');
-    var tTime = document.getElementById('toast-time');
+
+  /* ── TOAST ─────────────────────────────────────────────── */
+  function showToast(title, body, icon) {
+    var el = document.getElementById('etpush-toast');
     if (!el) return;
-
-    if (tTitle) tTitle.textContent = title;
-    if (tBody) tBody.textContent = body;
-    if (tTime) tTime.textContent = 'just now';
-    var iconEl = el.querySelector('.toast-app-icon');
-    if (iconEl && icon) iconEl.textContent = icon;
-
+    document.getElementById('etpush-toast-title').textContent = title || '';
+    document.getElementById('etpush-toast-body').textContent  = body  || '';
+    document.getElementById('etpush-toast-appicon').textContent = icon || '🎓';
+    document.getElementById('etpush-toast-time').textContent  = 'just now';
     el.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function() { el.classList.remove('show'); }, 5500);
+    toastTimer = setTimeout(function() { el.classList.remove('show'); }, 6000);
+  }
+  window.etuklasToast = showToast; // expose globally
+
+  /* ── PROMPT ─────────────────────────────────────────────── */
+  function showPrompt() {
+    var el = document.getElementById('etpush-overlay');
+    if (el) el.classList.add('active');
+  }
+  function hidePrompt() {
+    var el = document.getElementById('etpush-overlay');
+    if (el) el.classList.remove('active');
   }
 
-  // ── NOTIFY HELPER (for manual triggers in your portal code) ──
-  // Call window.etuklasNotify('Title', 'Body') anywhere in your code.
-  // When tab is open → shows toast. FCM handles the closed-tab case.
-  window.etuklasNotify = function(title, body, options) {
-    options = options || {};
-    showInAppToast(title, body, options.icon || '🎓');
-  };
-
-  // ── UPDATE BELL UI WITH PUSH STATUS ──────────────────────────
-  function updateBellBadge(enabled) {
-    // Attach a small "🔔 LIVE" badge near the notification bell
-    var bells = document.querySelectorAll('[data-tour="user-notif-bell"], [data-tour="study-notif-bell"]');
-    bells.forEach(function(bell) {
-      var existing = bell.querySelector('.push-status-badge');
-      if (existing) existing.remove();
-      if (enabled) {
-        var badge = document.createElement('span');
-        badge.className = 'push-status-badge enabled';
-        badge.title = 'Push notifications are ON';
-        badge.innerHTML = '● LIVE';
-        bell.appendChild(badge);
-      }
-    });
-  }
-
-  // ── HOOK INTO PORTAL EVENTS ───────────────────────────────────
-  window.addEventListener('etuklas:push', function(e) {
-    var d = e.detail || {};
-    window.etuklasNotify(d.title || 'E-Tuklas', d.body || '', { icon: d.icon });
-  });
-
-  // Hook into API.createNotification so every notification write
-  // also triggers the toast for the CURRENT user viewing the page
-  var hookInterval = setInterval(function() {
-    if (window.API && window.API.createNotification && !window._pushHooked) {
-      window._pushHooked = true;
-      var _orig = window.API.createNotification.bind(window.API);
-      window.API.createNotification = function(uid, data) {
-        // Only show toast if the notification is for the current logged-in user
-        var currentUid = '';
-        try { currentUid = firebase.auth().currentUser && firebase.auth().currentUser.uid; } catch(e) {}
-        if (currentUid && uid === currentUid) {
-          var icons = { grade:'⭐', announcement:'📢', review:'📝', recognition:'🏅', coauthor:'🤝', revision:'🔄', default:'🔔' };
-          showInAppToast(
-            data.title || 'New Notification',
-            data.body  || '',
-            icons[data.type] || icons.default
-          );
-        }
-        return _orig(uid, data);
-      };
-      clearInterval(hookInterval);
-    }
-  }, 1000);
-
-  // ── SETUP FCM FOREGROUND HANDLER ─────────────────────────────
-  // This fires when a push arrives while the tab IS open.
-  // Must be called regardless of whether user just clicked Allow
-  // or already had permission from a previous visit.
-  function setupFCMForeground() {
+  /* ── FCM SETUP ──────────────────────────────────────────── */
+  function saveFCMToken(token) {
     try {
-      var msg = getFCMMessaging();
-      if (!msg || window._fcmForegroundSet) return;
-      window._fcmForegroundSet = true;
+      var user = firebase.auth().currentUser;
+      if (!user || !token) return;
+      firebase.firestore().collection('users').doc(user.uid).set(
+        { fcmTokens: firebase.firestore.FieldValue.arrayUnion(token) },
+        { merge: true }
+      ).then(function() {
+        console.log('[FCM] Token saved ✓');
+      });
+    } catch(e) { console.warn('[FCM] Token save failed', e); }
+  }
+
+  function setupFCM() {
+    try {
+      var msg = firebase.messaging();
+      // Foreground messages (tab is open)
       msg.onMessage(function(payload) {
         var n = payload.notification || {};
         var d = payload.data || {};
-        showInAppToast(
-          n.title || d.title || '🎓 E-Tuklas',
-          n.body  || d.body  || 'You have a new notification.',
-          d.icon  || '🔔'
-        );
+        showToast(n.title || d.title, n.body || d.body, d.icon || '🔔');
       });
-      console.log('[E-Tuklas FCM] Foreground handler ready ✓');
-    } catch(e) {
-      console.warn('[E-Tuklas FCM] Foreground handler failed:', e.message);
-    }
+      // Get + save token
+      msg.getToken({ vapidKey: VAPID }).then(function(token) {
+        if (token) { saveFCMToken(token); }
+      }).catch(function(e) { console.warn('[FCM] getToken failed:', e.message); });
+    } catch(e) { console.warn('[FCM] setup failed:', e.message); }
   }
 
-  // ── INIT LOGIC ────────────────────────────────────────────────
-  function init() {
-    var state = getState();
-    var permission = (typeof Notification !== 'undefined') ? Notification.permission : 'default';
+  function registerSW() {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('./firebase-messaging-sw.js')
+      .then(function(reg) { console.log('[FCM] SW registered ✓'); })
+      .catch(function(e) { console.warn('[FCM] SW failed:', e.message); });
+  }
 
-    // Wire up buttons
-    var allowBtn    = document.getElementById('push-allow-btn');
-    var declineBtn  = document.getElementById('push-decline-btn');
-    var closeBtn    = document.getElementById('push-prompt-x');
-    var toastDismiss = document.getElementById('toast-dismiss');
-
-    if (allowBtn)     allowBtn.addEventListener('click', requestPushPermission);
-    if (declineBtn)   declineBtn.addEventListener('click', function() {
-      setState({ snoozedAt: Date.now() });
-      hidePushPrompt();
-    });
-    if (closeBtn)     closeBtn.addEventListener('click', function() {
-      setState({ dismissed: true });
-      hidePushPrompt();
-    });
-    if (toastDismiss) toastDismiss.addEventListener('click', function() {
-      var el = document.getElementById('etuklas-notif-toast');
-      if (el) el.classList.remove('show');
-    });
-
-    // Register SW early — needed for FCM to work at all
-    registerServiceWorker().then(function() {
-      // If user already granted permission on a previous visit,
-      // re-subscribe and set up foreground handler right away
-      if (permission === 'granted') {
-        setState({ permission: 'granted' });
-        updateBellBadge(true);
-        setupFCMForeground();
-
-        // Re-fetch FCM token in case it rotated
-        var msg = getFCMMessaging();
-        if (msg && FCM_VAPID_KEY !== 'BCfIpupA7-vtNx4W9AcgD-Jo8BZv-iikibceYNSSU7bMxVsEVZbmhkUWQAjX-maAcmZSwT3zO71YjxVQgQKIb50') {
-          msg.getToken({ vapidKey: FCM_VAPID_KEY }).then(function(token) {
-            if (token) { setState({ fcmToken: token }); saveFCMToken(token); }
-          }).catch(function() {});
-        }
+  /* ── ALLOW BUTTON ───────────────────────────────────────── */
+  function onAllow() {
+    hidePrompt();
+    if (!('Notification' in window)) {
+      showToast('Not Supported', 'Try Chrome or Firefox for notifications.', '⚠️');
+      return;
+    }
+    Notification.requestPermission().then(function(perm) {
+      if (perm === 'granted') {
+        showToast('🔔 Notifications ON!', "You'll get alerts for grades, announcements & more.", '✅');
+        setupFCM();
+      } else if (perm === 'denied') {
+        showToast('Blocked', 'Tap the 🔒 in your address bar → Notifications → Allow.', '🔕');
       }
     });
+  }
 
+  /* ── HOOK INTO EXISTING NOTIFICATION SYSTEM ─────────────── */
+  // Shows a toast whenever a notification is written to Firestore for the current user
+  var hookDone = false;
+  function tryHook() {
+    if (hookDone || !window.API || !window.API.createNotification) return;
+    hookDone = true;
+    var orig = window.API.createNotification.bind(window.API);
+    window.API.createNotification = function(uid, data) {
+      try {
+        var me = firebase.auth().currentUser;
+        if (me && me.uid === uid) {
+          var icons = { grade:'⭐', announcement:'📢', review:'📝', recognition:'🏅', coauthor:'🤝', revision:'🔄' };
+          showToast(data.title || 'New Notification', data.body || '', icons[data.type] || '🔔');
+        }
+      } catch(e) {}
+      return orig(uid, data);
+    };
+  }
+  setInterval(tryHook, 1000);
+
+  /* ── INIT ───────────────────────────────────────────────── */
+  function init() {
+    // Wire buttons
+    var allowBtn = document.getElementById('etpush-allow');
+    var laterBtn = document.getElementById('etpush-later');
+    var closeBtn = document.getElementById('etpush-toast-close');
+
+    if (allowBtn) allowBtn.addEventListener('click', onAllow);
+    if (laterBtn) laterBtn.addEventListener('click', function() {
+      hidePrompt();
+      // Snooze for 3 days
+      localStorage.setItem(SNOOZE_KEY, Date.now() + 3 * 24 * 60 * 60 * 1000);
+    });
+    if (closeBtn) closeBtn.addEventListener('click', function() {
+      document.getElementById('etpush-toast').classList.remove('show');
+    });
+
+    // Register SW (needed for background push)
+    registerSW();
+
+    // If already granted → set up FCM immediately
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      setupFCM();
+      return; // don't show prompt again
+    }
+
+    // Check if notifications are supported
     if (typeof Notification === 'undefined') return;
 
-    // Decide whether to show the Allow prompt
-    var shouldShow = false;
-    if (permission === 'default' && !state.dismissed) {
-      if (state.snoozedAt) {
-        var snoozeMs = PROMPT_SNOOZE_DAYS * 24 * 60 * 60 * 1000;
-        if (Date.now() - state.snoozedAt > snoozeMs) shouldShow = true;
-      } else {
-        shouldShow = true;
-      }
-    }
+    // Check snooze
+    var snoozedUntil = parseInt(localStorage.getItem(SNOOZE_KEY) || '0');
+    if (Date.now() < snoozedUntil) return; // still snoozed
 
-    if (shouldShow) {
-      setTimeout(showPushPrompt, PROMPT_DELAY_MS);
+    // Show prompt after 4s if permission not yet decided
+    if (Notification.permission === 'default') {
+      setTimeout(showPrompt, 4000);
     }
   }
 
-  // Run after DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
