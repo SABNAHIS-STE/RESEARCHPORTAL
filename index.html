@@ -147,6 +147,7 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <meta name="theme-color" content="#0d0f14"/>
+<meta name="color-scheme" content="dark light"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="E-Tuklas"/>
@@ -664,12 +665,14 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   overflow-x: hidden;
+  overscroll-behavior-y: none; /* prevents pull-to-refresh bounce on Android */
   transition: background 0.25s ease, color 0.25s ease;
 }
 
 img { max-width: 100%; height: auto; }
-button { font-family: var(--font-body); cursor: pointer; }
+button { font-family: var(--font-body); cursor: pointer; touch-action: manipulation; }
 a { color: inherit; }
 
 /* Prevent zoom on iOS input focus */
@@ -748,15 +751,16 @@ a { color: inherit; }
   cursor: pointer;
   font-size: var(--text-sm);
   color: var(--sidebar-text);
-  transition: all var(--transition);
+  transition: background 0.15s ease, color 0.15s ease;
   margin-bottom: 2px;
   border: none;
   background: none;
   width: 100%;
   text-align: left;
+  touch-action: manipulation;
 }
 .nav-item:hover { background: var(--sidebar-item-hover-bg); color: var(--sidebar-item-hover-text); }
-.nav-item.active { background: var(--sidebar-item-active-bg); color: var(--gold-light); font-weight: 500; }
+.nav-item.active { background: var(--sidebar-item-active-bg); color: var(--gold); font-weight: 600; box-shadow: inset 2px 0 10px rgba(201,162,39,0.06); }
 .nav-item svg { width: 17px; flex-shrink: 0; opacity: 0.7; }
 .nav-badge {
   margin-left: auto;
@@ -877,7 +881,7 @@ a { color: inherit; }
   gap: 12px;
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: 100;
   transition: background 0.25s ease, border-color 0.25s ease;
 }
 [data-theme="dark"] .topbar {
@@ -1006,10 +1010,13 @@ a { color: inherit; }
   display: none;
   position: fixed; bottom: 0; left: 0; right: 0;
   z-index: 200;
-  background: var(--sidebar-bg);
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--sidebar-border);
   padding-bottom: var(--safe-bottom);
 }
+[data-theme="dark"] .mob-nav { background: rgba(26,29,46,0.92); }
 .mob-nav-inner {
   display: flex;
   justify-content: space-around;
@@ -1031,6 +1038,16 @@ a { color: inherit; }
 }
 .mob-nav-btn.active { color: var(--gold); }
 .mob-nav-btn.active svg { filter: drop-shadow(0 0 4px rgba(201,162,39,0.5)); }
+.mob-nav-btn:hover:not(.active) { background: var(--sidebar-item-hover-bg); color: var(--sidebar-text-strong); }
+/* Active pill indicator above icon */
+.mob-nav-btn.active::before {
+  content: '';
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 24px; height: 3px;
+  background: var(--gold);
+  border-radius: 0 0 3px 3px;
+}
+.mob-nav-btn { position: relative; }
 .mob-nav-btn svg { width: 20px; height: 20px; }
 .mob-nav-btn span { font-size: 0.6rem; font-weight: 500; white-space: nowrap; }
 
@@ -1071,8 +1088,9 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--gold);
   box-shadow: 0 0 0 3px rgba(201,162,39,0.12);
 }
-:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+:focus-visible { outline: 2.5px solid var(--gold); outline-offset: 3px; border-radius: 4px; }
+button:focus-visible, a:focus-visible { outline: 2.5px solid var(--gold); outline-offset: 3px; }
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2.5px solid var(--gold); outline-offset: 0; }
 textarea { resize: vertical; min-height: 90px; }
 .hint { font-size: var(--text-xs); color: var(--muted); margin-top: 3px; }
 
@@ -1118,16 +1136,18 @@ textarea { resize: vertical; min-height: 90px; }
   transition: all var(--transition);
   border: none;
   white-space: nowrap;
+  touch-action: manipulation; /* eliminate 300ms tap delay on Androids */
   -webkit-tap-highlight-color: transparent;
 }
 .btn-ink  { background:var(--ink);    color:#fff; }  .btn-ink:hover  { background:var(--ink-2); transform:translateY(-1px); }
 .btn-gold { background: linear-gradient(135deg, var(--gold), #b8911f); color:var(--ink); font-weight:600; box-shadow: 0 2px 8px rgba(201,162,39,0.28); } .btn-gold:hover { background: linear-gradient(135deg, #d4ad2d, #a07a18); transform:translateY(-1px); box-shadow: 0 4px 16px rgba(201,162,39,0.36); }
 .btn-ol   { background:none; border:1.5px solid var(--border); color:var(--ink-3); } .btn-ol:hover { border-color:var(--ink-3); background:var(--surface); }
 .btn-red  { background:var(--red);    color:#fff; } .btn-red:hover  { background:#a93226; }
+.btn-red-soft { background:rgba(192,57,43,0.1); border:1.5px solid rgba(192,57,43,0.35); color:var(--red); } .btn-red-soft:hover { background:rgba(192,57,43,0.18); border-color:var(--red); }
 .btn-grn  { background:var(--green);  color:#fff; } .btn-grn:hover  { background:#156b3c; }
 .btn-pur  { background:var(--purple); color:#fff; } .btn-pur:hover  { background:#5c2d99; }
 .btn-teal { background:var(--teal);   color:#fff; } .btn-teal:hover { background:#156b5c; }
-.btn-sm   { padding: 7px 13px; font-size: var(--text-xs); min-height: 36px; }
+.btn-sm   { padding: 8px 14px; font-size: var(--text-xs); min-height: 44px; }  /* WCAG 2.5.5 touch target */
 .btn-full { width: 100%; }
 .btn:disabled { opacity: 0.48; cursor: not-allowed; transform: none !important; }
 .btn:active:not(:disabled) { transform: scale(0.97) !important; }
@@ -1141,6 +1161,15 @@ textarea { resize: vertical; min-height: 90px; }
   border-radius: var(--radius-lg);
   padding: clamp(16px,4vw,22px);
   box-shadow: var(--shadow);
+  position: relative;
+}
+/* Subtle top accent line on cards in dark mode */
+[data-theme="dark"] .card::before {
+  content: '';
+  position: absolute; top: 0; left: 12px; right: 12px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  border-radius: 99px;
+  pointer-events: none;
 }
 .card-hd {
   display: flex; align-items: center;
@@ -1156,6 +1185,19 @@ textarea { resize: vertical; min-height: 90px; }
 .lift-hover:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 
 /* ══════════════════════════════════════════
+   CONTENT VISIBILITY — faster paint on long pages
+══════════════════════════════════════════ */
+.page-body > section,
+.card-grid > .card,
+[data-page]:not([data-page="active"]) {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 300px; /* estimated height to prevent layout shift */
+}
+@supports not (content-visibility: auto) {
+  /* Fallback: nothing — no visual change, just no optimization */
+}
+
+/* ══════════════════════════════════════════
    SKELETON LOADERS
 ══════════════════════════════════════════ */
 @keyframes shimmer {
@@ -1168,8 +1210,8 @@ textarea { resize: vertical; min-height: 90px; }
     var(--border) 25%,
     var(--surface) 50%,
     var(--border) 75%);
-  background-size: 600px 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
+  background-size: 1200px 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
   border-radius: 6px;
 }
 
@@ -1178,8 +1220,8 @@ textarea { resize: vertical; min-height: 90px; }
     rgba(255,255,255,0.05) 25%,
     rgba(255,255,255,0.1) 50%,
     rgba(255,255,255,0.05) 75%);
-  background-size: 700px 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
+  background-size: 1400px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
 }
 
 /* Study card skeleton */
@@ -1305,9 +1347,7 @@ textarea { resize: vertical; min-height: 90px; }
   background: linear-gradient(90deg, var(--gold), var(--teal));
 }
 
-/* Card hover lift — applied to all .card elements */
-.card { transition: box-shadow .2s ease, transform .2s ease; }
-.card-clickable:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+/* Card hover lift — only on clickable cards */
 
 /* Study row hover in My Stats */
 .mstats-study-row {
@@ -1635,7 +1675,7 @@ tr { transition: background .1s; }
 /* ══════════════════════════════════════════
    EMPTY STATE
 ══════════════════════════════════════════ */
-.empty { text-align:center; padding:clamp(36px,8vw,52px) 20px; color:var(--muted); }
+.empty { text-align:center; padding:clamp(40px,10vw,64px) 20px; color:var(--muted); display:flex; flex-direction:column; align-items:center; gap:8px; }
 .empty-ico { font-size:2.8rem; margin-bottom:10px; opacity:0.45; }
 .empty h3 { font-family:var(--font-display); font-size:var(--text-lg); color:var(--slate); margin-bottom:5px; }
 .empty p { font-size:var(--text-sm); max-width:380px; margin:0 auto; line-height:1.6; }
@@ -2543,18 +2583,23 @@ tr { transition: background .1s; }
 .sec-title { font-family:var(--font-display); font-size:var(--text-xl); font-weight:600; color:var(--ink); margin-bottom:14px; }
 .muted { color:var(--muted); font-size:var(--text-sm); }
 .mt12{margin-top:12px} .mb12{margin-bottom:12px} .mt16{margin-top:16px}
-.page-hd { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+.page-hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px; row-gap:10px; }
 .page-hd-left h2 { font-family:var(--font-display); font-size:var(--text-2xl); font-weight:600; margin-bottom:2px; }
 
 /* ══════════════════════════════════════════
    ANIMATIONS
 ══════════════════════════════════════════ */
-@keyframes fIn    { from{opacity:0} to{opacity:1} }
+@keyframes fIn    { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+@keyframes pageReveal { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+/* Page section reveal */
+.page-section { animation: pageReveal 0.22s cubic-bezier(0.4,0,0.2,1) both; }
+
 @keyframes sUp    { from{opacity:0;transform:translateY(20px) scale(0.97)} to{opacity:1;transform:none} }
 @keyframes sRight { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:none} }
 @keyframes spinning { to{transform:rotate(360deg)} }
 @keyframes pulse  { 0%,80%,100%{transform:scale(1);opacity:.4} 40%{transform:scale(1.3);opacity:1} }
-@keyframes slideUp{ from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+@keyframes slideUp{ from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
 
 /* ══════════════════════════════════════════
    SCROLL TO TOP
@@ -3232,7 +3277,7 @@ tr { transition: background .1s; }
 </head>
 <body>
 <!-- ══ LOADING SCREEN (Research Terminal) ══ -->
-<div id="sabnahis-loader" style="color:#e2e2e8;">
+<div id="sabnahis-loader" style="color:#e2e2e8;background:#0d0f14;position:fixed;inset:0;z-index:9999;">
   <!-- Background Layer with Refined Fluid Shader -->
   <div id="neural-void-background" style="position:absolute;inset:0;z-index:0;pointer-events:none;">
     <canvas id="rls-fluid-canvas" style="display:block;width:100%;height:100%;"></canvas>
@@ -5272,7 +5317,7 @@ const API = {
          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
      }
   */
-  async getAnnouncements(limitN = 20, user = null) {
+  async getAnnouncements(limitN = 50, user = null) {
     const cacheKey = user ? `announcements:${limitN}:${user.gradeLevel || ""}:${(user.section || "").toLowerCase()}` : `announcements:${limitN}`;
     return Cache.wrap(cacheKey, "announcements", async () => {
       try {
@@ -5314,6 +5359,8 @@ const API = {
   async createAnnouncement({ title, body, priority, authorId, authorName, durationHours, scheduledAt, targetGrades = [], targetSections = [] }) {
     if (!title.trim()) throw new Error("Title is required.");
     if (!body.trim()) throw new Error("Message is required.");
+    if (title.trim().length > 200) throw new Error("Title must be 200 characters or less.");
+    if (body.trim().length > 1000) throw new Error("Message must be 1000 characters or less.");
     const now2 = /* @__PURE__ */ new Date();
     const publishAt = scheduledAt ? new Date(scheduledAt) : now2;
     const hours = parseFloat(durationHours) || 24;
@@ -5340,6 +5387,18 @@ const API = {
   },
   async deleteAnnouncement(id) {
     await db.collection("announcements").doc(id).delete();
+    Cache.invalidate("announcements");
+  },
+  async bulkDeleteAnnouncements(ids) {
+    if (!ids || ids.length === 0) return;
+    // Firestore batch limit is 500 writes — chunk if needed
+    const CHUNK = 490;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      const batch = db.batch();
+      chunk.forEach((id) => batch.delete(db.collection("announcements").doc(id)));
+      await batch.commit();
+    }
     Cache.invalidate("announcements");
   },
   async pinAnnouncement(id, pinned) {
@@ -6804,10 +6863,13 @@ function useDnaHelix(canvasRef, flashRef) {
     // Three.js WebGL at 60fps is extremely heavy on phones. On any
     // touch-primary device we skip the 3-D scene entirely and let the
     // CSS-only fallback background handle the visual.
+    // ── Expanded mobile/low-power guard (covers Realme & budget Androids) ──
     const isMobile = window.matchMedia("(max-width: 768px)").matches ||
-      ('ontouchstart' in window && navigator.maxTouchPoints > 1);
+      window.matchMedia("(pointer: coarse)").matches ||
+      ('ontouchstart' in window && navigator.maxTouchPoints > 1) ||
+      (typeof navigator.deviceMemory === 'number' && navigator.deviceMemory < 4);
     if (isMobile) {
-      // Show a simple CSS animated canvas placeholder instead
+      // Hide canvas — CSS fallback background handles the visual
       if (canvasRef.current) {
         canvasRef.current.style.display = 'none';
       }
@@ -6821,12 +6883,20 @@ function useDnaHelix(canvasRef, flashRef) {
     let interactionStrength = 0;
     let flashTimeout;
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0c0e12);
-    const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
-    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    // ── WebGL guard: Realme/budget phones crash here even when not detected as mobile ──
+    let scene, camera, renderer;
+    try {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0c0e12);
+      camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / Math.max(canvas.clientHeight, 1), 0.1, 1000);
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'low-power' });
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
+    } catch(e) {
+      // WebGL unavailable or context lost — hide canvas, let CSS fallback show
+      if (canvas) canvas.style.display = 'none';
+      return;
+    }
 
     const dna = new THREE.Group();
     dna.rotation.x = Math.PI / 2;
@@ -7883,7 +7953,7 @@ function TeacherFeedbackSection({ study, currentUser }) {
         loadRevisions();
       }
       setShowRevHistory((v) => !v);
-    } }, "\u{1F4CB} ", showRevHistory ? "Hide" : "View", " Revision History (", (study.version || 1) - 1, " previous version", study.version > 2 ? "s" : "", ")"), showRevHistory && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, display: "flex", flexDirection: "column", gap: 8 } }, revisionsLoading ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.78rem", color: "var(--muted)" } }, "Loading\u2026") : revisions.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.78rem", color: "var(--muted)", fontStyle: "italic" } }, "No previous versions found.") : revisions.map((rev, i) => /* @__PURE__ */ React.createElement("div", { key: rev.id, style: { padding: "10px 12px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", borderLeft: "3px solid var(--gold)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.68rem", fontWeight: 700, color: "var(--gold)", textTransform: "uppercase", letterSpacing: "0.5px" } }, "Version ", rev.version), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.65rem", color: "var(--muted)" } }, fmtDate(rev.archivedAt))), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "var(--text-sm)", marginBottom: 3 } }, rev.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "var(--text-xs)", color: "var(--slate)", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, rev.abstract))))));
+    } }, "\u{1F4CB} ", showRevHistory ? "Hide" : "View", " Revision History (", (study.version || 1) - 1, " previous version", study.version > 2 ? "s" : "", ")"), showRevHistory && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, display: "flex", flexDirection: "column", gap: 8 } }, revisionsLoading ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.78rem", color: "var(--muted)" } }, "Loading\u2026") : revisions.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.78rem", color: "var(--muted)", fontStyle: "italic" } }, "No previous versions found.") : revisions.map((rev, i) => /* @__PURE__ */ React.createElement("div", { key: rev.id, style: { padding: "10px 12px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", borderLeft: "3px solid var(--gold)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.68rem", fontWeight: 700, color: "var(--gold)", textTransform: "uppercase", letterSpacing: "0.5px" } }, "Version ", rev.version), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.65rem", color: "var(--muted)" } }, fmtDate(rev.archivedAt))), /* @__PURE__ */ React.createElement(RevisionTimeline, { studyId: study.id, currentUser }), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "var(--text-sm)", marginBottom: 3 } }, rev.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "var(--text-xs)", color: "var(--slate)", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, rev.abstract))))));
   }
   const runPlagCheck = async () => {
     setPlagTeacherLoading(true);
@@ -12547,13 +12617,16 @@ function AnnouncementsPage({ currentUser }) {
   const [targetGrades, setTargetGrades] = useState([]);
   const [targetSections, setTargetSections] = useState("");
   const [now2, setNow] = useState(/* @__PURE__ */ new Date());
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
   useEffect(() => {
     const t = setInterval(() => setNow(/* @__PURE__ */ new Date()), 6e4);
     return () => clearInterval(t);
   }, []);
   const load = async () => {
     setLoading(true);
-    const data = await API.getAnnouncements(20, currentUser);
+    const data = await API.getAnnouncements(50, currentUser);
     data.sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
@@ -12596,6 +12669,29 @@ function AnnouncementsPage({ currentUser }) {
       toast.err("Failed to delete announcement.");
     }
   };
+  const toggleSelect = (id) => setSelectedIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleSelectAll = () => {
+    const visible = announcements.filter((a) => isTeacher || !a.isScheduled).map((a) => a.id);
+    if (selectedIds.size === visible.length) { setSelectedIds(new Set()); } else { setSelectedIds(new Set(visible)); }
+  };
+  const bulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Delete ${selectedIds.size} announcement${selectedIds.size !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    const ids = [...selectedIds];
+    const prev = announcements;
+    setAnnouncements((a) => a.filter((x) => !selectedIds.has(x.id)));
+    setSelectedIds(new Set());
+    setSelectMode(false);
+    setBulkDeleting(true);
+    try {
+      await API.bulkDeleteAnnouncements(ids);
+      toast.ok(`Deleted ${ids.length} announcement${ids.length !== 1 ? "s" : ""}.`);
+    } catch (e) {
+      setAnnouncements(prev);
+      toast.err("Bulk delete failed. Please try again.");
+    }
+    setBulkDeleting(false);
+  };
   const togglePin = async (id, pinned) => {
     setAnnouncements((a) => a.map((x) => x.id === id ? __spreadProps(__spreadValues({}, x), { pinned: !pinned }) : x));
     try {
@@ -12637,7 +12733,7 @@ function AnnouncementsPage({ currentUser }) {
     important: { accent: "#f59e0b", bg: "linear-gradient(135deg,#fffbeb 0%,#fefce8 100%)", bgDark: "linear-gradient(135deg,rgba(245,158,11,0.12) 0%,rgba(245,158,11,0.06) 100%)", border: "rgba(245,158,11,0.35)", icon: "\u26A0\uFE0F", label: "Important", tagBg: "#f59e0b", tagColor: "#fff" },
     normal: { accent: "#3b82f6", bg: "linear-gradient(135deg,#eff6ff 0%,#f0f9ff 100%)", bgDark: "linear-gradient(135deg,rgba(59,130,246,0.1) 0%,rgba(59,130,246,0.05) 100%)", border: "rgba(59,130,246,0.25)", icon: "\u{1F4E2}", label: "Notice", tagBg: "#3b82f6", tagColor: "#fff" }
   })[p || "normal"];
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "page-hd" }, /* @__PURE__ */ React.createElement("div", { className: "page-hd-left" }, /* @__PURE__ */ React.createElement("h2", null, "Announcements"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, announcements.length, " announcement", announcements.length !== 1 ? "s" : "", " \xB7 auto-expire after set duration")), isTeacher && /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: () => setShowForm((s) => !s) }, showForm ? "\u2715 Cancel" : "\u{1F4E2} Post Announcement")), isTeacher && showForm && /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 20, border: "1.5px solid var(--gold)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: 14, color: "var(--gold)" } }, "\u{1F4E2} New Announcement"), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Title *"), /* @__PURE__ */ React.createElement("input", { placeholder: "Announcement title\u2026", value: title, onChange: (e) => setTitle(e.target.value), autoFocus: true })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", null, "Message *"), /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: body.length > 800 ? "var(--red)" : "var(--muted)", fontSize: "0.75rem" } }, body.length, " chars")), /* @__PURE__ */ React.createElement("textarea", { placeholder: "Write your announcement here\u2026", value: body, onChange: (e) => setBody(e.target.value), style: { minHeight: 100 } })), /* @__PURE__ */ React.createElement("div", { className: "fr" }, /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Priority"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 } }, ["normal", "important", "urgent"].map((p) => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "page-hd" }, /* @__PURE__ */ React.createElement("div", { className: "page-hd-left" }, /* @__PURE__ */ React.createElement("h2", null, "Announcements"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, announcements.length, " announcement", announcements.length !== 1 ? "s" : "", " \xB7 auto-expire after set duration")), isTeacher && /* @__PURE__ */ React.createElement(React.Fragment, null, selectMode && selectedIds.size > 0 && /* @__PURE__ */ React.createElement("button", { className: "btn btn-red btn-sm", onClick: bulkDelete, disabled: bulkDeleting, style: { marginRight: 6 } }, bulkDeleting ? /* @__PURE__ */ React.createElement("span", { className: "spin" }) : "\u{1F5D1}\uFE0F Delete " + selectedIds.size), isTeacher && announcements.length > 0 && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => { setSelectMode((s) => !s); setSelectedIds(new Set()); }, style: { marginRight: 6 } }, selectMode ? "\u2715 Cancel Select" : "\u2610 Select"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: () => setShowForm((s) => !s) }, showForm ? "\u2715 Cancel" : "\u{1F4E2} Post"))), isTeacher && showForm && /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 20, border: "1.5px solid var(--gold)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: 14, color: "var(--gold)" } }, "\u{1F4E2} New Announcement"), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Title *"), /* @__PURE__ */ React.createElement("input", { placeholder: "Announcement title\u2026", value: title, onChange: (e) => setTitle(e.target.value), autoFocus: true })), /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", null, "Message *"), /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 300, color: body.length > 800 ? "var(--red)" : "var(--muted)", fontSize: "0.75rem" } }, body.length, " chars")), /* @__PURE__ */ React.createElement("textarea", { placeholder: "Write your announcement here\u2026", value: body, onChange: (e) => setBody(e.target.value), style: { minHeight: 100 } })), /* @__PURE__ */ React.createElement("div", { className: "fr" }, /* @__PURE__ */ React.createElement("div", { className: "fg" }, /* @__PURE__ */ React.createElement("label", null, "Priority"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 } }, ["normal", "important", "urgent"].map((p) => {
     const s = priorityStyle(p);
     return /* @__PURE__ */ React.createElement(
       "button",
@@ -12703,7 +12799,7 @@ function AnnouncementsPage({ currentUser }) {
       min: (/* @__PURE__ */ new Date()).toISOString().slice(0, 16),
       style: { marginTop: 4 }
     }
-  ), scheduledAt && /* @__PURE__ */ React.createElement("p", { className: "hint", style: { color: "var(--blue)" } }, "\u{1F4C5} Will be visible to students starting ", new Date(scheduledAt).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }), ".")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", marginTop: 4 } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: () => setShowForm(false) }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: submit, disabled: submitting || !title.trim() || !body.trim() }, submitting ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), scheduledAt ? "Scheduling\u2026" : "Posting\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, scheduledAt ? "\u{1F4C5} Schedule" : "Post Announcement")))), loading ? /* @__PURE__ */ React.createElement("div", { className: "empty" }, /* @__PURE__ */ React.createElement("span", { className: "spin" })) : announcements.length === 0 ? /* @__PURE__ */ React.createElement(
+  ), scheduledAt && /* @__PURE__ */ React.createElement("p", { className: "hint", style: { color: "var(--blue)" } }, "\u{1F4C5} Will be visible to students starting ", new Date(scheduledAt).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }), ".")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", marginTop: 4 } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: () => setShowForm(false) }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: submit, disabled: submitting || !title.trim() || !body.trim() }, submitting ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), scheduledAt ? "Scheduling\u2026" : "Posting\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, scheduledAt ? "\u{1F4C5} Schedule" : "Post Announcement")))), selectMode && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "var(--gold-bg)", border: "1.5px solid var(--gold)", borderRadius: "var(--radius)", marginBottom: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: selectedIds.size === announcements.filter((a) => isTeacher || !a.isScheduled).length && announcements.length > 0, onChange: toggleSelectAll, style: { width: 16, height: 16, accentColor: "var(--gold)", cursor: "pointer" } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--gold)", flex: 1 } }, selectedIds.size > 0 ? selectedIds.size + " selected" : "Select announcements to bulk delete"), selectedIds.size > 0 && /* @__PURE__ */ React.createElement("button", { className: "btn btn-red btn-sm", onClick: bulkDelete, disabled: bulkDeleting }, bulkDeleting ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin" }), " Deleting…") : "\u{1F5D1}\uFE0F Delete " + selectedIds.size), selectedIds.size > 0 && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setSelectedIds(new Set()) }, "Clear")), loading ? /* @__PURE__ */ React.createElement("div", { className: "empty" }, /* @__PURE__ */ React.createElement("span", { className: "spin" })) : announcements.length === 0 ? /* @__PURE__ */ React.createElement(
     EmptyState,
     {
       icon: "\u{1F4E2}",
@@ -12715,15 +12811,15 @@ function AnnouncementsPage({ currentUser }) {
     const s = priorityStyle(a.priority);
     const countdown = getCountdown(a.expiresAt);
     return /* @__PURE__ */ React.createElement("div", { key: a.id, style: {
-      background: "var(--surface)",
+      background: selectedIds.has(a.id) ? "var(--gold-bg)" : "var(--surface)",
       borderRadius: 12,
-      border: `1px solid ${(countdown == null ? void 0 : countdown.urgent) ? "rgba(239,68,68,0.4)" : (countdown == null ? void 0 : countdown.warn) ? "rgba(245,158,11,0.35)" : "var(--border)"}`,
+      border: `1px solid ${selectedIds.has(a.id) ? "var(--gold)" : (countdown == null ? void 0 : countdown.urgent) ? "rgba(239,68,68,0.4)" : (countdown == null ? void 0 : countdown.warn) ? "rgba(245,158,11,0.35)" : "var(--border)"}`,
       overflow: "hidden",
       boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
       display: "flex",
-      transition: "box-shadow .2s, border-color .2s",
+      transition: "box-shadow .2s, border-color .2s, background .15s",
       opacity: (countdown == null ? void 0 : countdown.urgent) ? 0.92 : 1
-    } }, /* @__PURE__ */ React.createElement("div", { style: { width: 5, flexShrink: 0, background: s.accent } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, background: s.tagBg, color: s.tagColor, fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.5px", textTransform: "uppercase", padding: "3px 10px", borderRadius: 99 } }, s.icon, " ", s.label), a.pinned && /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, background: "var(--purple-light)", color: "var(--purple)", fontSize: "0.68rem", fontWeight: 600, padding: "3px 9px", borderRadius: 99 } }, "\u{1F4CC} Pinned"), a.isScheduled && isTeacher && /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, background: "var(--blue-light)", color: "var(--blue)", fontSize: "0.68rem", fontWeight: 600, padding: "3px 9px", borderRadius: 99 } }, "\u{1F552} Scheduled \xB7 ", new Date(a.scheduledAt).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })), ((_a2 = a.targetGrades) == null ? void 0 : _a2.length) > 0 || ((_b = a.targetSections) == null ? void 0 : _b.length) > 0 ? /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, background: "var(--blue-light)", color: "var(--blue)", fontSize: "0.68rem", fontWeight: 600, padding: "3px 9px", borderRadius: 99 } }, "\u{1F3AF} ", [((_c = a.targetGrades) == null ? void 0 : _c.length) ? `Gr. ${a.targetGrades.join("/")}` : null, ((_d = a.targetSections) == null ? void 0 : _d.length) ? a.targetSections.map((s2) => s2.charAt(0).toUpperCase() + s2.slice(1)).join(", ") : null].filter(Boolean).join(" \xB7 ")) : /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, background: "var(--green-light)", color: "var(--green)", fontSize: "0.68rem", fontWeight: 600, padding: "3px 9px", borderRadius: 99 } }, "\u{1F310} All Students"), countdown && /* @__PURE__ */ React.createElement("span", { style: {
+    } }, selectMode && isTeacher && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", paddingLeft: 12, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: selectedIds.has(a.id), onChange: () => toggleSelect(a.id), style: { width: 16, height: 16, accentColor: "var(--gold)", cursor: "pointer" } })), /* @__PURE__ */ React.createElement("div", { style: { width: 5, flexShrink: 0, background: s.accent } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, padding: "16px 18px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, background: s.tagBg, color: s.tagColor, fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.5px", textTransform: "uppercase", padding: "3px 10px", borderRadius: 99 } }, s.icon, " ", s.label), a.pinned && /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, background: "var(--purple-light)", color: "var(--purple)", fontSize: "0.68rem", fontWeight: 600, padding: "3px 9px", borderRadius: 99 } }, "\u{1F4CC} Pinned"), a.isScheduled && isTeacher && /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, background: "var(--blue-light)", color: "var(--blue)", fontSize: "0.68rem", fontWeight: 600, padding: "3px 9px", borderRadius: 99 } }, "\u{1F552} Scheduled \xB7 ", new Date(a.scheduledAt).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })), ((_a2 = a.targetGrades) == null ? void 0 : _a2.length) > 0 || ((_b = a.targetSections) == null ? void 0 : _b.length) > 0 ? /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, background: "var(--blue-light)", color: "var(--blue)", fontSize: "0.68rem", fontWeight: 600, padding: "3px 9px", borderRadius: 99 } }, "\u{1F3AF} ", [((_c = a.targetGrades) == null ? void 0 : _c.length) ? `Gr. ${a.targetGrades.join("/")}` : null, ((_d = a.targetSections) == null ? void 0 : _d.length) ? a.targetSections.map((s2) => s2.charAt(0).toUpperCase() + s2.slice(1)).join(", ") : null].filter(Boolean).join(" \xB7 ")) : /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, background: "var(--green-light)", color: "var(--green)", fontSize: "0.68rem", fontWeight: 600, padding: "3px 9px", borderRadius: 99 } }, "\u{1F310} All Students"), countdown && /* @__PURE__ */ React.createElement("span", { style: {
       display: "inline-flex",
       alignItems: "center",
       gap: 4,
@@ -12940,6 +13036,8 @@ const Sidebar = memo(function Sidebar2({ currentUser, activeTab, setActiveTab, o
     { id: "repository", label: "Repository", icon: /* @__PURE__ */ React.createElement(Ico.search, null) },
     { id: "recognized", label: "Recognized Studies", icon: /* @__PURE__ */ React.createElement(Ico.award, null) },
     { id: "announcements", label: "Announcements", icon: /* @__PURE__ */ React.createElement(Ico.bell, null) },
+    { id: "submission-tracker", label: "Submission Tracker", icon: /* @__PURE__ */ React.createElement(Ico.chk, null), "data-tour": "nav-submission-tracker" },
+    { id: "feedback-inbox", label: "Feedback Inbox", icon: /* @__PURE__ */ React.createElement(Ico.search, null), "data-tour": "nav-feedback-inbox" },
     { id: "chatbot", label: "AI Assistant", icon: /* @__PURE__ */ React.createElement(Ico.bot, null) }
   ];
   const studentNav = [
@@ -13248,7 +13346,7 @@ function AnnouncementPopup({ currentUser }) {
     let active = true;
     (async () => {
       try {
-        const data = await API.getAnnouncements(20, currentUser);
+        const data = await API.getAnnouncements(50, currentUser);
         let dismissed = [];
         try {
           dismissed = JSON.parse(localStorage.getItem(ANNOUNCE_DISMISS_KEY) || "[]");
@@ -13649,246 +13747,150 @@ function StatTour({ isTeacher, onFinish }) {
 function buildTourSteps(isAdmin) {
   const shared = [
     {
-      id: "collapse",
-      target: '[data-tour="sidebar-collapse"]',
-      area: "sidebar",
-      placement: "right",
-      eyebrow: "Sidebar tip",
-      title: "Need more screen space?",
-      body: "Click this to collapse the sidebar into icon-only mode. All your navigation is still one click away \u2014 just hover over an icon to see its label.",
-      skipIf: () => window.innerWidth <= 768
-    },
-    {
-      id: "theme",
-      target: '[data-tour="sidebar-theme"]',
-      area: "sidebar",
-      placement: "right",
-      eyebrow: "Sidebar tip",
-      title: "Light or Dark \u2014 your choice",
-      body: "Toggle between light and dark mode anytime using these buttons. Your preference is saved automatically so it stays the same next time you log in."
-    },
-    {
       id: "search",
       target: '[data-tour="global-search"]',
       area: "topbar",
       placement: "bottom",
-      eyebrow: "Topbar \u2014 Global Search",
-      title: "Find anything, fast",
-      body: 'Use the search bar to look up any research study, author name, or keyword across the entire portal. Pro tip: press the "/" key anywhere on the page to jump straight into the search box.'
-    },
-    {
-      id: "account",
-      target: '[data-tour="account-menu"]',
-      area: "topbar",
-      placement: "bottom",
-      eyebrow: "Topbar \u2014 Account Menu",
-      title: "Your Account",
-      body: "Click your avatar to access your profile, change settings like your theme, or sign out. You can also restart this tour anytime from here."
+      eyebrow: "Quick tip",
+      title: "Find anything fast",
+      body: 'Search any study, author, or keyword here. Shortcut: press "/" anywhere to jump into the search box.'
     },
     {
       id: "done",
       center: true,
-      title: "You're all set! \u{1F389}",
-      body: "That's the full tour! Every feature is just a click away from the sidebar. Explore at your own pace \u2014 and remember, you can restart this tour anytime from your account menu in the top right."
+      title: "You\u2019re all set! 🎉",
+      body: "That covers the essentials. Explore the sidebar for everything else \u2014 and hit \u25b6\ufe0f Tour in the top bar anytime to replay this."
     }
   ];
+
   if (isAdmin) {
     return [
       {
         id: "welcome",
         center: true,
-        title: "Welcome, Teacher! \u{1F44B}",
-        body: "This is your E-Tuklas STE Teacher Panel. Let's walk through every section so you know exactly what each one does. Use the Next button or arrow keys to navigate."
-      },
-      {
-        id: "nav-dashboard",
-        target: '[data-tour="nav-dashboard"]',
-        area: "sidebar",
-        placement: "right",
-        eyebrow: "Teacher Panel \xB7 Dashboard",
-        title: "\u{1F3E0} Dashboard",
-        body: "Your command center. See a real-time overview of the portal \u2014 how many students are registered, how many studies have been submitted, recent activity, and pending approvals waiting for your attention."
+        eyebrow: "Teacher Panel",
+        title: "Welcome, Teacher! 👋",
+        body: "Quick tour of the 6 things you\u2019ll use most. Takes about 90 seconds. Hit Next or press \u2192 to go."
       },
       {
         id: "nav-users",
         target: '[data-tour="nav-users"]',
         area: "sidebar",
         placement: "right",
-        eyebrow: "Teacher Panel \xB7 Users",
-        title: "\u{1F465} Users",
-        body: "Manage all student accounts here. When a student registers, they appear here as pending \u2014 you approve or reject them before they can access the portal. You can also assign or update their grade level and section."
+        eyebrow: "Step 1 of 6",
+        title: "👥 Users \u2014 Approve students first",
+        body: "New students appear here as pending. Approve them before they can access the portal. You can also assign their grade level and section from this page."
       },
       {
         id: "nav-studies-admin",
         target: '[data-tour="nav-studies-admin"]',
         area: "sidebar",
         placement: "right",
-        eyebrow: "Teacher Panel \xB7 All Studies",
-        title: "\u{1F4DA} All Studies",
-        body: "See every research study submitted by every student across all grades and sections. You can review the full paper, leave feedback, assign a grade, request revisions, or remove a study if needed."
+        eyebrow: "Step 2 of 6",
+        title: "📚 All Studies \u2014 Review & grade",
+        body: "Every submitted study is here. Open one to read it, leave feedback, assign a grade, or request revisions. Students get notified automatically."
       },
       {
-        id: "nav-categories",
-        target: '[data-tour="nav-categories"]',
+        id: "approval-workflow",
+        target: '[data-tour="nav-approval-workflow"]',
         area: "sidebar",
         placement: "right",
-        eyebrow: "Teacher Panel \xB7 Categories",
-        title: "\u{1F3F7}\uFE0F Categories",
-        body: "Create and manage the subject categories that students use to tag their research \u2014 like Science, Technology, or Mathematics. Keeping these organized helps students find related studies faster."
+        eyebrow: "Step 3 of 6",
+        title: "\u2705 Approval Queue \u2014 Fast-track reviews",
+        body: "All pending studies in one place \u2014 bulk approve or reject without opening each one. Saves time when a whole class submits at once."
       },
       {
-        id: "nav-analytics",
-        target: '[data-tour="nav-analytics"]',
+        id: "submission-tracker",
+        target: '[data-tour="nav-submission-tracker"]',
         area: "sidebar",
         placement: "right",
-        eyebrow: "Teacher Panel \xB7 Analytics",
-        title: "\u{1F4CA} Analytics",
-        body: "Track class-wide engagement with charts and stats \u2014 which studies are most viewed, which students are most active, download trends, and activity over time. Great for spotting who needs encouragement."
-      },
-      {
-        id: "nav-grade-overview",
-        target: '[data-tour="nav-grade-overview"]',
-        area: "sidebar",
-        placement: "right",
-        eyebrow: "Teacher Panel \xB7 Grade Overview",
-        title: "\u{1F393} Grade Overview",
-        body: "A consolidated view of all the grades you've given \u2014 organized by section. Quickly see which students have been graded, what scores they received, and who still hasn't submitted or been reviewed."
-      },
-      {
-        id: "nav-audit-log",
-        target: '[data-tour="nav-audit-log"]',
-        area: "sidebar",
-        placement: "right",
-        eyebrow: "Teacher Panel \xB7 Audit Log",
-        title: "\u{1F50D} Audit Log",
-        body: "A timestamped record of all important actions taken across the portal \u2014 approvals, deletions, grade changes, and more. Useful for accountability and keeping track of what happened and when."
-      },
-      {
-        id: "nav-repository",
-        target: '[data-tour="nav-repository"]',
-        area: "sidebar",
-        placement: "right",
-        eyebrow: "Teacher Panel \xB7 Repository",
-        title: "\u{1F50E} Repository",
-        body: "Browse the full research repository exactly the way your students do. Search by keyword, filter by category or grade level, and read any published study. Great for spotting research gaps or finding exemplary work."
-      },
-      {
-        id: "nav-recognized",
-        target: '[data-tour="nav-recognized"]',
-        area: "sidebar",
-        placement: "right",
-        eyebrow: "Teacher Panel \xB7 Recognized Studies",
-        title: "\u{1F3C6} Recognized Studies",
-        body: "Spotlight the best student work here. Studies you mark as recognized get featured in a dedicated section visible to all students \u2014 a great way to motivate and celebrate outstanding research."
+        eyebrow: "Step 4 of 6 \u2014 New",
+        title: "📋 Submission Tracker",
+        body: "See every student\u2019s submission status in one table \u2014 No submission, Draft, Submitted, Needs Revision, or Graded. Filter by section or grade, then export to CSV."
       },
       {
         id: "nav-announcements",
         target: '[data-tour="nav-announcements"]',
         area: "sidebar",
         placement: "right",
-        eyebrow: "Teacher Panel \xB7 Announcements",
-        title: "\u{1F4E2} Announcements",
-        body: "Post notices, reminders, or updates for your students. You can set a priority level (Normal, Important, or Urgent), schedule it to appear later, and target specific grade levels or sections \u2014 so only the right students see it."
+        eyebrow: "Step 5 of 6",
+        title: "📢 Announcements \u2014 Bulk delete added",
+        body: "Post notices for your students with priority levels and section targeting. Use Select mode to bulk-delete multiple announcements at once."
       },
       {
-        id: "nav-chatbot",
-        target: '[data-tour="nav-chatbot"]',
+        id: "feedback-inbox",
+        target: '[data-tour="nav-feedback-inbox"]',
         area: "sidebar",
         placement: "right",
-        eyebrow: "Teacher Panel \xB7 AI Assistant",
-        title: "\u{1F916} AI Assistant",
-        body: "An AI research assistant that knows your portal's repository. Ask it to summarize studies, identify research gaps, suggest topics, or answer questions about the submitted work. Powered by Claude."
+        eyebrow: "Step 6 of 6 \u2014 New",
+        title: "💬 Feedback Inbox",
+        body: "Students can report bugs or ask questions using the Feedback button in the top bar. Their messages land here \u2014 mark them In Progress or Resolved as you go."
       },
       {
         id: "notif",
         target: '[data-tour="study-notif-bell"]',
         area: "topbar",
         placement: "bottom",
-        eyebrow: "Topbar \u2014 Notifications",
-        title: "\u{1F514} Study Notifications",
-        body: "This bell lights up whenever a student submits a new study for your review. Click it to see what's waiting \u2014 you'll get a quick preview of the title and author so you can jump straight to it."
+        eyebrow: "Topbar",
+        title: "🔔 Study Notifications",
+        body: "Lights up when a student submits a new study. Click to see a preview and jump straight to the review."
       },
       ...shared
     ];
   }
+
   return [
     {
       id: "welcome",
       center: true,
-      title: "Welcome to E-Tuklas STE Portal \u{1F44B}",
-      body: "This is your student research portal. Let's walk through every section so you know exactly what each one does. Use the Next button or arrow keys to navigate."
-    },
-    {
-      id: "nav-dashboard",
-      target: '[data-tour="nav-dashboard"]',
-      area: "sidebar",
-      placement: "right",
-      eyebrow: "Navigation \xB7 Dashboard",
-      title: "\u{1F3E0} Dashboard",
-      body: "Your home base. Every time you log in, this is where you start \u2014 see your recent activity, your current reading streak, quick links to studies you've been reading, and a summary of your submissions."
-    },
-    {
-      id: "nav-my-stats",
-      target: '[data-tour="nav-my-stats"]',
-      area: "sidebar",
-      placement: "right",
-      eyebrow: "Navigation \xB7 My Stats",
-      title: "\u{1F4C8} My Stats",
-      body: "Track your personal progress here. See how many studies you've read, your reading streak (keep it going!), which badges you've earned, and a chart of your activity over time. The more you read, the more badges you unlock."
+      eyebrow: "Student Portal",
+      title: "Welcome to E-Tuklas! 👋",
+      body: "Quick tour of the 4 things you\u2019ll use most. Takes less than a minute \u2014 hit Next to start."
     },
     {
       id: "nav-repository",
       target: '[data-tour="nav-repository"]',
       area: "sidebar",
       placement: "right",
-      eyebrow: "Navigation \xB7 Browse Studies",
-      title: "\u{1F4D6} Browse Studies",
-      body: "Explore the full research repository \u2014 all studies submitted by students across every grade and section. Search by keyword, filter by category, and open any study to read it in full. You can also cite, download, or leave a review."
-    },
-    {
-      id: "nav-offline-reading",
-      target: '[data-tour="nav-offline-reading"]',
-      area: "sidebar",
-      placement: "right",
-      eyebrow: "Navigation \xB7 Offline Reading",
-      title: "\u{1F4E5} Offline Reading",
-      body: "Save any study to your device so you can read it even without an internet connection. Open a study, tap Save Offline, and it will appear here \u2014 perfect for reading on the go or in areas with no signal."
-    },
-    {
-      id: "nav-recognized",
-      target: '[data-tour="nav-recognized"]',
-      area: "sidebar",
-      placement: "right",
-      eyebrow: "Navigation \xB7 Recognized Studies",
-      title: "\u{1F3C6} Recognized Studies",
-      body: "The best of the best \u2014 studies that your teachers have handpicked and recognized as outstanding. Check here for inspiration and to see what excellent research looks like."
+      eyebrow: "Step 1 of 4",
+      title: "📖 Browse Studies",
+      body: "Read research studies submitted by students across your school. Search by keyword, filter by subject, and open any study to read, cite, or download it."
     },
     {
       id: "nav-announcements",
       target: '[data-tour="nav-announcements"]',
       area: "sidebar",
       placement: "right",
-      eyebrow: "Navigation \xB7 Announcements",
-      title: "\u{1F4E2} Announcements",
-      body: "Stay updated with notices and reminders from your teachers. Urgent or important announcements will also pop up automatically when you log in so you never miss anything critical."
+      eyebrow: "Step 2 of 4",
+      title: "📢 Announcements",
+      body: "Check here for notices from your teacher \u2014 deadlines, reminders, and updates. Urgent announcements pop up automatically when you log in."
+    },
+    {
+      id: "nav-my-stats",
+      target: '[data-tour="nav-my-stats"]',
+      area: "sidebar",
+      placement: "right",
+      eyebrow: "Step 3 of 4",
+      title: "📈 My Stats \u2014 Track your progress",
+      body: "See your reading streak, badges earned, and study history. The more you read, the more badges you unlock. Keep your streak alive!"
     },
     {
       id: "nav-chatbot",
       target: '[data-tour="nav-chatbot"]',
       area: "sidebar",
       placement: "right",
-      eyebrow: "Navigation \xB7 AI Assistant",
-      title: "\u{1F916} AI Assistant",
-      body: "Your personal AI research assistant. Ask it anything \u2014 summarize a study, find research gaps, brainstorm topics, or get help understanding a paper. It knows the entire repository and can guide your research process."
+      eyebrow: "Step 4 of 4",
+      title: "🤖 AI Assistant",
+      body: "Stuck on your research? Ask the AI anything \u2014 summarize papers, find gaps in studies, or brainstorm your topic. It knows the entire research repository."
     },
     {
       id: "notif",
       target: '[data-tour="user-notif-bell"]',
       area: "topbar",
       placement: "bottom",
-      eyebrow: "Topbar \u2014 Notifications",
-      title: "\u{1F514} Notifications",
-      body: "This bell notifies you about everything important \u2014 when your teacher grades your study, requests a revision, or when a new announcement is posted just for your class. Always check here first when you log in."
+      eyebrow: "Topbar",
+      title: "🔔 Notifications",
+      body: "Get notified when your teacher grades your study, requests a revision, or posts an announcement for your class."
     },
     ...shared
   ];
@@ -14193,7 +14195,7 @@ function App() {
       }
     };
   }, []);
-  const titles = { dashboard: "Dashboard", users: "User Management", analytics: "Class Analytics", "grade-overview": "Grade Overview", announcements: "Announcements", "studies-admin": "Manage Studies", categories: "Manage Categories", "audit-log": "Audit Log", repository: "Research Repository", chatbot: "AI Research Assistant", recognized: "Recognized Studies", "my-stats": "My Stats", "checklist": "Student Checklist", "stat-analysis": "Statistical Analysis", "teacher-analytics": "Teacher Dashboard", "approval-workflow": "Approval Queue", "reading-progress": "Reading Progress", "notif-center": "Notifications", "shop": "Token Shop", "shop-admin": "Shop Management", "shop-log": "Redemption Log" };
+  const titles = { dashboard: "Dashboard", users: "User Management", analytics: "Class Analytics", "grade-overview": "Grade Overview", announcements: "Announcements", "studies-admin": "Manage Studies", categories: "Manage Categories", "audit-log": "Audit Log", repository: "Research Repository", chatbot: "AI Research Assistant", recognized: "Recognized Studies", "my-stats": "My Stats", "checklist": "Student Checklist", "stat-analysis": "Statistical Analysis", "teacher-analytics": "Teacher Dashboard", "approval-workflow": "Approval Queue", "submission-tracker": "Submission Tracker", "feedback-inbox": "Feedback Inbox", "reading-progress": "Reading Progress", "notif-center": "Notifications", "shop": "Token Shop", "shop-admin": "Shop Management", "shop-log": "Redemption Log" };
   if (!authChecked || !loaderDone) {
     if (authChecked && !loaderDone) {
       if (typeof window.sabnahisLoaderDone === "function") {
@@ -14278,6 +14280,10 @@ function App() {
         return isAdmin ? /* @__PURE__ */ React.createElement(TeacherAnalyticsDashboard, { currentUser }) : null;
       case "approval-workflow":
         return isAdmin ? /* @__PURE__ */ React.createElement(ApprovalWorkflowPage, { currentUser }) : null;
+      case "submission-tracker":
+        return isAdmin ? /* @__PURE__ */ React.createElement(SubmissionTrackerPage, { currentUser }) : null;
+      case "feedback-inbox":
+        return isAdmin ? /* @__PURE__ */ React.createElement(AdminFeedbackPage, { currentUser }) : null;
       default:
         return null;
     }
@@ -14306,7 +14312,7 @@ function App() {
   } }), /* @__PURE__ */ React.createElement("span", { className: `badge${isAdmin ? " badge-teacher" : " badge-appr"}` }, isAdmin ? "\u2699 Teacher" : "\u{1F393} Student"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginLeft: "auto", alignItems: "center" } }, !isAdmin && /* @__PURE__ */ React.createElement(StreakPill, { currentUser }), !isAdmin && /* @__PURE__ */ React.createElement(BadgesPill, { currentUser }), isAdmin && /* @__PURE__ */ React.createElement(AdminNotifBell, { currentUser, count: studyNotifCount, onCountChange: setStudyNotifCount }), /* @__PURE__ */ React.createElement(UserNotifBell, { currentUser, count: userNotifCount, onCountChange: setUserNotifCount, onOpenStudy: (s) => {
     trackRecentlyViewed(s);
     setGlobalSelectedStudy(s);
-  } }), /* @__PURE__ */ React.createElement("button", { className: "topbar-theme-toggle", onClick: () => theme !== "light" && toggleTheme(), style: theme === "light" ? { borderColor: "var(--gold)", color: "var(--gold)", background: "var(--gold-bg)", fontWeight: 600 } : {}, "aria-pressed": theme === "light" }, "\u2600 Light"), /* @__PURE__ */ React.createElement("button", { className: "topbar-theme-toggle", onClick: () => theme !== "dark" && toggleTheme(), style: theme === "dark" ? { borderColor: "var(--gold)", color: "var(--gold)", background: "var(--gold-bg)", fontWeight: 600 } : {}, "aria-pressed": theme === "dark" }, "\u263E Dark"), /* @__PURE__ */ React.createElement("button", { className: "topbar-theme-toggle", title: "Start the guided tour", onClick: startTour, style: { borderColor: "var(--teal)", color: "var(--teal)", background: "var(--teal-light)" } }, "\u{1F5FA} Tour"), /* @__PURE__ */ React.createElement(TopbarAccount, { currentUser, isAdmin, onProfile: () => setAccountModal("profile"), onSettings: () => setAccountModal("settings"), onStartTour: startTour, onLogout: async () => {
+  } }), /* @__PURE__ */ React.createElement("button", { className: "topbar-theme-toggle", onClick: () => theme !== "light" && toggleTheme(), style: theme === "light" ? { borderColor: "var(--gold)", color: "var(--gold)", background: "var(--gold-bg)", fontWeight: 600 } : {}, "aria-pressed": theme === "light" }, "\u2600 Light"), /* @__PURE__ */ React.createElement("button", { className: "topbar-theme-toggle", onClick: () => theme !== "dark" && toggleTheme(), style: theme === "dark" ? { borderColor: "var(--gold)", color: "var(--gold)", background: "var(--gold-bg)", fontWeight: 600 } : {}, "aria-pressed": theme === "dark" }, "\u263E Dark"), /* @__PURE__ */ React.createElement("button", { className: "topbar-theme-toggle", title: "Take the guided tour of E-Tuklas", onClick: startTour, style: { borderColor: "var(--teal)", color: "var(--teal)", background: "var(--teal-light)", fontWeight: 600 } }, "\u25B6\uFE0F Tour"), /* @__PURE__ */ React.createElement(FeedbackButton, { currentUser, inline: true }), /* @__PURE__ */ React.createElement(TopbarAccount, { currentUser, isAdmin, onProfile: () => setAccountModal("profile"), onSettings: () => setAccountModal("settings"), onStartTour: startTour, onLogout: async () => {
     await API.logout();
     setCurrentUser(null);
     setActiveTab("dashboard");
@@ -14783,6 +14789,334 @@ function ApprovalWorkflowPage({ currentUser }) {
         )
       ))
     )
+  );
+}
+
+
+// ══════════════════════════════════════════
+// FEATURE 1: SUBMISSION TRACKER
+// ══════════════════════════════════════════
+function SubmissionTrackerPage({ currentUser }) {
+  const [students, setStudents] = React.useState([]);
+  const [studies, setStudies] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [filterGrade, setFilterGrade] = React.useState("");
+  const [filterSection, setFilterSection] = React.useState("");
+  const [filterStatus, setFilterStatus] = React.useState("");
+  const [search, setSearch] = React.useState("");
+
+  React.useEffect(() => {
+    Promise.all([
+      API.getUsers({ role: "student" }),
+      db.collection("studies").get().then(s => s.docs.map(d => ({ id: d.id, ...d.data() })))
+    ]).then(([s, st]) => { setStudents(s); setStudies(st); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
+  const grades = [...new Set(students.map(s => s.gradeLevel).filter(Boolean))].sort();
+  const sections = [...new Set(students.filter(s => !filterGrade || s.gradeLevel === filterGrade).map(s => s.section).filter(Boolean))].sort();
+
+  const statusOf = (student) => {
+    const ss = studies.filter(s => s.uploadedBy === student.id || (s.coAuthors || []).some(c => c.userId === student.id));
+    if (!ss.length) return "none";
+    if (ss.some(s => s.status === "active" && s.teacherGrade)) return "graded";
+    if (ss.some(s => s.status === "active")) return "submitted";
+    if (ss.some(s => s.revisionStatus === "revision_requested")) return "revision";
+    if (ss.some(s => s.status === "draft")) return "draft";
+    return "submitted";
+  };
+
+  const STATUS_META = {
+    none:     { label: "No Submission", color: "var(--red)",    bg: "var(--red-light)"    },
+    draft:    { label: "Draft",         color: "var(--muted)",  bg: "var(--surface)"      },
+    submitted:{ label: "Submitted",     color: "var(--teal)",   bg: "var(--teal-light)"   },
+    revision: { label: "Needs Revision",color: "var(--gold)",   bg: "var(--gold-bg)"      },
+    graded:   { label: "Graded",        color: "var(--green)",  bg: "var(--green-light)"  },
+  };
+
+  const filtered = students.filter(s => {
+    if (filterGrade && s.gradeLevel !== filterGrade) return false;
+    if (filterSection && s.section !== filterSection) return false;
+    if (filterStatus && statusOf(s) !== filterStatus) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return (s.name||"").toLowerCase().includes(q) || (s.email||"").toLowerCase().includes(q);
+    }
+    return true;
+  }).sort((a,b) => (a.name||"").localeCompare(b.name||""));
+
+  const counts = Object.keys(STATUS_META).reduce((acc, k) => { acc[k] = students.filter(s => statusOf(s) === k).length; return acc; }, {});
+
+  const exportCSV = () => {
+    const rows = [["Name","Email","Grade","Section","Status","Study Count","Last Active"]];
+    filtered.forEach(s => {
+      const st = statusOf(s);
+      const sc = studies.filter(x => x.uploadedBy === s.id).length;
+      rows.push([s.name||"", s.email||"", s.gradeLevel||"", s.section||"", STATUS_META[st].label, sc, s.lastLogin ? new Date(s.lastLogin).toLocaleDateString("en-PH") : "Never"]);
+    });
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const a = document.createElement("a"); a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+    a.download = `submission-tracker-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  };
+
+  if (loading) return React.createElement("div", { className: "empty" }, React.createElement("span", { className: "spin" }));
+
+  return React.createElement("div", { style: { padding: "clamp(16px,4vw,28px)", maxWidth: 1100 } },
+    React.createElement("div", { className: "page-hd" },
+      React.createElement("div", null,
+        React.createElement("h1", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-xl)", margin: 0 } }, "Submission Tracker"),
+        React.createElement("p", { style: { color: "var(--muted)", fontSize: "var(--text-sm)", marginTop: 4 } }, students.length + " students · " + filtered.length + " shown")
+      ),
+      React.createElement("button", { className: "btn btn-ol btn-sm", onClick: exportCSV }, "⬇ Export CSV")
+    ),
+    // Summary pills
+    React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 } },
+      Object.entries(STATUS_META).map(([k, m]) => React.createElement("div", { key: k,
+        style: { padding: "8px 14px", borderRadius: 99, background: m.bg, border: "1.5px solid " + m.color, cursor: "pointer", opacity: filterStatus === k ? 1 : filterStatus ? 0.55 : 1, transition: "all .15s" },
+        onClick: () => setFilterStatus(filterStatus === k ? "" : k) },
+        React.createElement("span", { style: { fontWeight: 700, fontSize: "var(--text-sm)", color: m.color } }, counts[k]),
+        React.createElement("span", { style: { fontSize: "var(--text-xs)", color: m.color, marginLeft: 6 } }, m.label)
+      ))
+    ),
+    // Filters
+    React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 } },
+      React.createElement("input", { className: "sb", placeholder: "Search student…", value: search, onChange: e => setSearch(e.target.value), style: { flex: 1, minWidth: 180 } }),
+      React.createElement("select", { value: filterGrade, onChange: e => { setFilterGrade(e.target.value); setFilterSection(""); }, style: { width: "auto" } },
+        React.createElement("option", { value: "" }, "All Grades"),
+        grades.map(g => React.createElement("option", { key: g, value: g }, "Grade " + g))
+      ),
+      React.createElement("select", { value: filterSection, onChange: e => setFilterSection(e.target.value), style: { width: "auto" } },
+        React.createElement("option", { value: "" }, "All Sections"),
+        sections.map(s => React.createElement("option", { key: s, value: s }, s))
+      )
+    ),
+    // Table
+    React.createElement("div", { style: { overflowX: "auto" } },
+      React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" } },
+        React.createElement("thead", null,
+          React.createElement("tr", { style: { background: "var(--surface)", borderBottom: "2px solid var(--border)" } },
+            ["Student","Grade","Section","Status","Studies","Last Active"].map(h =>
+              React.createElement("th", { key: h, style: { padding: "10px 14px", textAlign: "left", fontWeight: 700, fontSize: "var(--text-xs)", textTransform: "uppercase", letterSpacing: "0.6px", color: "var(--muted)", whiteSpace: "nowrap" } }, h)
+            )
+          )
+        ),
+        React.createElement("tbody", null,
+          filtered.length === 0
+            ? React.createElement("tr", null, React.createElement("td", { colSpan: 6, style: { textAlign: "center", padding: "40px 0", color: "var(--muted)" } }, "No students match your filters."))
+            : filtered.map((s, i) => {
+              const st = statusOf(s);
+              const m = STATUS_META[st];
+              const sc = studies.filter(x => x.uploadedBy === s.id).length;
+              return React.createElement("tr", { key: s.id, style: { borderBottom: "1px solid var(--border)", background: i % 2 === 0 ? "transparent" : "var(--surface)", transition: "background .1s" } },
+                React.createElement("td", { style: { padding: "11px 14px" } },
+                  React.createElement("div", { style: { fontWeight: 600, color: "var(--ink)" } }, s.name || "—"),
+                  React.createElement("div", { style: { fontSize: "var(--text-xs)", color: "var(--muted)" } }, s.email || "")
+                ),
+                React.createElement("td", { style: { padding: "11px 14px", color: "var(--ink-3)" } }, s.gradeLevel || "—"),
+                React.createElement("td", { style: { padding: "11px 14px", color: "var(--ink-3)" } }, s.section || "—"),
+                React.createElement("td", { style: { padding: "11px 14px" } },
+                  React.createElement("span", { style: { display: "inline-block", padding: "3px 10px", borderRadius: 99, fontWeight: 700, fontSize: "var(--text-xs)", background: m.bg, color: m.color, border: "1px solid " + m.color } }, m.label)
+                ),
+                React.createElement("td", { style: { padding: "11px 14px", textAlign: "center", color: "var(--ink-3)", fontWeight: sc > 0 ? 700 : 400 } }, sc || "—"),
+                React.createElement("td", { style: { padding: "11px 14px", color: "var(--muted)", fontSize: "var(--text-xs)" } }, s.lastLogin ? new Date(s.lastLogin).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "Never")
+              );
+            })
+        )
+      )
+    )
+  );
+}
+
+// ══════════════════════════════════════════
+// FEATURE 2: REVISION TIMELINE VIEW
+// Enhances study detail — adds threaded revision history
+// ══════════════════════════════════════════
+function RevisionTimeline({ studyId, currentUser }) {
+  const [revisions, setRevisions] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [open, setOpen] = React.useState(false);
+
+  const load = () => {
+    setLoading(true);
+    db.collection("studies").doc(studyId).collection("revisions").orderBy("archivedAt", "desc").get()
+      .then(s => { setRevisions(s.docs.map(d => ({ id: d.id, ...d.data() }))); setLoading(false); })
+      .catch(() => setLoading(false));
+  };
+
+  React.useEffect(() => { if (open) load(); }, [open, studyId]);
+
+  if (!open) return React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setOpen(true), style: { marginTop: 10 } }, "📋 View Revision History");
+
+  return React.createElement("div", { style: { marginTop: 14, border: "1.5px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" } },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "var(--surface)", borderBottom: "1px solid var(--border)" } },
+      React.createElement("span", { style: { fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink)" } }, "📋 Revision History"),
+      React.createElement("button", { style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "1rem" }, onClick: () => setOpen(false) }, "✕")
+    ),
+    loading
+      ? React.createElement("div", { style: { padding: 24, textAlign: "center" } }, React.createElement("span", { className: "spin" }))
+      : revisions.length === 0
+        ? React.createElement("div", { style: { padding: 24, textAlign: "center", color: "var(--muted)", fontSize: "var(--text-sm)" } }, "No revision history yet.")
+        : React.createElement("div", { style: { padding: "14px 16px", display: "flex", flexDirection: "column", gap: 14 } },
+            revisions.map((r, i) =>
+              React.createElement("div", { key: r.id, style: { display: "flex", gap: 12, alignItems: "flex-start" } },
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 } },
+                  React.createElement("div", { style: { width: 28, height: 28, borderRadius: "50%", background: "var(--gold-bg)", border: "2px solid var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 700, color: "var(--gold)" } }, "v" + (r.version || (revisions.length - i))),
+                  i < revisions.length - 1 && React.createElement("div", { style: { width: 2, flex: 1, minHeight: 20, background: "var(--border)", margin: "4px 0" } })
+                ),
+                React.createElement("div", { style: { flex: 1, paddingBottom: 4 } },
+                  React.createElement("div", { style: { fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink)" } }, r.title || "Untitled"),
+                  r.archivedAt && React.createElement("div", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", marginTop: 2 } }, "Archived " + new Date(r.archivedAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) + (r.archivedBy ? " by " + r.archivedBy : "")),
+                  r.abstract && React.createElement("div", { style: { marginTop: 6, fontSize: "var(--text-xs)", color: "var(--slate)", lineHeight: 1.55, background: "var(--surface)", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)" } }, r.abstract.length > 200 ? r.abstract.slice(0, 200) + "…" : r.abstract)
+                )
+              )
+            )
+          )
+  );
+}
+
+// ══════════════════════════════════════════
+// FEATURE 3: STUDENT FEEDBACK BUTTON + ADMIN INBOX
+// ══════════════════════════════════════════
+const FEEDBACK_CATS = [
+  { id: "bug",        label: "🐛 Bug / Something broken", color: "var(--red)"    },
+  { id: "question",   label: "❓ Question / Confused",    color: "var(--blue)"   },
+  { id: "suggestion", label: "💡 Suggestion / Idea",      color: "var(--teal)"   },
+  { id: "other",      label: "💬 Other",                  color: "var(--muted)"  },
+];
+
+function FeedbackButton({ currentUser, inline = false }) {
+  const [open, setOpen] = React.useState(false);
+  const [cat, setCat] = React.useState("");
+  const [msg, setMsg] = React.useState("");
+  const [page, setPage] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
+  const [done, setDone] = React.useState(false);
+  const [err, setErr] = React.useState("");
+
+  const submit = async () => {
+    if (!cat || !msg.trim()) return;
+    setErr("");
+    setSubmitting(true);
+    try {
+      await db.collection("feedback").add({
+        category: cat,
+        message: msg.trim(),
+        page: page || window.location.href,
+        userId: currentUser.id,
+        userName: currentUser.name || "",
+        userRole: currentUser.role || "student",
+        userEmail: currentUser.email || "",
+        status: "new",
+        createdAt: new Date().toISOString(),
+      });
+      setDone(true);
+      setTimeout(() => { setOpen(false); setDone(false); setCat(""); setMsg(""); }, 2200);
+    } catch(e) {
+      setErr("Failed to submit. Please try again.");
+    }
+    setSubmitting(false);
+  };
+
+  return React.createElement(React.Fragment, null,
+    // Topbar inline button
+    React.createElement("button", {
+      onClick: () => setOpen(o => !o),
+      "aria-label": "Send feedback",
+      className: "topbar-theme-toggle",
+      title: "Send feedback or report a bug",
+      style: { borderColor: open ? "var(--teal)" : undefined, color: open ? "var(--teal)" : undefined, background: open ? "var(--teal-light)" : undefined }
+    }, "\u{1F4AC} Feedback"),
+    // Modal
+    open && React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 2100, display: "flex", alignItems: "flex-start", justifyContent: "flex-end", padding: "60px 16px 0" }, onClick: e => e.target === e.currentTarget && setOpen(false) },
+      React.createElement("div", { style: { background: "var(--white)", border: "1.5px solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-xl)", width: "100%", maxWidth: 380, padding: "18px 18px 20px", animation: "slideUp .22s var(--spring)" } },
+        done
+          ? React.createElement("div", { style: { textAlign: "center", padding: "16px 0" } },
+              React.createElement("div", { style: { fontSize: "2rem", marginBottom: 8 } }, "✅"),
+              React.createElement("div", { style: { fontWeight: 700, color: "var(--ink)" } }, "Thanks for your feedback!"),
+              React.createElement("div", { style: { fontSize: "var(--text-sm)", color: "var(--muted)", marginTop: 4 } }, "We'll look into it.")
+            )
+          : React.createElement(React.Fragment, null,
+              React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 } },
+                React.createElement("span", { style: { fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink)" } }, "Send Feedback"),
+                React.createElement("button", { onClick: () => setOpen(false), style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "1rem" } }, "✕")
+              ),
+              React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 } },
+                FEEDBACK_CATS.map(c => React.createElement("button", { key: c.id, onClick: () => setCat(c.id),
+                  style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: "var(--radius)", border: "1.5px solid " + (cat === c.id ? c.color : "var(--border)"), background: cat === c.id ? "var(--surface)" : "transparent", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: "var(--text-sm)", color: cat === c.id ? c.color : "var(--ink-3)", fontWeight: cat === c.id ? 700 : 400, transition: "all .15s", textAlign: "left" } },
+                  c.label
+                ))
+              ),
+              React.createElement("textarea", { placeholder: "Describe the issue or idea…", value: msg, onChange: e => setMsg(e.target.value), rows: 3, style: { resize: "vertical", marginBottom: 10 } }),
+              err && React.createElement("div", { style: { color: "var(--red)", fontSize: "var(--text-xs)", marginBottom: 8, padding: "6px 10px", background: "var(--red-light)", borderRadius: "var(--radius)" } }, err),
+              React.createElement("button", { className: "btn btn-teal btn-full", onClick: submit, disabled: !cat || !msg.trim() || submitting },
+                submitting ? React.createElement(React.Fragment, null, React.createElement("span", { className: "spin spin-dark" }), " Sending…") : "Send Feedback"
+              )
+            )
+      )
+    )
+  );
+}
+
+function AdminFeedbackPage({ currentUser }) {
+  const [items, setItems] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [filter, setFilter] = React.useState("new");
+  const load = () => {
+    setLoading(true);
+    db.collection("feedback").orderBy("createdAt", "desc").limit(200).get()
+      .then(s => { setItems(s.docs.map(d => ({ id: d.id, ...d.data() }))); setLoading(false); })
+      .catch(() => setLoading(false));
+  };
+  React.useEffect(() => { load(); }, []);
+
+  const markStatus = async (id, status) => {
+    await db.collection("feedback").doc(id).update({ status });
+    setItems(prev => prev.map(x => x.id === id ? { ...x, status } : x));
+  };
+
+  const CAT_META = { bug: { label: "Bug", color: "var(--red)" }, question: { label: "Question", color: "var(--blue)" }, suggestion: { label: "Suggestion", color: "var(--teal)" }, other: { label: "Other", color: "var(--muted)" } };
+  const visible = items.filter(x => filter === "all" || x.status === filter);
+  const newCount = items.filter(x => x.status === "new").length;
+
+  if (loading) return React.createElement("div", { className: "empty" }, React.createElement("span", { className: "spin" }));
+
+  return React.createElement("div", { style: { padding: "clamp(16px,4vw,28px)", maxWidth: 820 } },
+    React.createElement("div", { className: "page-hd" },
+      React.createElement("div", null,
+        React.createElement("h1", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-xl)", margin: 0 } }, "Feedback Inbox"),
+        React.createElement("p", { style: { color: "var(--muted)", fontSize: "var(--text-sm)", marginTop: 4 } }, items.length + " total · " + newCount + " new")
+      )
+    ),
+    React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" } },
+      [["new","New"], ["in-progress","In Progress"], ["resolved","Resolved"], ["all","All"]].map(([v, l]) =>
+        React.createElement("button", { key: v, className: filter === v ? "btn btn-gold btn-sm" : "btn btn-ol btn-sm", onClick: () => setFilter(v) }, l,
+          v === "new" && newCount > 0 && React.createElement("span", { style: { marginLeft: 5, background: "var(--red)", color: "#fff", borderRadius: 99, padding: "0 5px", fontSize: "0.65rem", fontWeight: 700 } }, newCount)
+        )
+      )
+    ),
+    visible.length === 0
+      ? React.createElement("div", { className: "empty" }, "No feedback here.")
+      : React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
+          visible.map(item => {
+            const cm = CAT_META[item.category] || CAT_META.other;
+            return React.createElement("div", { key: item.id, className: "card", style: { padding: "14px 16px" } },
+              React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" } },
+                React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                  React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } },
+                    React.createElement("span", { style: { padding: "2px 9px", borderRadius: 99, fontSize: "var(--text-xs)", fontWeight: 700, background: "var(--surface)", color: cm.color, border: "1px solid " + cm.color } }, cm.label),
+                    React.createElement("span", { style: { fontSize: "var(--text-xs)", color: "var(--muted)" } }, item.userName || "Anonymous"),
+                    React.createElement("span", { style: { fontSize: "var(--text-xs)", color: "var(--muted)" } }, item.createdAt ? new Date(item.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "")
+                  ),
+                  React.createElement("p", { style: { margin: 0, fontSize: "var(--text-sm)", color: "var(--ink)", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, item.message)
+                ),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 } },
+                  item.status !== "in-progress" && React.createElement("button", { className: "btn btn-ol btn-sm", style: { fontSize: "var(--text-xs)" }, onClick: () => markStatus(item.id, "in-progress") }, "In Progress"),
+                  item.status !== "resolved" && React.createElement("button", { className: "btn btn-teal btn-sm", style: { fontSize: "var(--text-xs)" }, onClick: () => markStatus(item.id, "resolved") }, "✓ Resolve"),
+                  item.status === "resolved" && React.createElement("span", { style: { fontSize: "var(--text-xs)", color: "var(--green)", fontWeight: 700 } }, "✓ Resolved")
+                )
+              )
+            );
+          })
+        )
   );
 }
 
@@ -15570,7 +15904,22 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
     // Skip the periodic re-scan on mobile — DOM walks + getComputedStyle on every
     // element every 2.5s is a significant jank source on older phones.
     var isCircleMob = window.matchMedia('(pointer:coarse)').matches || ('ontouchstart' in window && navigator.maxTouchPoints > 1);
-    if (!isCircleMob) setInterval(upgradeCircles, 2500);
+    if (!isCircleMob) {
+      // Use requestIdleCallback on desktop — avoids jank during user interactions
+      var circleRIC = function() {
+        upgradeCircles();
+        if (typeof requestIdleCallback !== 'undefined') {
+          requestIdleCallback(circleRIC, { timeout: 3000 });
+        } else {
+          setTimeout(circleRIC, 2500);
+        }
+      };
+      if (typeof requestIdleCallback !== 'undefined') {
+        setTimeout(function() { requestIdleCallback(circleRIC, { timeout: 3000 }); }, 2500);
+      } else {
+        setInterval(upgradeCircles, 2500);
+      }
+    }
 
     // streak pill upgrade removed — topbar pill stays calm
   });
@@ -17084,16 +17433,18 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   background:none;border:none;cursor:pointer;
   color:#7c85a8;font-size:1rem;padding:2px;flex-shrink:0;line-height:1;
 }
-/* iOS PWA install banner */
+/* PWA install banner (iOS + Android) */
 #etpwa-banner {
   display:none;position:fixed;bottom:0;left:0;right:0;z-index:999999;
   background:#fff;border-top:1.5px solid #e2e5f0;
   border-radius:20px 20px 0 0;
-  box-shadow:0 -8px 40px rgba(0,0,0,0.18);
+  box-shadow:0 -8px 40px rgba(0,0,0,0.22);
   padding:20px 20px 36px;
+  transform:translateY(100%);
+  transition:transform 0.35s cubic-bezier(0.34,1.2,0.64,1);
 }
 [data-theme="dark"] #etpwa-banner { background:#1a1d2e;border-color:#2a2e42; }
-#etpwa-banner.show { display:block; }
+#etpwa-banner.show { display:block; transform:translateY(0); }
 #etpwa-banner-hd { display:flex;align-items:center;justify-content:space-between;margin-bottom:16px; }
 #etpwa-banner-title { display:flex;align-items:center;gap:10px; }
 #etpwa-banner-icon {
@@ -17221,24 +17572,17 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
       if (audioCtx.state === 'suspended') { audioCtx.resume(); }
 
       var now = audioCtx.currentTime;
-      var notes = [
-        { freq: 880,  start: 0,    dur: 0.13 }, // first note
-        { freq: 1175, start: 0.10, dur: 0.18 }  // second note, slight overlap
-      ];
-
-      notes.forEach(function(n) {
-        var osc  = audioCtx.createOscillator();
-        var gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(n.freq, now + n.start);
-        gain.gain.setValueAtTime(0, now + n.start);
-        gain.gain.linearRampToValueAtTime(0.18, now + n.start + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + n.start + n.dur);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(now + n.start);
-        osc.stop(now + n.start + n.dur + 0.02);
-      });
+      // Sound 4: pure 1.2kHz sine, 220ms fast decay (crisp modern ping)
+      var osc  = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1200, now);
+      gain.gain.setValueAtTime(0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.23);
     } catch(e) {
       console.warn('[Push] Chime failed:', e.message);
     }
@@ -17559,32 +17903,91 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
       } catch(e){ console.warn('[Push] Listener failed:', e.message); }
     }
   }
-  setInterval(tryHooks, 1000);
+  setInterval(tryHooks, 2500); // reduced from 1000ms — saves battery on budget phones
+
+  /* ══ ANDROID beforeinstallprompt ════════════════════════ */
+  var deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    var dismissed = parseInt(localStorage.getItem('etpwa_dismissed') || '0');
+    if (Date.now() - dismissed < 24*60*60*1000) return;
+    setTimeout(showAndroidBanner, 4000);
+  });
+
+  window.addEventListener('appinstalled', function() {
+    deferredInstallPrompt = null;
+    hideBanner();
+    showInstallSuccessToast();
+    localStorage.setItem('etpwa_installed', '1');
+    localStorage.setItem('etpwa_dismissed', Date.now());
+  });
+
+  function showAndroidBanner() {
+    var banner = document.getElementById('etpwa-banner');
+    if (!banner) return;
+    var stepsEl = document.getElementById('etpwa-steps');
+    var gotItBtn = document.getElementById('etpwa-gotit');
+    var sub = document.getElementById('etpwa-banner-sub');
+    if (sub) sub.textContent = 'Install for faster access & notifications';
+    if (stepsEl) stepsEl.style.display = 'none';
+    if (gotItBtn) {
+      gotItBtn.textContent = '\u{1F4F2} Install App';
+      gotItBtn.onclick = function() {
+        hideBanner();
+        if (!deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        deferredInstallPrompt.userChoice.then(function(result) {
+          if (result.outcome === 'accepted') {
+            showInstallSuccessToast();
+          } else {
+            localStorage.setItem('etpwa_dismissed', Date.now());
+          }
+          deferredInstallPrompt = null;
+        });
+      };
+    }
+    banner.classList.add('show');
+  }
+
+  function hideBanner() {
+    var el = document.getElementById('etpwa-banner');
+    if (el) el.classList.remove('show');
+  }
+
+  function showInstallSuccessToast() {
+    showToast('\u2705 Installed!', 'E-Tuklas added to your home screen.', '\u2705');
+  }
 
   /* ══ iOS PWA INSTALL BANNER ══════════════════════════════ */
   function initIOSBanner() {
-    if (!isIOS || isStandalone) {
-      var b = document.getElementById('etpwa-banner');
-      if (b) b.remove();
-      return;
-    }
+    if (isStandalone) { hideBanner(); return; }
+    if (!isIOS) return; // Android handled by beforeinstallprompt
     var dismissed = parseInt(localStorage.getItem('etpwa_dismissed') || '0');
     if (Date.now() - dismissed < 24*60*60*1000) return;
 
     var closeBtn = document.getElementById('etpwa-banner-close');
     var gotItBtn = document.getElementById('etpwa-gotit');
     function dismiss() {
-      var el = document.getElementById('etpwa-banner');
-      if (el) el.classList.remove('show');
+      hideBanner();
       localStorage.setItem('etpwa_dismissed', Date.now());
     }
     if (closeBtn) closeBtn.addEventListener('click', dismiss);
     if (gotItBtn) gotItBtn.addEventListener('click', dismiss);
 
-    setTimeout(function(){
-      var el = document.getElementById('etpwa-banner');
-      if (el) el.classList.add('show');
-    }, 5000);
+    // Wait for user scroll before showing — proves engagement
+    var shown = false;
+    function tryShow() {
+      if (shown) return;
+      shown = true;
+      setTimeout(function() {
+        var el = document.getElementById('etpwa-banner');
+        if (el) el.classList.add('show');
+      }, 800);
+    }
+    window.addEventListener('scroll', tryShow, { once: true, passive: true });
+    // Fallback: show after 8s even without scroll
+    setTimeout(tryShow, 8000);
   }
 
   /* ══ INIT ════════════════════════════════════════════════ */
