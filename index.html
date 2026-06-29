@@ -8522,7 +8522,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
       await API.createStudy({ title: form.title, authors, coAuthors, abstract: form.abstract, keywords, categories: selCats, year: form.year, gdrive, uploadedBy: currentUser.id, uploadedByName: currentUser.name, uploaderGrade: currentUser.gradeLevel || "", uploaderSection: currentUser.section || "", isDraft, draftSection: isDraft ? draftSection : "" });
       clearDraft(draftKey);
       toast.ok(isDraft ? "📝 Saved as unfinished draft! Only you and teachers can see it." : "Study uploaded successfully!");
-      onUpload();
+      onUpload(isDraft);
       onClose();
     } catch (e) {
       toast.err(e.message);
@@ -8856,8 +8856,12 @@ function StudiesPage({ currentUser }) {
     });
     trackRecentlyViewed(s);
     setSelected(__spreadProps(__spreadValues({}, s), { viewCount: (s.viewCount || 0) + 1 }));
-  } })), showUpload && /* @__PURE__ */ React.createElement(UploadModal, { onClose: () => setShowUpload(false), currentUser, cats, onUpload: () => {
-    load();
+  } })), showUpload && /* @__PURE__ */ React.createElement(UploadModal, { onClose: () => setShowUpload(false), currentUser, cats, onUpload: (wasDraft) => {
+    if (wasDraft) {
+      setSector("drafts");
+    } else {
+      load();
+    }
     setShowUpload(false);
   } }));
 }
@@ -8886,7 +8890,37 @@ function DraftStudiesSection({ currentUser, isAdmin }) {
     }
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  // Real-time listener so drafts appear immediately after saving without index race conditions.
+  // Falls back to a simpler query (no orderBy) if the composite index is missing.
+  useEffect(() => {
+    setLoading(true);
+    const tryListen = (withOrder) => {
+      let q = isAdmin
+        ? db.collection("studies").where("status", "==", "draft")
+        : db.collection("studies").where("status", "==", "draft").where("uploadedBy", "==", currentUser.id);
+      if (withOrder) q = q.orderBy("createdAt", "desc");
+      return q.onSnapshot(
+        (snap) => {
+          const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          if (!withOrder) docs.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+          setDrafts(docs);
+          setLoading(false);
+        },
+        (err) => {
+          console.error("[Drafts] onSnapshot error:", err.message);
+          if (withOrder && err.code === "failed-precondition") {
+            // Composite index missing — retry without orderBy
+            tryListen(false);
+          } else {
+            toast.err("Failed to load drafts: " + err.message);
+            setLoading(false);
+          }
+        }
+      );
+    };
+    const unsub = tryListen(true);
+    return () => { try { unsub(); } catch(e) {} };
+  }, [currentUser.id, isAdmin]);
 
   const handlePublish = async (study) => {
     if (!confirm(`Publish "${study.title}" to the public repository? Everyone will be able to see it.`)) return;
@@ -8967,8 +9001,8 @@ function DraftStudiesSection({ currentUser, isAdmin }) {
       /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, flexShrink: 0, minWidth: 120 } },
         /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { borderColor: "var(--purple)", color: "var(--purple)" }, onClick: () => setSelected(study) }, "\uD83D\uDC41 View"),
         (currentUser.id === study.uploadedBy) && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setEditing(study) }, "\u270F\uFE0F Edit"),
-        !isAdmin && /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold btn-sm", onClick: () => handlePublish(study), disabled: publishing === study.id, style: { whiteSpace: "nowrap" } }, publishing === study.id ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark", style: { width: 11, height: 11 } }), " Publishing\u2026") : "\uD83C\uDF89 Publish"),
-        /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { color: "var(--red)", borderColor: "var(--red)" }, onClick: () => handleDelete(study.id) }, "\uD83D\uDDD1 Delete")
+        (isAdmin || currentUser.id === study.uploadedBy) && /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold btn-sm", onClick: () => handlePublish(study), disabled: publishing === study.id, style: { whiteSpace: "nowrap" } }, publishing === study.id ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark", style: { width: 11, height: 11 } }), " Publishing\u2026") : "\uD83C\uDF89 Publish"),
+        (isAdmin || currentUser.id === study.uploadedBy) && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { color: "var(--red)", borderColor: "var(--red)" }, onClick: () => handleDelete(study.id) }, "\uD83D\uDDD1 Delete")
       )
     )
   );
