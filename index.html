@@ -4228,6 +4228,13 @@ const Cache = /* @__PURE__ */ (() => {
     // 30s  — announcements list
     recognized: 3e4,
     // 30s  — recognized studies
+    notifCount: 11e4,
+    // ~1m50s — per-user unread notif count, polled every 2min; TTL just
+    // under that so a poll never re-fires against a still-fresh cache
+    studyNotifCount: 11e4,
+    // ~1m50s — admin pending-review count (same reasoning)
+    studyLogs: 3e4,
+    // 30s — per-study view/download/citation history (was fully uncached)
     profile: 6e4,
     // 1 min — user profile
     weekly: 3e5,
@@ -4493,7 +4500,7 @@ const API = {
         status: "pending",
         fromDraft: true  // so teachers know it was previously a draft
       });
-      Cache.invalidate("studyNotifications");
+      Cache.invalidate("studyNotifications", "studyNotifCount");
     } catch (e) {
       console.warn("publishDraft: pendingReviews write failed:", e.message);
     }
@@ -4567,7 +4574,7 @@ const API = {
         status: "pending"
         // set to 'reviewed' when an admin acts on it
       });
-      Cache.invalidate("studyNotifications");
+      Cache.invalidate("studyNotifications", "studyNotifCount");
       }
     } catch (e) {
       console.warn("Notification write failed:", e.message);
@@ -4677,16 +4684,24 @@ const API = {
     }
   },
   async getUnreadStudyNotificationCount(adminUid) {
-    try {
-      const snap = await db.collection("pendingReviews").where("status", "==", "pending").get();
-      return snap.size;
-    } catch (e) {
-      return 0;
-    }
+    // Uses a count() aggregation query: billed as ONE read no matter how
+    // many pending docs match, instead of one read PER matching doc.
+    // This function is polled every 30s by every admin tab, so the old
+    // .get() form was silently multiplying reads by the pending queue size
+    // on every single poll — the dominant source of Firestore read cost.
+    return Cache.wrap("studyNotifCount", "studyNotifCount", async () => {
+      try {
+        const snap = await db.collection("pendingReviews").where("status", "==", "pending").count().get();
+        return snap.data().count;
+      } catch (e) {
+        return 0;
+      }
+    });
   },
   async markStudyNotificationRead(adminUid, notifId) {
     try {
       await db.collection("pendingReviews").doc(notifId).update({ status: "reviewed", reviewedBy: adminUid, reviewedAt: (/* @__PURE__ */ new Date()).toISOString() });
+      Cache.invalidate("studyNotifications", "studyNotifCount");
     } catch (e) {
     }
   },
@@ -4697,12 +4712,14 @@ const API = {
       const batch = db.batch();
       snap.docs.forEach((d) => batch.update(d.ref, { status: "reviewed", reviewedBy: adminUid, reviewedAt: (/* @__PURE__ */ new Date()).toISOString() }));
       await batch.commit();
+      Cache.invalidate("studyNotifications", "studyNotifCount");
     } catch (e) {
     }
   },
   async deleteStudyNotification(adminUid, notifId) {
     try {
       await db.collection("pendingReviews").doc(notifId).delete();
+      Cache.invalidate("studyNotifications", "studyNotifCount");
     } catch (e) {
     }
   },
@@ -5425,35 +5442,37 @@ const API = {
           timestamp: Date.now()
         });
       }
-      Cache.invalidate("studies:raw", "allStudies", "stats");
+      Cache.invalidate("studies:raw", "allStudies", "stats", `studyLogs:${id}`);
     } catch (e) {
       console.error("trackStudy error:", e);
     }
   },
   async getStudyLogs(id) {
-    try {
-      const [vSnap, dSnap, cSnap] = await Promise.all([
-        db.collection("studies").doc(id).collection("views").get(),
-        db.collection("studies").doc(id).collection("downloads").get(),
-        db.collection("studies").doc(id).collection("citations").get()
-      ]);
-      // Legacy docs (pre-fix) stored lastViewedAt/lastCitedAt as an ISO
-      // string instead of a numeric timestamp; fall back to those so
-      // older history doesn't disappear or show as "Unknown" once new
-      // events start using the correct `timestamp` field.
-      const normalize = (d, fallbackField) => {
-        const ts = d.timestamp != null ? d.timestamp : d[fallbackField] ? new Date(d[fallbackField]).getTime() : null;
-        return __spreadProps(__spreadValues({}, d), { timestamp: ts });
-      };
-      const byRecency = (a, b) => (b.timestamp || 0) - (a.timestamp || 0);
-      return {
-        views: vSnap.docs.map((d) => normalize(d.data(), "lastViewedAt")).sort(byRecency),
-        downloads: dSnap.docs.map((d) => normalize(d.data(), "lastViewedAt")).sort(byRecency),
-        citations: cSnap.docs.map((d) => normalize(d.data(), "lastCitedAt")).sort(byRecency)
-      };
-    } catch (e) {
-      return { views: [], downloads: [], citations: [] };
-    }
+    // Was 3 fully-uncached collection reads (views/downloads/citations) fired
+    // fresh every time any study-detail panel opened. Cached because several
+    // UI surfaces call this for the same study within one session (detail
+    // view, admin log panel, "my studies" activity panel).
+    return Cache.wrap(`studyLogs:${id}`, "studyLogs", async () => {
+      try {
+        const [vSnap, dSnap, cSnap] = await Promise.all([
+          db.collection("studies").doc(id).collection("views").get(),
+          db.collection("studies").doc(id).collection("downloads").get(),
+          db.collection("studies").doc(id).collection("citations").get()
+        ]);
+        const normalize = (d, fallbackField) => {
+          const ts = d.timestamp != null ? d.timestamp : d[fallbackField] ? new Date(d[fallbackField]).getTime() : null;
+          return __spreadProps(__spreadValues({}, d), { timestamp: ts });
+        };
+        const byRecency = (a, b) => (b.timestamp || 0) - (a.timestamp || 0);
+        return {
+          views: vSnap.docs.map((d) => normalize(d.data(), "lastViewedAt")).sort(byRecency),
+          downloads: dSnap.docs.map((d) => normalize(d.data(), "lastViewedAt")).sort(byRecency),
+          citations: cSnap.docs.map((d) => normalize(d.data(), "lastCitedAt")).sort(byRecency)
+        };
+      } catch (e) {
+        return { views: [], downloads: [], citations: [] };
+      }
+    });
   },
   async getUsers({ role = "student", status = "", search = "" } = {}) {
     return Cache.wrap(`users:${role}`, "users", async () => {
@@ -5500,6 +5519,7 @@ const API = {
         createdAt: (/* @__PURE__ */ new Date()).toISOString(),
         read: false
       });
+      Cache.invalidate(`notifCount:${uid}`);
     } catch (e) {
     }
   },
@@ -5515,6 +5535,7 @@ const API = {
         batches.push(batch.commit());
       }
       await Promise.all(batches);
+      uids.forEach((uid) => Cache.invalidate(`notifCount:${uid}`));
     } catch (e) {
     }
   },
@@ -5527,16 +5548,25 @@ const API = {
     }
   },
   async getUnreadNotificationCount(uid) {
-    try {
-      const snap = await db.collection("users").doc(uid).collection("notifications").where("read", "==", false).get();
-      return snap.size;
-    } catch (e) {
-      return 0;
-    }
+    // Same fix as getUnreadStudyNotificationCount: count() aggregation is
+    // billed as ONE read total, not one read per unread notification.
+    // Every logged-in user polls this every 30s, so a user sitting on a
+    // few hundred unread notifications was burning that many reads every
+    // single poll — across all concurrent users, this was the main driver
+    // of overall Firestore read volume.
+    return Cache.wrap(`notifCount:${uid}`, "notifCount", async () => {
+      try {
+        const snap = await db.collection("users").doc(uid).collection("notifications").where("read", "==", false).count().get();
+        return snap.data().count;
+      } catch (e) {
+        return 0;
+      }
+    });
   },
   async markNotificationRead(uid, id) {
     try {
       await db.collection("users").doc(uid).collection("notifications").doc(id).update({ read: true });
+      Cache.invalidate(`notifCount:${uid}`);
     } catch (e) {
     }
   },
@@ -5547,12 +5577,14 @@ const API = {
       const batch = db.batch();
       snap.docs.forEach((d) => batch.update(d.ref, { read: true }));
       await batch.commit();
+      Cache.invalidate(`notifCount:${uid}`);
     } catch (e) {
     }
   },
   async deleteNotification(uid, id) {
     try {
       await db.collection("users").doc(uid).collection("notifications").doc(id).delete();
+      Cache.invalidate(`notifCount:${uid}`);
     } catch (e) {
     }
   },
@@ -14113,7 +14145,11 @@ function App() {
     if (!currentUser || currentUser.role !== "admin") return;
     const poll = () => API.getUnreadStudyNotificationCount(currentUser.id).then((n) => setStudyNotifCount(n)).catch(() => {
     });
-    const id = setInterval(poll, 3e4);
+    poll();
+    // Widened from 30s -> 2min: with count() aggregation + caching this is
+    // already cheap, but there's no reason a pending-review badge needs
+    // sub-2-minute freshness, so we cut the base call volume further too.
+    const id = setInterval(poll, 12e4);
     return () => clearInterval(id);
   }, [currentUser]);
   useEffect(() => {
@@ -14121,7 +14157,8 @@ function App() {
     const poll = () => API.getUnreadNotificationCount(currentUser.id).then((n) => setUserNotifCount(n)).catch(() => {
     });
     poll();
-    const id = setInterval(poll, 3e4);
+    // Widened from 30s -> 2min, same reasoning as the admin poll above.
+    const id = setInterval(poll, 12e4);
     return () => clearInterval(id);
   }, [currentUser]);
   useEffect(() => {
