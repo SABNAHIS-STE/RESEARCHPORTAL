@@ -44,6 +44,13 @@
   });
   global.__sb = sb; // exposed for debugging / the migration/edge-function docs
 
+  // Set this (in the same script tag as __SUPABASE_URL__) once you deploy
+  // supabase/functions/firebase-password-bridge, e.g.:
+  //   window.__FIREBASE_PASSWORD_BRIDGE_URL__ =
+  //     "https://YOUR-PROJECT-REF.supabase.co/functions/v1/firebase-password-bridge";
+  // Leave unset to skip this fallback entirely (plain reset-email flow only).
+  global.__FIREBASE_PASSWORD_BRIDGE_URL__ = global.__FIREBASE_PASSWORD_BRIDGE_URL__ || null;
+
   // A password-reset email link opens in whatever browser the person is
   // using to check email — not necessarily the one that requested the
   // reset — so this app uses the "implicit" auth flow (tokens embedded
@@ -355,10 +362,35 @@
       return { user: currentFbUser };
     },
     signInWithEmailAndPassword: async function (email, password) {
-      var { data, error } = await sb.auth.signInWithPassword({ email: email, password: password });
-      if (error) throw mapError(error);
-      currentFbUser = toFbUser(data.user);
-      return { user: currentFbUser };
+      var first = await sb.auth.signInWithPassword({ email: email, password: password });
+      if (!first.error) {
+        currentFbUser = toFbUser(first.data.user);
+        return { user: currentFbUser };
+      }
+
+      // Wrong/temp password on an account migrated from Firebase? Ask the
+      // bridge function to check the same credentials against Firebase
+      // directly; if correct, it syncs the password onto this Supabase
+      // account and we transparently retry. See MIGRATION-README.md.
+      if (global.__FIREBASE_PASSWORD_BRIDGE_URL__) {
+        try {
+          var bridgeRes = await fetch(global.__FIREBASE_PASSWORD_BRIDGE_URL__, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, password: password })
+          });
+          var bridgeJson = await bridgeRes.json();
+          if (bridgeJson && bridgeJson.migrated) {
+            var retry = await sb.auth.signInWithPassword({ email: email, password: password });
+            if (!retry.error) {
+              currentFbUser = toFbUser(retry.data.user);
+              return { user: currentFbUser };
+            }
+          }
+        } catch (bridgeErr) { /* fall through to the original error below */ }
+      }
+
+      throw mapError(first.error);
     },
     signInAnonymously: async function () {
       var { data, error } = await sb.auth.signInAnonymously();
