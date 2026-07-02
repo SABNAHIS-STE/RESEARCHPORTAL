@@ -40,9 +40,30 @@
   }
 
   var sb = global.supabase.createClient(global.__SUPABASE_URL__, global.__SUPABASE_ANON_KEY__, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' }
   });
   global.__sb = sb; // exposed for debugging / the migration/edge-function docs
+
+  // A password-reset email link opens in whatever browser the person is
+  // using to check email — not necessarily the one that requested the
+  // reset — so this app uses the "implicit" auth flow (tokens embedded
+  // directly in the redirect URL) rather than PKCE, which requires the
+  // requesting browser and the link-opening browser to match.
+  //
+  // When someone lands here via a recovery link, Supabase fires a
+  // PASSWORD_RECOVERY auth event. There's no dedicated "set new password"
+  // screen carried over from the old Firebase app, so this provides a
+  // minimal one so the flow actually completes end-to-end. Replace this
+  // with a proper in-app form whenever convenient.
+  sb.auth.onAuthStateChange(function (event) {
+    if (event !== 'PASSWORD_RECOVERY') return;
+    var pw = global.prompt('Enter a new password (at least 6 characters):');
+    if (!pw || pw.length < 6) { global.alert('Password not changed — must be at least 6 characters.'); return; }
+    sb.auth.updateUser({ password: pw }).then(function (res) {
+      if (res.error) { global.alert('Could not update password: ' + res.error.message); return; }
+      global.alert('Password updated — you can log in with it now.');
+    });
+  });
 
   // ---- Firestore collection name -> Postgres table name -------------------
   var TABLE_MAP = {
