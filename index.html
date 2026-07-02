@@ -4092,9 +4092,15 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 })();
 </script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  // Filled in with your Supabase project's URL + publishable (client-safe) key.
+  // Access is controlled by the Row Level Security policies in schema.sql —
+  // never put the secret/service-role key here, only server-side.
+  window.__SUPABASE_URL__ = "https://fbzcztctelidztwjhkea.supabase.co";
+  window.__SUPABASE_ANON_KEY__ = "sb_publishable_SVtmWNUAqHpTeuFwFqhWeA_voH0Wetj";
+</script>
+<script src="./compat-shim.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -4157,15 +4163,11 @@ function parseGDriveLink(url) {
   if (url.startsWith("https://")) return { id: null, viewUrl: url, downloadUrl: url };
   return null;
 }
-const firebaseConfig = {
-  apiKey: "AIzaSyD_2lO2W9OvEh0c8uMO_AEUZcQz8YTqZU8",
-  authDomain: "sabnahis-portal.firebaseapp.com",
-  projectId: "sabnahis-portal",
-  storageBucket: "sabnahis-portal.firebasestorage.app",
-  messagingSenderId: "155537469341",
-  appId: "1:155537469341:web:85650f06744d422dc58974"
-};
-if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+// Firebase config is gone — the app now runs on Supabase (see the
+// window.__SUPABASE_URL__ / __SUPABASE_ANON_KEY__ script tag near the top
+// of <head>, and compat-shim.js, which re-implements `firebase.*` on top
+// of it so the rest of this file is unchanged).
+if (!firebase.apps.length) firebase.initializeApp({});
 const auth = firebase.auth();
 // ✅ FIX: Be explicit about persistence instead of relying on Firebase's
 // implicit default. LOCAL persistence keeps the user signed in across
@@ -17610,7 +17612,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ Reac
   <button id="etpwa-gotit">Got it! I'll add it now 👍</button>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script>
 (function() {
   'use strict';
