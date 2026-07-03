@@ -2289,6 +2289,15 @@ tr { transition: background .1s; }
 .cm-src.mistral { background:var(--gold-bg); color:var(--gold); }
 .cm-src.openrouter { background:var(--purple-light); color:var(--purple); }
 .cm-src.local  { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
+#rn-fx-9c2 span, #rn-fx-9c2b span {
+  display: flex; align-items: center; justify-content: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--font-mono, monospace); font-weight: 600;
+  color: rgba(120,120,120,0.16); user-select: none; padding: 0 6px;
+}
+[data-theme="dark"] #rn-fx-9c2 span, [data-theme="dark"] #rn-fx-9c2b span {
+  color: rgba(255,255,255,0.10);
+}
 [data-theme="dark"] .cm-src.groq { background: rgba(39,168,98,0.15); color: var(--green); }
 [data-theme="dark"] .cm-src.mistral { background: rgba(212,163,26,0.15); color: var(--gold); }
 [data-theme="dark"] .cm-src.openrouter { background: rgba(124,77,196,0.15); color: var(--purple); }
@@ -13023,21 +13032,42 @@ function WatermarkOverlay({ currentUser }) {
   if (!isReading) return null;
   const seed = seedRef.current;
   const isMobile = typeof window !== "undefined" && window.innerWidth < 600;
-  const rowHeight = isMobile ? 60 : 100;
+  const rowHeight = isMobile ? 44 : 100;
   const rowCount = Math.ceil((pageHeight * 1.6) / rowHeight) + 2;
-  const colCount = isMobile ? 4 : 8;
+  const colCount = isMobile ? 5 : 8;
   const tiles = Array.from({ length: rowCount * colCount }, (_, i) => i);
-  const microRowHeight = isMobile ? 28 : 46;
+  const microRowHeight = isMobile ? 22 : 46;
   const microRowCount = Math.ceil((pageHeight * 1.6) / microRowHeight) + 2;
-  const microTiles = Array.from({ length: microRowCount * (isMobile ? 8 : 14) }, (_, i) => i);
+  const microColCount = isMobile ? 10 : 14;
+  const microTiles = Array.from({ length: microRowCount * microColCount }, (_, i) => i);
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
     "div",
-    { key: "a" + remountKey, id: "rn-fx-9c2", "aria-hidden": "true", style: { height: pageHeight * 1.6 + "px", transform: `rotate(${seed.angleA}deg) scale(${seed.scaleA})` } },
-    tiles.map((i) => /* @__PURE__ */ React.createElement("span", { key: i }, stamp))
+    {
+      key: "a" + remountKey, id: "rn-fx-9c2", "aria-hidden": "true",
+      style: {
+        position: "absolute", top: 0, left: 0, width: "100%",
+        height: pageHeight * 1.6 + "px", overflow: "hidden",
+        pointerEvents: "none", zIndex: 999999,
+        transform: `rotate(${seed.angleA}deg) scale(${seed.scaleA})`,
+        display: "grid", gridTemplateColumns: `repeat(${colCount}, 1fr)`,
+        gridAutoRows: rowHeight + "px"
+      }
+    },
+    tiles.map((i) => /* @__PURE__ */ React.createElement("span", { key: i, style: { fontSize: isMobile ? "10px" : "13px" } }, stamp))
   ), /* @__PURE__ */ React.createElement(
     "div",
-    { key: "b" + remountKey, id: "rn-fx-9c2b", "aria-hidden": "true", style: { height: pageHeight * 1.6 + "px", transform: `rotate(${seed.angleB}deg) scale(${seed.scaleB})` } },
-    microTiles.map((i) => /* @__PURE__ */ React.createElement("span", { key: i }, microStamp))
+    {
+      key: "b" + remountKey, id: "rn-fx-9c2b", "aria-hidden": "true",
+      style: {
+        position: "absolute", top: 0, left: 0, width: "100%",
+        height: pageHeight * 1.6 + "px", overflow: "hidden",
+        pointerEvents: "none", zIndex: 999998,
+        transform: `rotate(${seed.angleB}deg) scale(${seed.scaleB})`,
+        display: "grid", gridTemplateColumns: `repeat(${microColCount}, 1fr)`,
+        gridAutoRows: microRowHeight + "px"
+      }
+    },
+    microTiles.map((i) => /* @__PURE__ */ React.createElement("span", { key: i, style: { fontSize: isMobile ? "7px" : "9px" } }, microStamp))
   ));
 }
 function useWatermarkWatchdog(stampRef, setRemountKey, isReading) {
