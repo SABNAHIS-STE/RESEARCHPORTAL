@@ -376,7 +376,11 @@
         try {
           var bridgeRes = await fetch(global.__FIREBASE_PASSWORD_BRIDGE_URL__, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + global.__SUPABASE_ANON_KEY__,
+              'apikey': global.__SUPABASE_ANON_KEY__
+            },
             body: JSON.stringify({ email: email, password: password })
           });
           var bridgeJson = await bridgeRes.json();
