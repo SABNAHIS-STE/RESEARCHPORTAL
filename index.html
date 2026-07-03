@@ -2286,8 +2286,12 @@ tr { transition: background .1s; }
 .cm-src.claude { background:var(--purple-light); color:var(--purple); }
 .cm-src.gemini { background:var(--blue-light); color:var(--blue); }
 .cm-src.groq   { background:var(--green-light); color:var(--green); }
+.cm-src.mistral { background:var(--gold-bg); color:var(--gold); }
+.cm-src.openrouter { background:var(--purple-light); color:var(--purple); }
 .cm-src.local  { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
 [data-theme="dark"] .cm-src.groq { background: rgba(39,168,98,0.15); color: var(--green); }
+[data-theme="dark"] .cm-src.mistral { background: rgba(212,163,26,0.15); color: var(--gold); }
+[data-theme="dark"] .cm-src.openrouter { background: rgba(124,77,196,0.15); color: var(--purple); }
 
 /* Typing indicator */
 .typing { display:flex; gap:4px; padding:6px 4px; align-items:center; }
@@ -6014,23 +6018,58 @@ CORE INTELLIGENCE PRINCIPLES \u2014 ALWAYS APPLY:
 CONVERSATION CONTEXT:
 ${conversationContext}` : ""}`;
 }
-const GROQ_MODEL = "llama-3.3-70b-versatile";
-let _groqKeyCache = null;
-const getGroqKey = () => _groqKeyCache || localStorage.getItem("sabnahis_groq_key") || "";
-async function loadGroqKeyFromFirestore() {
-  try {
-    const snap = await db.collection("config").doc("groq").get();
-    if (snap.exists && snap.data().apiKey) {
-      _groqKeyCache = snap.data().apiKey;
-    }
-  } catch (e) {
+// Multi-provider AI registry. Groq, Mistral, and OpenRouter all speak the
+// same OpenAI-style chat-completions format (request shape, SSE streaming
+// deltas, response shape), so one call function below handles all three —
+// only the URL/model/key differ per provider.
+const AI_PROVIDERS = {
+  groq: {
+    label: "Groq",
+    url: "https://api.groq.com/openai/v1/chat/completions",
+    model: "llama-3.3-70b-versatile",
+    keyPlaceholder: "gsk_...",
+    getKeyUrl: "console.groq.com",
+    blurb: "Fastest responses. Free tier is generous."
+  },
+  mistral: {
+    label: "Mistral",
+    url: "https://api.mistral.ai/v1/chat/completions",
+    model: "mistral-small-latest",
+    keyPlaceholder: "your Mistral API key",
+    getKeyUrl: "console.mistral.ai",
+    blurb: "Strong general-purpose quality, EU-hosted."
+  },
+  openrouter: {
+    label: "OpenRouter",
+    url: "https://openrouter.ai/api/v1/chat/completions",
+    // ":free" suffix models on OpenRouter don't consume paid credits.
+    model: "meta-llama/llama-3.3-70b-instruct:free",
+    keyPlaceholder: "sk-or-...",
+    getKeyUrl: "openrouter.ai/keys",
+    blurb: "One key, many free community models."
   }
+};
+const DEFAULT_AI_PROVIDER = "groq";
+let _providerKeyCache = {};
+const getProviderKey = (provider) => _providerKeyCache[provider] || localStorage.getItem(`sabnahis_${provider}_key`) || "";
+async function loadProviderKeysFromFirestore() {
+  await Promise.all(Object.keys(AI_PROVIDERS).map(async (provider) => {
+    try {
+      const snap = await db.collection("config").doc(provider).get();
+      if (snap.exists && snap.data().apiKey) _providerKeyCache[provider] = snap.data().apiKey;
+    } catch (e) {
+    }
+  }));
 }
-async function callAI(query, history, studies, mode = "general", onToken) {
+function getConfiguredProviders() {
+  return Object.keys(AI_PROVIDERS).filter((p) => !!getProviderKey(p));
+}
+async function callAI(query, history, studies, mode = "general", onToken, provider = DEFAULT_AI_PROVIDER) {
   const recent = history.slice(-6).map((m) => `${m.role === "user" ? "Student" : "Assistant"}: ${m.content.slice(0, 200)}`).join("\n");
   const system = buildSystemPrompt(studies, mode, recent);
-  const GROQ_API_KEY = getGroqKey();
-  if (!GROQ_API_KEY) return buildLocalResponse(query, studies, mode);
+  const cfg = AI_PROVIDERS[provider] || AI_PROVIDERS[DEFAULT_AI_PROVIDER];
+  const API_KEY = getProviderKey(provider);
+  if (!API_KEY) return buildLocalResponse(query, studies, mode);
   const messages = [
     { role: "system", content: system },
     ...history.slice(-12).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
@@ -6038,14 +6077,18 @@ async function callAI(query, history, studies, mode = "general", onToken) {
   ];
   const useStreaming = typeof onToken === "function";
   try {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const extraHeaders = provider === "openrouter"
+      ? { "HTTP-Referer": location.origin, "X-Title": "SABNAHIS E-Tuklas Research Assistant" }
+      : {};
+    const res = await fetch(cfg.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${GROQ_API_KEY}`
+        "Authorization": `Bearer ${API_KEY}`,
+        ...extraHeaders
       },
       body: JSON.stringify({
-        model: GROQ_MODEL,
+        model: cfg.model,
         messages,
         max_tokens: 1600,
         temperature: 0.7,
@@ -6054,11 +6097,11 @@ async function callAI(query, history, studies, mode = "general", onToken) {
     });
     if (!res.ok) {
       const errText = await res.text().catch(() => res.statusText);
-      console.error("Groq HTTP error:", res.status, errText);
-      if (res.status === 401) toast.err("Groq: Invalid API key. Check your key in Settings.");
-      else if (res.status === 429) toast.err("Groq: Rate limit reached. Try again in a moment.");
-      else toast.err(`Groq: Server error (${res.status}). Falling back to local mode.`);
-      throw new Error(`Groq HTTP ${res.status}`);
+      console.error(`${cfg.label} HTTP error:`, res.status, errText);
+      if (res.status === 401) toast.err(`${cfg.label}: Invalid API key. Check your key in Settings.`);
+      else if (res.status === 429) toast.err(`${cfg.label}: Rate limit reached. Try again in a moment.`);
+      else toast.err(`${cfg.label}: Server error (${res.status}). Falling back to local mode.`);
+      throw new Error(`${cfg.label} HTTP ${res.status}`);
     }
     if (useStreaming) {
       // SSE streaming path
@@ -6088,18 +6131,18 @@ async function callAI(query, history, studies, mode = "general", onToken) {
         }
       }
       const relevant = findRelevant(query, studies, 4);
-      return { text: fullText || "No response generated.", citations: relevant, source: "groq" };
+      return { text: fullText || "No response generated.", citations: relevant, source: provider };
     } else {
       // Non-streaming fallback
       const data = await res.json();
       if (data.error) {
-        console.error("Groq API error:", data.error);
-        toast.err(`Groq: ${data.error.message}`);
+        console.error(`${cfg.label} API error:`, data.error);
+        toast.err(`${cfg.label}: ${data.error.message}`);
         throw new Error(data.error.message);
       }
       const text = data?.choices?.[0]?.message?.content || "No response generated.";
       const relevant = findRelevant(query, studies, 4);
-      return { text, citations: relevant, source: "groq" };
+      return { text, citations: relevant, source: provider };
     }
   } catch (err) {
     console.error("AI call failed:", err);
@@ -6262,7 +6305,7 @@ ${gapText}
 \u2022 Longitudinal follow-ups to existing studies
 \u2022 Comparative studies across different years
 
-*For detailed, context-specific suggestions with full research questions, use Groq AI mode.*`, citations: [], source: "local" };
+*For detailed, context-specific suggestions with full research questions, ask your teacher to set up an AI provider key.*`, citations: [], source: "local" };
   }
   if (relevant.length) {
     const list = relevant.map((s, i) => `**${i + 1}. ${s.title}** ${generateInText(s)}
@@ -9123,39 +9166,59 @@ const QUICK_PROMPTS = {
 function ChatPage({ currentUser }) {
   var _a, _b, _c, _d, _e, _f, _g;
   const isAdmin = currentUser.role === "admin";
-  const [groqKey, setGroqKey] = useState(() => localStorage.getItem("sabnahis_groq_key") || "");
-  const [keyInput, setKeyInput] = useState("");
+  const [providerKeys, setProviderKeys] = useState(() => {
+    const out = {};
+    Object.keys(AI_PROVIDERS).forEach((p) => { out[p] = localStorage.getItem(`sabnahis_${p}_key`) || ""; });
+    return out;
+  });
+  const [keyInputs, setKeyInputs] = useState(() => {
+    const out = {};
+    Object.keys(AI_PROVIDERS).forEach((p) => { out[p] = ""; });
+    return out;
+  });
   const [showKeySetup, setShowKeySetup] = useState(false);
-  const saveKey = async () => {
-    const k = keyInput.trim();
+  const configuredProviders = Object.keys(AI_PROVIDERS).filter((p) => providerKeys[p]);
+  const [selectedProvider, setSelectedProvider] = useState(() => {
+    const saved = localStorage.getItem("sabnahis_ai_provider");
+    return saved && AI_PROVIDERS[saved] ? saved : DEFAULT_AI_PROVIDER;
+  });
+  useEffect(() => {
+    // If the student's saved choice has no key configured (or none did
+    // yet at first load), fall back to whichever provider IS configured.
+    if (!providerKeys[selectedProvider] && configuredProviders.length) {
+      setSelectedProvider(configuredProviders[0]);
+    }
+  }, [providerKeys]);
+  const changeProvider = (p) => {
+    setSelectedProvider(p);
+    localStorage.setItem("sabnahis_ai_provider", p);
+  };
+  const saveKey = async (provider) => {
+    const k = (keyInputs[provider] || "").trim();
     if (!k) {
       toast.err("Please enter a valid API key.");
       return;
     }
     try {
-      await db.collection("config").doc("groq").set({ apiKey: k });
-      _groqKeyCache = k;
-      localStorage.setItem("sabnahis_groq_key", k);
-      setGroqKey(k);
-      setKeyInput("");
-      setShowKeySetup(false);
-      toast.ok("API key saved to Firestore!");
+      await db.collection("config").doc(provider).set({ apiKey: k });
+      _providerKeyCache[provider] = k;
+      localStorage.setItem(`sabnahis_${provider}_key`, k);
+      setProviderKeys((prev) => ({ ...prev, [provider]: k }));
+      setKeyInputs((prev) => ({ ...prev, [provider]: "" }));
+      toast.ok(`${AI_PROVIDERS[provider].label} API key saved to Firestore!`);
     } catch (e) {
       toast.err("Failed to save: " + e.message);
     }
   };
-  const removeKey = async () => {
+  const removeKey = async (provider) => {
     try {
-      await db.collection("config").doc("groq").delete();
-      _groqKeyCache = null;
-      localStorage.removeItem("sabnahis_groq_key");
-      setGroqKey("");
-      toast.ok("API key removed.");
+      await db.collection("config").doc(provider).delete();
     } catch (e) {
-      localStorage.removeItem("sabnahis_groq_key");
-      setGroqKey("");
-      toast.ok("API key removed locally.");
     }
+    delete _providerKeyCache[provider];
+    localStorage.removeItem(`sabnahis_${provider}_key`);
+    setProviderKeys((prev) => ({ ...prev, [provider]: "" }));
+    toast.ok(`${AI_PROVIDERS[provider].label} API key removed.`);
   };
   const [studies, setStudies] = useState([]);
   const [msgs, setMsgs] = useState([]);
@@ -9171,8 +9234,12 @@ function ChatPage({ currentUser }) {
   const inputRef = useRef();
   const msgsRef = useRef();
   useEffect(() => {
-    loadGroqKeyFromFirestore().then(() => {
-      if (_groqKeyCache) setGroqKey(_groqKeyCache);
+    loadProviderKeysFromFirestore().then(() => {
+      setProviderKeys((prev) => {
+        const out = { ...prev };
+        Object.keys(AI_PROVIDERS).forEach((p) => { if (_providerKeyCache[p]) out[p] = _providerKeyCache[p]; });
+        return out;
+      });
     });
     API.getAllStudies().then((s) => {
       var _a2;
@@ -9199,7 +9266,7 @@ function ChatPage({ currentUser }) {
         citations: [],
         time: now(),
         source: "local",
-        text: `Hello! \u{1F44B} I'm your **E-Tuklas STE Research Assistant** \u2014 powered by Groq AI.
+        text: `Hello! \u{1F44B} I'm your **E-Tuklas STE Research Assistant**.
 
 I function as a **smart research copilot**, not just a keyword search. I can:
 
@@ -9240,14 +9307,14 @@ I have **${s.length}** ${s.length === 1 ? "study" : "studies"} loaded. Use the *
     const botId = Date.now() + 1;
     setMsgs((m) => [...m, userMsg]);
     setLoading(true);
-    const hasGroqKey = !!getGroqKey();
-    if (hasGroqKey) {
+    const activeKey = getProviderKey(selectedProvider);
+    if (activeKey) {
       // Streaming path: add an empty bot message and fill it token by token
-      setMsgs((m) => [...m, { id: botId, role: "bot", text: "", citations: [], source: "groq", time: now(), streaming: true }]);
+      setMsgs((m) => [...m, { id: botId, role: "bot", text: "", citations: [], source: selectedProvider, time: now(), streaming: true }]);
       try {
         const r = await callAI(q, history, studies, mode, (partialText) => {
           setMsgs((m) => m.map((msg) => msg.id === botId ? { ...msg, text: partialText } : msg));
-        });
+        }, selectedProvider);
         // Finalise: mark streaming done, attach citations
         setMsgs((m) => m.map((msg) => msg.id === botId
           ? { ...msg, text: r.text, citations: r.citations || [], streaming: false }
@@ -9263,7 +9330,7 @@ I have **${s.length}** ${s.length === 1 ? "study" : "studies"} loaded. Use the *
     } else {
       // Local/offline fallback — no streaming needed
       try {
-        const r = await callAI(q, history, studies, mode);
+        const r = await callAI(q, history, studies, mode, undefined, selectedProvider);
         setMsgs((m) => [...m, { id: botId, role: "bot", text: r.text, citations: r.citations || [], source: r.source, time: now() }]);
         setHistory((h) => [...h, { role: "user", content: q }, { role: "assistant", content: r.text }]);
       } catch (e) {
@@ -9275,7 +9342,7 @@ I have **${s.length}** ${s.length === 1 ? "study" : "studies"} loaded. Use the *
       var _a2;
       return (_a2 = inputRef.current) == null ? void 0 : _a2.focus();
     }, 80);
-  }, [input, loading, history, studies, mode]);
+  }, [input, loading, history, studies, mode, selectedProvider, providerKeys]);
   const copyMsg = (text) => {
     var _a2;
     return (_a2 = navigator.clipboard) == null ? void 0 : _a2.writeText(text).then(() => toast.ok("Copied to clipboard!"));
@@ -9325,7 +9392,7 @@ ${m.text}`).join("\n\n---\n\n");
       send();
     }
   };
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "page-hd" }, /* @__PURE__ */ React.createElement("div", { className: "page-hd-left" }, /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", fontWeight: 600 } }, "AI Research Assistant"), /* @__PURE__ */ React.createElement("p", { className: "muted", style: { fontSize: "var(--text-xs)" } }, "Groq AI \xB7 ", studies.length, " studies loaded \xB7 APA citations")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { background: groqKey ? "var(--green-light)" : "var(--red-light)", color: groqKey ? "var(--green)" : "var(--red)", fontSize: "0.7rem", fontWeight: 500, padding: "4px 9px", borderRadius: 99, display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: "currentColor", flexShrink: 0 } }), groqKey ? "Groq AI" : "No API Key"), isAdmin && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setShowKeySetup((s) => !s), "data-tip": groqKey ? "Change Groq API key" : "Set up Groq API key for AI features" }, "\u{1F511} ", groqKey ? "Change Key" : "Set API Key"), savedCites.length > 0 && /* @__PURE__ */ React.createElement("button", { className: "chat-export-btn", onClick: () => setShowSaved((s) => !s) }, "\u{1F4DD} ", savedCites.length, " saved"), /* @__PURE__ */ React.createElement("button", { className: "chat-export-btn", onClick: exportChat }, "\u2B07 Export"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: clearChat }, "Clear"))), showKeySetup && isAdmin && /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14, borderLeft: "4px solid var(--gold)" } }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title", style: { fontSize: "0.875rem" } }, "\u{1F511} Groq API Key"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setShowKeySetup(false) }, "\u2715 Close")), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", marginBottom: 10 } }, "Your key is saved to ", /* @__PURE__ */ React.createElement("strong", null, "Firestore"), " (admin-only) and loaded automatically for all users \u2014 it is never exposed in the source code. Get a free key at ", /* @__PURE__ */ React.createElement("strong", null, "console.groq.com"), "."), groqKey && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "8px 12px", background: "var(--green-light)", borderRadius: "var(--radius)", marginBottom: 10, fontSize: "var(--text-xs)", color: "var(--green)" } }, "\u2713 Key saved: ", /* @__PURE__ */ React.createElement("code", { style: { fontFamily: "var(--font-mono)" } }, groqKey.slice(0, 12), "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-red btn-sm", style: { marginLeft: "auto" }, onClick: removeKey }, "Remove")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9 } }, /* @__PURE__ */ React.createElement("input", { placeholder: "Paste your Groq API key here (gsk_...)", value: keyInput, onChange: (e) => setKeyInput(e.target.value), onKeyDown: (e) => e.key === "Enter" && saveKey(), style: { flex: 1 }, type: "password" }), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: saveKey }, "Save Key"))), !groqKey && !isAdmin && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--gold-bg)", border: "1.5px solid var(--gold)", borderRadius: "var(--radius)", marginBottom: 14, fontSize: "var(--text-sm)", color: "var(--gold)" } }, "\u26A0\uFE0F AI is running in local mode. Ask your teacher to set up the Groq API key."), showSaved && savedCites.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14, borderLeft: "3px solid var(--gold)" } }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title", style: { fontSize: "0.875rem" } }, "\u{1F4DD} Saved Citations (", savedCites.length, ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-grn btn-sm", onClick: exportCitations }, "\u2B07 Export .txt"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "page-hd" }, /* @__PURE__ */ React.createElement("div", { className: "page-hd-left" }, /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", fontWeight: 600 } }, "AI Research Assistant"), /* @__PURE__ */ React.createElement("p", { className: "muted", style: { fontSize: "var(--text-xs)" } }, AI_PROVIDERS[selectedProvider] ? AI_PROVIDERS[selectedProvider].label : "AI", " \xB7 ", studies.length, " studies loaded \xB7 APA citations")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" } }, configuredProviders.length > 0 && /* @__PURE__ */ React.createElement("select", { value: selectedProvider, onChange: (e) => changeProvider(e.target.value), "data-tip": "Switch AI model", style: { fontSize: "0.75rem", fontWeight: 500, padding: "4px 8px", borderRadius: 99, border: "1.5px solid var(--border)", background: "var(--bg)", cursor: "pointer" } }, configuredProviders.map((p) => /* @__PURE__ */ React.createElement("option", { key: p, value: p }, AI_PROVIDERS[p].label))), /* @__PURE__ */ React.createElement("span", { style: { background: configuredProviders.length ? "var(--green-light)" : "var(--red-light)", color: configuredProviders.length ? "var(--green)" : "var(--red)", fontSize: "0.7rem", fontWeight: 500, padding: "4px 9px", borderRadius: 99, display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", background: "currentColor", flexShrink: 0 } }), configuredProviders.length ? (AI_PROVIDERS[selectedProvider] ? AI_PROVIDERS[selectedProvider].label : "AI") + " AI" : "No API Key"), isAdmin && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setShowKeySetup((s) => !s), "data-tip": "Manage AI provider API keys" }, "\u{1F511} ", configuredProviders.length ? "Manage Keys" : "Set API Key"), savedCites.length > 0 && /* @__PURE__ */ React.createElement("button", { className: "chat-export-btn", onClick: () => setShowSaved((s) => !s) }, "\u{1F4DD} ", savedCites.length, " saved"), /* @__PURE__ */ React.createElement("button", { className: "chat-export-btn", onClick: exportChat }, "\u2B07 Export"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: clearChat }, "Clear"))), showKeySetup && isAdmin && /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14, borderLeft: "4px solid var(--gold)" } }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title", style: { fontSize: "0.875rem" } }, "\u{1F511} AI Provider API Keys"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => setShowKeySetup(false) }, "\u2715 Close")), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", marginBottom: 10 } }, "Keys are saved to ", /* @__PURE__ */ React.createElement("strong", null, "Firestore"), " (admin-only to set) and loaded automatically for all students, who can then switch between whichever providers you've configured. Note: keys are used directly from the browser, so a technically-inclined student could find them in devtools \u2014 avoid keys tied to a paid account with a high spending limit."), Object.keys(AI_PROVIDERS).map((provider) => /* @__PURE__ */ React.createElement("div", { key: provider, style: { marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid var(--border)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4 } }, /* @__PURE__ */ React.createElement("strong", { style: { fontSize: "0.8rem" } }, AI_PROVIDERS[provider].label), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--muted)" } }, AI_PROVIDERS[provider].blurb)), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.7rem", color: "var(--muted)", marginBottom: 8 } }, "Get a free key at ", /* @__PURE__ */ React.createElement("strong", null, AI_PROVIDERS[provider].getKeyUrl), "."), providerKeys[provider] && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "8px 12px", background: "var(--green-light)", borderRadius: "var(--radius)", marginBottom: 10, fontSize: "var(--text-xs)", color: "var(--green)" } }, "\u2713 Key saved: ", /* @__PURE__ */ React.createElement("code", { style: { fontFamily: "var(--font-mono)" } }, providerKeys[provider].slice(0, 8), "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-red btn-sm", style: { marginLeft: "auto" }, onClick: () => removeKey(provider) }, "Remove")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9 } }, /* @__PURE__ */ React.createElement("input", { placeholder: `Paste your ${AI_PROVIDERS[provider].label} API key here (${AI_PROVIDERS[provider].keyPlaceholder})`, value: keyInputs[provider], onChange: (e) => setKeyInputs((prev) => ({ ...prev, [provider]: e.target.value })), onKeyDown: (e) => e.key === "Enter" && saveKey(provider), style: { flex: 1 }, type: "password" }), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: () => saveKey(provider) }, "Save Key"))))), !configuredProviders.length && !isAdmin && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--gold-bg)", border: "1.5px solid var(--gold)", borderRadius: "var(--radius)", marginBottom: 14, fontSize: "var(--text-sm)", color: "var(--gold)" } }, "\u26A0\uFE0F AI is running in local mode. Ask your teacher to set up an AI provider API key."), showSaved && savedCites.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14, borderLeft: "3px solid var(--gold)" } }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title", style: { fontSize: "0.875rem" } }, "\u{1F4DD} Saved Citations (", savedCites.length, ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-grn btn-sm", onClick: exportCitations }, "\u2B07 Export .txt"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: () => {
     setSavedCites([]);
     setShowSaved(false);
   } }, "Clear all"))), savedCites.map((c, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { fontFamily: "var(--font-mono)", fontSize: "0.73rem", color: "var(--ink-3)", padding: "6px 10px", background: "var(--surface)", borderRadius: 6, marginBottom: 5, borderLeft: "2px solid var(--gold)", display: "flex", alignItems: "flex-start", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, lineHeight: 1.5 } }, c), /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", flexShrink: 0, fontSize: "0.75rem", minWidth: 36, minHeight: 28, padding: "2px 6px" }, onClick: () => {
@@ -9350,7 +9417,7 @@ ${m.text}`).join("\n\n---\n\n");
       var _a3;
       (_a3 = navigator.clipboard) == null ? void 0 : _a3.writeText(generateAPA(s));
       toast.ok("APA citation copied!");
-    } }, "[", i + 1, "] ", generateAPA(s)), /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", cursor: "pointer", color: "var(--teal)", fontSize: "0.65rem", fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap", minWidth: 36, minHeight: 24, padding: "2px 4px" }, onClick: () => saveCitation(s) }, "Save"))))), /* @__PURE__ */ React.createElement("div", { className: "cm-meta" }, /* @__PURE__ */ React.createElement("span", null, msg.time), msg.source && /* @__PURE__ */ React.createElement("span", { className: `cm-src ${msg.source}` }, msg.source === "groq" ? "\u26A1 Groq AI" : "\u{1F527} Local"), msg.role === "bot" && /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "0 4px", borderRadius: 4, minWidth: 28, minHeight: 24, display: "flex", alignItems: "center" }, onClick: () => copyMsg(msg.text), "data-tip": "Copy response", "aria-label": "Copy response" }, /* @__PURE__ */ React.createElement(Ico.copy, null)))));
+    } }, "[", i + 1, "] ", generateAPA(s)), /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", cursor: "pointer", color: "var(--teal)", fontSize: "0.65rem", fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap", minWidth: 36, minHeight: 24, padding: "2px 4px" }, onClick: () => saveCitation(s) }, "Save"))))), /* @__PURE__ */ React.createElement("div", { className: "cm-meta" }, /* @__PURE__ */ React.createElement("span", null, msg.time), msg.source && /* @__PURE__ */ React.createElement("span", { className: `cm-src ${msg.source}` }, AI_PROVIDERS[msg.source] ? `\u26A1 ${AI_PROVIDERS[msg.source].label}` : "\u{1F527} Local"), msg.role === "bot" && /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "0 4px", borderRadius: 4, minWidth: 28, minHeight: 24, display: "flex", alignItems: "center" }, onClick: () => copyMsg(msg.text), "data-tip": "Copy response", "aria-label": "Copy response" }, /* @__PURE__ */ React.createElement(Ico.copy, null)))));
   }), loading && !msgs.some((m) => m.streaming) && /* @__PURE__ */ React.createElement("div", { className: "cm bot", "aria-label": "AI is thinking" }, /* @__PURE__ */ React.createElement("div", { className: "cm-av bot", "aria-hidden": "true" }, "\u{1F916}"), /* @__PURE__ */ React.createElement("div", { className: "cm-body" }, /* @__PURE__ */ React.createElement("div", { className: "cm-bub bot" }, /* @__PURE__ */ React.createElement("div", { className: "typing" }, /* @__PURE__ */ React.createElement("div", { className: "dot" }), /* @__PURE__ */ React.createElement("div", { className: "dot" }), /* @__PURE__ */ React.createElement("div", { className: "dot" }))), /* @__PURE__ */ React.createElement("div", { className: "cm-meta" }, /* @__PURE__ */ React.createElement("span", null, "Thinking\u2026")))), /* @__PURE__ */ React.createElement("div", { ref: bottomRef, style: { height: 1 } })), /* @__PURE__ */ React.createElement("div", { className: "chat-input-area" }, /* @__PURE__ */ React.createElement("div", { className: "chat-input-row" }, /* @__PURE__ */ React.createElement(
     "textarea",
     {
