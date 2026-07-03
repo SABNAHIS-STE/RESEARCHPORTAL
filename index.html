@@ -5752,7 +5752,11 @@ const API = {
   async getSecurityQuestion(email) {
     const res = await fetch(window.__SECURITY_RESET_URL__, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + window.__SUPABASE_ANON_KEY__,
+        "apikey": window.__SUPABASE_ANON_KEY__
+      },
       body: JSON.stringify({ action: "getQuestion", email: email.trim().toLowerCase() })
     });
     const body = await res.json();
@@ -5771,7 +5775,11 @@ const API = {
     if (!newPassword || newPassword.length < 8) throw new Error("Password must be at least 8 characters.");
     const res = await fetch(window.__SECURITY_RESET_URL__, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + window.__SUPABASE_ANON_KEY__,
+        "apikey": window.__SUPABASE_ANON_KEY__
+      },
       body: JSON.stringify({ action: "reset", uid, answer, newPassword })
     });
     const body = await res.json();
