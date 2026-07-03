@@ -4099,7 +4099,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // never put the secret/service-role key here, only server-side.
   window.__SUPABASE_URL__ = "https://fbzcztctelidztwjhkea.supabase.co";
   window.__SUPABASE_ANON_KEY__ = "sb_publishable_SVtmWNUAqHpTeuFwFqhWeA_voH0Wetj";
-  window.__FIREBASE_PASSWORD_BRIDGE_URL__ = "https://fbzcztctelidztwjhkea.supabase.co/functions/v1/firebase-password-bridge";
+  window.__SECURITY_RESET_URL__ = "https://fbzcztctelidztwjhkea.supabase.co/functions/v1/security-question-reset";
 </script>
 <script src="./compat-shim.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -5742,52 +5742,41 @@ const API = {
     if (!secQ || !(secA == null ? void 0 : secA.trim())) throw new Error("Both a question and answer are required.");
     await db.collection("users").doc(uid).update({ secQ, secA: secA.trim().toLowerCase() });
   },
-  async _withAnon(fn) {
-    // Only sign in anonymously if there is no currently-logged-in user,
-    // otherwise signing out in the finally block would log out the real user.
-    const existingUser = auth.currentUser;
-    if (existingUser) {
-      // Already authenticated — run fn() directly without touching auth state
-      return await fn();
-    }
-    let anonUser = null;
-    try {
-      const cred = await auth.signInAnonymously();
-      anonUser = cred.user;
-      return await fn();
-    } finally {
-      if (anonUser) await auth.signOut().catch(() => {
-      });
-    }
-  },
+  // NOTE: these three used to sign in anonymously and read/write another
+  // account's `users` row directly from the browser. That write is
+  // correctly blocked by RLS (an anonymous session's auth.uid() can never
+  // equal the target account's id), so it's now handled by the
+  // security-question-reset edge function instead — verification and the
+  // actual password change both happen server-side with the service role
+  // key, never in the client.
   async getSecurityQuestion(email) {
-    return this._withAnon(async () => {
-      const snap = await db.collection("users").where("email", "==", email.trim().toLowerCase()).limit(1).get();
-      if (snap.empty) throw new Error("No account found with that email address.");
-      const doc = snap.docs[0];
-      const data = doc.data();
-      if (!data.secQ || !data.secA) throw new Error("No security question is set for this account. Please contact an administrator.");
-      return { uid: doc.id, secQ: data.secQ };
+    const res = await fetch(window.__SECURITY_RESET_URL__, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "getQuestion", email: email.trim().toLowerCase() })
     });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || "No account found with that email address.");
+    return { uid: body.uid, secQ: body.secQ };
   },
   async verifySecurityAnswer(uid, answer) {
-    return this._withAnon(async () => {
-      const snap = await db.collection("users").doc(uid).get();
-      if (!snap.exists) throw new Error("Account not found.");
-      const data = snap.data();
-      if ((data.secA || "").toLowerCase().trim() !== answer.toLowerCase().trim())
-        throw new Error("Incorrect answer. Please check your spelling and try again.");
-      return true;
-    });
+    // Real verification now happens atomically with the password change in
+    // resetPasswordOnSite (prevents "verify once, reset many times" and
+    // avoids ever sending the stored answer to the client to check
+    // locally). This keeps the existing two-step UI working as-is.
+    if (!answer || !answer.trim()) throw new Error("Please enter an answer.");
+    return true;
   },
-  async resetPasswordOnSite(uid, newPassword) {
+  async resetPasswordOnSite(uid, newPassword, answer) {
     if (!newPassword || newPassword.length < 8) throw new Error("Password must be at least 8 characters.");
-    return this._withAnon(async () => {
-      await db.collection("users").doc(uid).update({
-        _pwReset: newPassword,
-        _pwResetAt: (/* @__PURE__ */ new Date()).toISOString()
-      });
+    const res = await fetch(window.__SECURITY_RESET_URL__, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reset", uid, answer, newPassword })
     });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || "Could not reset password.");
+    return true;
   },
   // ── Statistical Analyses (Firestore) ──────────────────────────
   async saveStatAnalysis(doc) {
@@ -6772,10 +6761,7 @@ function ForgotModal({ onClose }) {
       setSecQ(res.secQ);
       setStep("question");
     } catch (e) {
-      const msg = e.message || "";
-      if (msg.includes("anonymous") || msg.includes("ANONYMOUS") || e.code === "auth/operation-not-allowed")
-        setErr("On-site reset requires Anonymous Authentication to be enabled in Firebase Console \u2192 Authentication \u2192 Sign-in methods \u2192 Anonymous.");
-      else setErr(msg);
+      setErr(e.message || "Something went wrong. Please try again.");
     }
     setLoading(false);
   };
@@ -6806,7 +6792,7 @@ function ForgotModal({ onClose }) {
     }
     setLoading(true);
     try {
-      await API.resetPasswordOnSite(uid, pw);
+      await API.resetPasswordOnSite(uid, pw, answer);
       setStep("done");
     } catch (e) {
       setErr(e.message);
