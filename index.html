@@ -2287,7 +2287,6 @@ tr { transition: background .1s; }
 .cm-src.gemini { background:var(--blue-light); color:var(--blue); }
 .cm-src.groq   { background:var(--green-light); color:var(--green); }
 .cm-src.mistral { background:var(--gold-bg); color:var(--gold); }
-.cm-src.openrouter { background:var(--purple-light); color:var(--purple); }
 .cm-src.local  { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
 #rn-fx-9c2 span, #rn-fx-9c2b span {
   display: flex; align-items: center; justify-content: center;
@@ -2300,7 +2299,6 @@ tr { transition: background .1s; }
 }
 [data-theme="dark"] .cm-src.groq { background: rgba(39,168,98,0.15); color: var(--green); }
 [data-theme="dark"] .cm-src.mistral { background: rgba(212,163,26,0.15); color: var(--gold); }
-[data-theme="dark"] .cm-src.openrouter { background: rgba(124,77,196,0.15); color: var(--purple); }
 
 /* Typing indicator */
 .typing { display:flex; gap:4px; padding:6px 4px; align-items:center; }
@@ -5483,6 +5481,21 @@ function findRelevant(query, studies, limit = 5) {
   if (!terms.length) return studies.slice(0, limit);
   return studies.map((s) => ({ s, score: scoreStudy(s, terms) })).filter((x) => x.score > 0).sort((a, b) => b.score - a.score).slice(0, limit).map((x) => x.s);
 }
+const GAP_TOPIC_LIST = [
+  { topic: "Climate change impacts", check: /climate|global warming|carbon/ },
+  { topic: "Machine learning applications", check: /machine learning|neural|deep learning|\bAI\b|artificial intelligence/ },
+  { topic: "Renewable energy", check: /solar|wind energy|renewable|clean energy/ },
+  { topic: "Mental health in students", check: /mental health|anxiety|depression|wellbeing/ },
+  { topic: "Biodiversity conservation", check: /biodiversity|conservation|species|ecosystem/ },
+  { topic: "Data privacy & cybersecurity", check: /privacy|cybersecurity|data security|encryption/ },
+  { topic: "Waste management & recycling", check: /waste management|recycling|composting|landfill/ },
+  { topic: "Water quality & sanitation", check: /water quality|sanitation|potable|wastewater/ },
+  { topic: "Food security & agriculture", check: /food security|agriculture|crop yield|farming/ },
+  { topic: "Disaster preparedness", check: /disaster preparedness|earthquake|typhoon|flood risk/ },
+  { topic: "Assistive & accessibility technology", check: /assistive technology|accessibility|disability/ },
+  { topic: "Local culture & indigenous knowledge in STEM", check: /indigenous|heritage|local practices|traditional knowledge/ }
+];
+const GAP_DEFAULT_CATEGORIES = ["Biology", "Chemistry", "Physics", "Mathematics", "Computer Science", "Environmental Science", "Engineering", "Health Science", "Earth Science", "Social Science"];
 function detectResearchGaps(studies, query = "") {
   if (!studies.length) return [];
   const allText = studies.map((s) => [s.title, s.abstract, ...s.keywords || [], ...s.categories || []].join(" ").toLowerCase()).join(" ");
@@ -5491,20 +5504,54 @@ function detectResearchGaps(studies, query = "") {
     allCats[c] = (allCats[c] || 0) + 1;
   }));
   const gaps = [];
-  const DEFAULT_CATS_SET = ["Biology", "Chemistry", "Physics", "Mathematics", "Computer Science", "Environmental Science", "Engineering", "Health Science", "Earth Science", "Social Science"];
-  DEFAULT_CATS_SET.forEach((cat) => {
+  GAP_DEFAULT_CATEGORIES.forEach((cat) => {
     if (!allCats[cat]) gaps.push(cat);
   });
-  const gapTopics = [
-    { topic: "climate change impacts", check: /climate|global warming|carbon/ },
-    { topic: "machine learning applications", check: /machine learning|neural|deep learning|AI/ },
-    { topic: "renewable energy", check: /solar|wind energy|renewable|clean energy/ },
-    { topic: "mental health in students", check: /mental health|anxiety|depression|wellbeing/ },
-    { topic: "biodiversity conservation", check: /biodiversity|conservation|species|ecosystem/ },
-    { topic: "data privacy and cybersecurity", check: /privacy|cybersecurity|data security|encryption/ }
-  ];
-  const contentGaps = gapTopics.filter((g) => !g.check.test(allText)).map((g) => g.topic).slice(0, 2);
+  const contentGaps = GAP_TOPIC_LIST.filter((g) => !g.check.test(allText)).map((g) => g.topic).slice(0, 2);
   return contentGaps;
+}
+// Richer analysis for the dedicated Research Gap Map page: every category
+// (default STEM list + any custom ones actually in use) with its count and
+// a severity tier, plus the FULL list of emerging-topic gaps (not sliced to
+// 2 like detectResearchGaps, which stays lightweight for the chatbot prompt).
+function getGapLandscape(studies) {
+  const allCats = {};
+  studies.forEach((s) => (s.categories || []).forEach((c) => {
+    allCats[c] = (allCats[c] || 0) + 1;
+  }));
+  const allCategoryNames = Array.from(/* @__PURE__ */ new Set([...GAP_DEFAULT_CATEGORIES, ...Object.keys(allCats)]));
+  const counts = allCategoryNames.map((c) => allCats[c] || 0);
+  const nonZero = counts.filter((c) => c > 0);
+  const median = nonZero.length ? nonZero.slice().sort((a, b) => a - b)[Math.floor(nonZero.length / 2)] : 0;
+  const categoryLandscape = allCategoryNames.map((cat) => {
+    const count = allCats[cat] || 0;
+    const severity = count === 0 ? "empty" : count < Math.max(1, median * 0.5) ? "thin" : "healthy";
+    return { category: cat, count, severity };
+  }).sort((a, b) => a.count - b.count);
+  const allText = studies.map((s) => [s.title, s.abstract, ...s.keywords || [], ...s.categories || []].join(" ").toLowerCase()).join(" ");
+  const topicGaps = studies.length ? GAP_TOPIC_LIST.filter((g) => !g.check.test(allText)).map((g) => g.topic) : GAP_TOPIC_LIST.map((g) => g.topic);
+  return { categoryLandscape, topicGaps, totalStudies: studies.length };
+}
+function GapMapPage({ isAdmin }) {
+  const [studies, setStudies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    setLoading(true);
+    API.getAllStudies().then((data) => {
+      setStudies(data.filter((s) => !s.isDraft));
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+  if (loading) {
+    return /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "60px 20px", color: "var(--muted)" } }, /* @__PURE__ */ React.createElement("span", { className: "spin" }));
+  }
+  const { categoryLandscape, topicGaps, totalStudies } = getGapLandscape(studies);
+  const emptyCount = categoryLandscape.filter((c) => c.severity === "empty").length;
+  const thinCount = categoryLandscape.filter((c) => c.severity === "thin").length;
+  const maxCount = Math.max(1, ...categoryLandscape.map((c) => c.count));
+  const severityColor = { empty: "var(--red)", thin: "var(--gold)", healthy: "var(--green)" };
+  const severityBg = { empty: "var(--red-light)", thin: "var(--gold-bg)", healthy: "var(--green-light)" };
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 } }, /* @__PURE__ */ React.createElement("div", { className: "card", style: { textAlign: "center", padding: "16px 10px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "1.6rem", fontWeight: 700, color: "var(--ink)" } }, totalStudies), /* @__PURE__ */ React.createElement("div", { className: "muted", style: { fontSize: "0.72rem" } }, "Total Studies")), /* @__PURE__ */ React.createElement("div", { className: "card", style: { textAlign: "center", padding: "16px 10px", borderLeft: "4px solid var(--red)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "1.6rem", fontWeight: 700, color: "var(--red)" } }, emptyCount), /* @__PURE__ */ React.createElement("div", { className: "muted", style: { fontSize: "0.72rem" } }, "Zero Coverage")), /* @__PURE__ */ React.createElement("div", { className: "card", style: { textAlign: "center", padding: "16px 10px", borderLeft: "4px solid var(--gold)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "1.6rem", fontWeight: 700, color: "var(--gold)" } }, thinCount), /* @__PURE__ */ React.createElement("div", { className: "muted", style: { fontSize: "0.72rem" } }, "Thin Coverage")), /* @__PURE__ */ React.createElement("div", { className: "card", style: { textAlign: "center", padding: "16px 10px", borderLeft: "4px solid var(--green)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "1.6rem", fontWeight: 700, color: "var(--green)" } }, categoryLandscape.length - emptyCount - thinCount), /* @__PURE__ */ React.createElement("div", { className: "muted", style: { fontSize: "0.72rem" } }, "Well Covered"))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 20 } }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "\u{1F4CA} Category Coverage"), /* @__PURE__ */ React.createElement("span", { className: "muted", style: { fontSize: "0.72rem" } }, "Sorted from most-needed to well-covered")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, categoryLandscape.map((c) => /* @__PURE__ */ React.createElement("div", { key: c.category, style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 150, flexShrink: 0, fontSize: "0.78rem", fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, title: c.category }, c.category), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, height: 18, background: "var(--surface)", borderRadius: 99, overflow: "hidden", border: "1px solid var(--border)" } }, /* @__PURE__ */ React.createElement("div", { style: { width: `${Math.max(4, c.count / maxCount * 100)}%`, height: "100%", background: severityColor[c.severity], borderRadius: 99, transition: "width 0.4s" } })), /* @__PURE__ */ React.createElement("div", { style: { width: 70, flexShrink: 0, textAlign: "right", fontSize: "0.72rem", fontWeight: 700, color: severityColor[c.severity] } }, c.count, " ", c.count === 1 ? "study" : "studies"))))), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "card-title" }, "\u{1F4A1} Emerging Topics No One's Covered")), /* @__PURE__ */ React.createElement("p", { className: "muted", style: { fontSize: "0.75rem", marginBottom: 12 } }, isAdmin ? "Good discussion starters for next term's project ideas \u2014 no current submissions touch these topics." : "Picking one of these could make your project stand out \u2014 nobody's researched them yet."), topicGaps.length === 0 ? /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.8rem", color: "var(--green)" } }, "\u2713 Impressive \u2014 the repository already touches on all of these common topics.") : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, topicGaps.map((topic) => /* @__PURE__ */ React.createElement("span", { key: topic, style: { display: "inline-flex", alignItems: "center", gap: 6, background: "var(--gold-bg)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 99, padding: "6px 12px", fontSize: "0.78rem", fontWeight: 600 } }, "\u2728 ", topic)))));
 }
 function clusterStudies(studies) {
   const clusters = {};
@@ -5655,14 +5702,12 @@ const AI_PROVIDERS = {
     getKeyUrl: "console.mistral.ai",
     blurb: "Strong general-purpose quality, EU-hosted."
   },
-  openrouter: {
-    label: "OpenRouter",
-    url: "https://openrouter.ai/api/v1/chat/completions",
-    // ":free" suffix models on OpenRouter don't consume paid credits.
-    model: "meta-llama/llama-3.3-70b-instruct:free",
-    keyPlaceholder: "sk-or-...",
-    getKeyUrl: "openrouter.ai/keys",
-    blurb: "One key, many free community models."
+  gemini: {
+    label: "Gemini",
+    model: "gemini-2.0-flash",
+    keyPlaceholder: "AIza...",
+    getKeyUrl: "aistudio.google.com/apikey",
+    blurb: "Great long-context reasoning, free tier is generous."
   }
 };
 const DEFAULT_AI_PROVIDER = "groq";
@@ -5686,22 +5731,89 @@ async function callAI(query, history, studies, mode = "general", onToken, provid
   const cfg = AI_PROVIDERS[provider] || AI_PROVIDERS[DEFAULT_AI_PROVIDER];
   const API_KEY = getProviderKey(provider);
   if (!API_KEY) return buildLocalResponse(query, studies, mode);
+  const useStreaming = typeof onToken === "function";
+
+  // Gemini's API shape is different enough from the OpenAI-style chat-
+  // completions format (Groq/Mistral both use) that it gets its own path:
+  // system prompt is a separate field, history uses role "model" not
+  // "assistant", the key goes in the URL not an Authorization header, and
+  // streaming is a different endpoint/response shape entirely.
+  if (provider === "gemini") {
+    try {
+      const contents = [
+        ...history.slice(-12).map((m) => ({ role: m.role === "user" ? "user" : "model", parts: [{ text: m.content }] })),
+        { role: "user", parts: [{ text: query }] }
+      ];
+      const body = JSON.stringify({
+        contents,
+        systemInstruction: { parts: [{ text: system }] },
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1600 }
+      });
+      const endpoint = useStreaming
+        ? `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:streamGenerateContent?alt=sse&key=${API_KEY}`
+        : `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:generateContent?key=${API_KEY}`;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => res.statusText);
+        console.error("Gemini HTTP error:", res.status, errText);
+        if (res.status === 400 || res.status === 403) toast.err("Gemini: Invalid API key. Check your key in Settings.");
+        else if (res.status === 429) toast.err("Gemini: Rate limit reached. Try again in a moment.");
+        else toast.err(`Gemini: Server error (${res.status}). Falling back to local mode.`);
+        throw new Error(`Gemini HTTP ${res.status}`);
+      }
+      if (useStreaming) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let fullText = "";
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop();
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data: ")) continue;
+            try {
+              const json = JSON.parse(trimmed.slice(6));
+              const piece = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (piece) {
+                fullText += piece;
+                onToken(fullText);
+              }
+            } catch (_) { /* skip malformed chunks */ }
+          }
+        }
+        const relevant = findRelevant(query, studies, 4);
+        return { text: fullText || "No response generated.", citations: relevant, source: "gemini" };
+      } else {
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+        const relevant = findRelevant(query, studies, 4);
+        return { text, citations: relevant, source: "gemini" };
+      }
+    } catch (err) {
+      console.error("Gemini call failed:", err);
+      return buildLocalResponse(query, studies, mode);
+    }
+  }
+
   const messages = [
     { role: "system", content: system },
     ...history.slice(-12).map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
     { role: "user", content: query }
   ];
-  const useStreaming = typeof onToken === "function";
   try {
-    const extraHeaders = provider === "openrouter"
-      ? { "HTTP-Referer": location.origin, "X-Title": "SABNAHIS E-Tuklas Research Assistant" }
-      : {};
     const res = await fetch(cfg.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${API_KEY}`,
-        ...extraHeaders
+        "Authorization": `Bearer ${API_KEY}`
       },
       body: JSON.stringify({
         model: cfg.model,
@@ -6003,6 +6115,62 @@ function checkPlagiarism(inputText, studies, excludeId = null) {
     const score = cosineSimilarity(tfA, tfB);
     return { study: s, score, shared: getSharedTerms(inputText, s.abstract) };
   }).filter((r) => r.score > 0.08).sort((a, b) => b.score - a.score).slice(0, 5);
+}
+// Checks the submitted abstract against REAL PUBLISHED papers, not just this
+// repository. Uses two free, keyless public APIs so no backend/API key is
+// needed: Semantic Scholar's Graph API and CrossRef's Works API. This closes
+// the gap the repo-only check has \u2014 a student could pass the internal check
+// cleanly by copying a paper that simply isn't in this school's repository.
+async function checkPublishedPlagiarism(inputText) {
+  if (!inputText || inputText.trim().length < 50) return [];
+  const tokensA = tokenize(inputText);
+  if (tokensA.length < 10) return [];
+  const tfA = buildTF(tokensA);
+  // Use the first ~12 meaningful words as the search query \u2014 short enough
+  // for both APIs' query limits, long enough to find a real abstract match.
+  const query = tokensA.slice(0, 12).join(" ");
+  const candidates = [];
+  try {
+    const ssRes = await fetch(
+      `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=5&fields=title,abstract,authors,year,url`,
+      { signal: AbortSignal.timeout(6e3) }
+    );
+    if (ssRes.ok) {
+      const ssData = await ssRes.json();
+      (ssData.data || []).forEach((p) => {
+        if (p.abstract) candidates.push({
+          title: p.title, abstract: p.abstract, year: p.year,
+          authors: (p.authors || []).map((a) => a.name),
+          url: p.url, source: "Semantic Scholar"
+        });
+      });
+    }
+  } catch (e) {
+  }
+  try {
+    const crRes = await fetch(
+      `https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(query)}&rows=5&mailto=admin@sabnahis-ste.github.io`,
+      { signal: AbortSignal.timeout(6e3) }
+    );
+    if (crRes.ok) {
+      const crData = await crRes.json();
+      (crData.message?.items || []).forEach((p) => {
+        const abs = (p.abstract || "").replace(/<[^>]+>/g, "");
+        if (abs) candidates.push({
+          title: (p.title || [])[0] || "Untitled",
+          abstract: abs, year: p.published?.["date-parts"]?.[0]?.[0],
+          authors: (p.author || []).map((a) => `${a.given || ""} ${a.family || ""}`.trim()),
+          url: p.URL, source: "CrossRef"
+        });
+      });
+    }
+  } catch (e) {
+  }
+  return candidates.map((p) => {
+    const tfB = buildTF(tokenize(p.abstract));
+    const score = cosineSimilarity(tfA, tfB);
+    return { paper: p, score, shared: getSharedTerms(inputText, p.abstract) };
+  }).filter((r) => r.score > 0.12).sort((a, b) => b.score - a.score).slice(0, 5);
 }
 function plagiarismLevel(score) {
   if (score >= 0.5) return { label: "High Similarity", color: "var(--red)", bg: "var(--red-light)", block: true };
@@ -8049,7 +8217,7 @@ function EditStudyModal({ study, onClose, onSaved, cats: catsProp = [] }) {
   }, "data-tip": "Remove Google Drive link" }, "\u2715")) : /* @__PURE__ */ React.createElement("div", { className: "gdrive-input-wrap" }, /* @__PURE__ */ React.createElement("input", { placeholder: "Paste Google Drive link here\u2026", value: gdriveUrl, onChange: (e) => handleGdriveInput(e.target.value), style: { color: "var(--ink)" } }), gdriveUrl && !gdriveInfo && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--red)", fontSize: "0.75rem", flexShrink: 0 } }, "Invalid link"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: onClose }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: submit, disabled: loading || !!titleDupe }, loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), "Saving\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, "\u270F\uFE0F Save Changes"))));
 }
 function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
-  var _a;
+  var _a, _b;
   const draftKey = currentUser == null ? void 0 : currentUser.id;
   const existingDraft = loadDraft(draftKey);
   const selfTag = { name: currentUser.name, userId: currentUser.id, registered: true, self: true };
@@ -8063,6 +8231,9 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
   const [titleChecking, setTitleChecking] = useState(false);
   const [plagResults, setPlagResults] = useState([]);
   const [plagChecking, setPlagChecking] = useState(false);
+  const [publishedResults, setPublishedResults] = useState([]);
+  const [publishedChecking, setPublishedChecking] = useState(false);
+  const [publishedCheckFailed, setPublishedCheckFailed] = useState(false);
   const [allStudiesCache, setAllStudiesCache] = useState([]);
   const [draftStatus, setDraftStatus] = useState(existingDraft ? "saved" : null);
   const [hasDraftRestored, setHasDraftRestored] = useState(!!existingDraft);
@@ -8070,6 +8241,7 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
   const [draftSection, setDraftSection] = useState((existingDraft == null ? void 0 : existingDraft.draftSection) || "");
   const titleCheckTimeout = useRef(null);
   const plagCheckTimeout = useRef(null);
+  const publishedCheckTimeout = useRef(null);
   const draftTimeout = useRef(null);
   useEffect(() => {
     API.getStudies({ status: "active", perPage: 200 }).then((r) => setAllStudiesCache(r.data || [])).catch(() => {
@@ -8124,6 +8296,23 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
         }, 800);
       } else {
         setPlagChecking(false);
+      }
+      setPublishedResults([]);
+      setPublishedCheckFailed(false);
+      clearTimeout(publishedCheckTimeout.current);
+      if (v.trim().length > 80) {
+        setPublishedChecking(true);
+        publishedCheckTimeout.current = setTimeout(async () => {
+          try {
+            const results = await checkPublishedPlagiarism(v);
+            setPublishedResults(results);
+          } catch (e) {
+            setPublishedCheckFailed(true);
+          }
+          setPublishedChecking(false);
+        }, 1200);
+      } else {
+        setPublishedChecking(false);
       }
     }
   };
@@ -8201,6 +8390,11 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
       toast.err("Abstract has high similarity (" + Math.round(topPlag.score * 100) + "%) with an existing study. Please rewrite it.");
       return;
     }
+    const topPublished = publishedResults[0];
+    if (!isDraft && topPublished && topPublished.score >= 0.55) {
+      toast.err("Abstract closely matches a published paper (" + Math.round(topPublished.score * 100) + "% similar to \u201C" + topPublished.paper.title + "\u201D). Please write this in your own words.");
+      return;
+    }
     setLoading(true);
     try {
       const authors = authorTags.map((t) => t.name);
@@ -8243,7 +8437,14 @@ function UploadModal({ onClose, currentUser, onUpload, cats = [] }) {
       onChange: (e) => handleGdriveInput(e.target.value),
       style: { color: "var(--ink)" }
     }
-  ), gdriveUrl && !gdriveInfo && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--red)", fontSize: "0.75rem", flexShrink: 0 } }, "Invalid link"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4, minHeight: 20 } }, draftStatus === "saving" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saving" }, /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 9, height: 9, borderWidth: 1.5 } }), "Auto-saving draft\u2026"), draftStatus === "saved" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saved" }, "\u2713 Draft saved \u2014 close anytime and resume later")), /* @__PURE__ */ React.createElement("div", { style: { background: isDraft ? "rgba(109,63,168,0.07)" : "var(--surface)", border: `1.5px solid ${isDraft ? "var(--purple)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "12px 14px", marginBottom: 12, cursor: "pointer", transition: "all 0.2s" }, onClick: () => setIsDraft((v) => !v), role: "button", "aria-pressed": isDraft, tabIndex: 0, onKeyDown: (e) => e.key === "Enter" && setIsDraft((v) => !v) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 20, borderRadius: 99, background: isDraft ? "var(--purple)" : "var(--border)", position: "relative", transition: "background 0.2s", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 2, left: isDraft ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.85rem", color: isDraft ? "var(--purple)" : "var(--ink)", marginBottom: 1 } }, "\u{1F512} Save as Unfinished Draft"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)", lineHeight: 1.4 } }, isDraft ? "Only you and your teachers can see this. Teachers can review and comment. You can publish it anytime." : "Toggle on to upload privately \u2014 visible only to you and teachers.")))), isDraft && /* @__PURE__ */ React.createElement("div", { className: "fg", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("label", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--purple)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("span", null, "\uD83D\uDCCC"), "Which section is this draft? ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, color: "var(--muted)", fontSize: "0.75rem" } }, "(optional)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, [{ value: "", label: "\u2753 Not sure yet", icon: "\u2753" }, { value: "Title & Authors", label: "Title & Authors", icon: "\uD83D\uDCCB" }, { value: "Rationale", label: "Rationale", icon: "\uD83D\uDCA1" }, { value: "Abstract", label: "Abstract", icon: "\uD83D\uDCDD" }, { value: "Methodology", label: "Methodology", icon: "\uD83E\uDDEA" }, { value: "Research Plan", label: "Research Plan", icon: "\uD83D\uDDFA\uFE0F" }, { value: "Proposal", label: "Proposal", icon: "\uD83D\uDCC4" }, { value: "Introduction", label: "Introduction", icon: "\uD83D\uDCDA" }, { value: "Literature Review", label: "Literature Review", icon: "\uD83D\uDD0D" }, { value: "Results", label: "Results", icon: "\uD83D\uDCCA" }, { value: "Discussion", label: "Discussion", icon: "\uD83D\uDCAC" }, { value: "Conclusion", label: "Conclusion", icon: "\u2705" }, { value: "References", label: "References", icon: "\uD83D\uDCD6" }].map(function(opt) { return /* @__PURE__ */ React.createElement("button", { key: opt.value, type: "button", onClick: function() { setDraftSection(opt.value); }, style: { padding: "5px 12px", borderRadius: 99, border: "1.5px solid " + (draftSection === opt.value ? "var(--purple)" : "var(--border)"), background: draftSection === opt.value ? "rgba(109,63,168,0.12)" : "var(--surface)", color: draftSection === opt.value ? "var(--purple)" : "var(--muted)", fontSize: "0.75rem", fontWeight: draftSection === opt.value ? 700 : 500, cursor: "pointer", transition: "all 0.15s", fontFamily: "var(--font-body)" } }, opt.icon, " ", opt.label); }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: confirmClose }, form.title.trim() || authorTags.length > 1 || form.abstract.trim() ? "\u{1F4BE} Save & Close" : "Cancel"), /* @__PURE__ */ React.createElement("button", { className: `btn ${isDraft ? "btn-purple" : "btn-gold"}`, style: isDraft ? { background: "var(--purple)", color: "#fff", borderColor: "var(--purple)" } : {}, onClick: submit, disabled: loading || (!isDraft && (!!titleDupe || ((_a = plagResults[0]) == null ? void 0 : _a.score) >= 0.5)) }, loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), isDraft ? "Saving\u2026" : "Uploading\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, isDraft ? "\u{1F512} Save as Unfinished Draft" : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.up, null), " Upload Study")))));
+  ), publishedChecking && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, marginTop: 8, fontSize: "0.75rem", color: "var(--muted)" } }, /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 12, height: 12, flexShrink: 0 } }), " Checking against published literature\u2026"), !publishedChecking && !publishedCheckFailed && publishedResults.length === 0 && form.abstract.trim().length > 80 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", color: "var(--muted)" } }, "\u{1F310} No match found in published literature (Semantic Scholar / CrossRef)"), publishedCheckFailed && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, fontSize: "0.72rem", color: "var(--muted)" } }, "\u26A0\uFE0F Couldn't reach the published-literature check right now \u2014 this doesn't block your upload, but ask a teacher to double-check manually if unsure."), !publishedChecking && publishedResults.length > 0 && (() => {
+    const top = publishedResults[0];
+    const lvl = plagiarismLevel(top.score);
+    return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, borderRadius: "var(--radius)", overflow: "hidden", border: `1.5px solid ${lvl.color}` } }, /* @__PURE__ */ React.createElement("div", { style: { background: lvl.bg, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700, fontSize: "0.78rem", color: lvl.color } }, top.score >= 0.55 ? "\u{1F6A8}" : top.score >= 0.3 ? "\u26A0\uFE0F" : "\u2139\uFE0F", " Published Literature Check \u2014 ", lvl.label), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontSize: "0.7rem", color: lvl.color, fontWeight: 600 } }, "Highest: ", Math.round(top.score * 100), "%")), /* @__PURE__ */ React.createElement("div", { style: { background: "var(--surface)", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 } }, publishedResults.map((r, i) => {
+      const l = plagiarismLevel(r.score);
+      return /* @__PURE__ */ React.createElement("div", { key: i, style: { borderBottom: i < publishedResults.length - 1 ? "1px solid var(--border)" : "none", paddingBottom: i < publishedResults.length - 1 ? 8 : 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 42, height: 20, borderRadius: 99, background: l.bg, border: `1px solid ${l.color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.65rem", fontWeight: 700, color: l.color, flexShrink: 0 } }, Math.round(r.score * 100), "%"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, r.paper.url ? /* @__PURE__ */ React.createElement("a", { href: r.paper.url, target: "_blank", rel: "noopener noreferrer", style: { fontSize: "0.78rem", fontWeight: 600, color: "var(--gold)", textDecoration: "underline", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, title: r.paper.title }, r.paper.title.length > 65 ? r.paper.title.slice(0, 65) + "\u2026" : r.paper.title) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.78rem", fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, title: r.paper.title }, r.paper.title.length > 65 ? r.paper.title.slice(0, 65) + "\u2026" : r.paper.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", color: "var(--muted)" } }, (r.paper.authors || []).slice(0, 2).join(", "), r.paper.year ? ` \xB7 ${r.paper.year}` : "", " \xB7 ", r.paper.source))), r.shared.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 3, flexWrap: "wrap", marginTop: 3, paddingLeft: 50 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.62rem", color: "var(--muted)", marginRight: 2 } }, "Shared terms:"), r.shared.map((w) => /* @__PURE__ */ React.createElement("span", { key: w, style: { background: "var(--gold-bg)", color: "var(--gold)", fontSize: "0.62rem", padding: "1px 6px", borderRadius: 99, border: "1px solid var(--gold)" } }, w))));
+    })));
+  })(), gdriveUrl && !gdriveInfo && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--red)", fontSize: "0.75rem", flexShrink: 0 } }, "Invalid link"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4, minHeight: 20 } }, draftStatus === "saving" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saving" }, /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 9, height: 9, borderWidth: 1.5 } }), "Auto-saving draft\u2026"), draftStatus === "saved" && /* @__PURE__ */ React.createElement("span", { className: "draft-status saved" }, "\u2713 Draft saved \u2014 close anytime and resume later")), /* @__PURE__ */ React.createElement("div", { style: { background: isDraft ? "rgba(109,63,168,0.07)" : "var(--surface)", border: `1.5px solid ${isDraft ? "var(--purple)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "12px 14px", marginBottom: 12, cursor: "pointer", transition: "all 0.2s" }, onClick: () => setIsDraft((v) => !v), role: "button", "aria-pressed": isDraft, tabIndex: 0, onKeyDown: (e) => e.key === "Enter" && setIsDraft((v) => !v) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 20, borderRadius: 99, background: isDraft ? "var(--purple)" : "var(--border)", position: "relative", transition: "background 0.2s", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 2, left: isDraft ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.85rem", color: isDraft ? "var(--purple)" : "var(--ink)", marginBottom: 1 } }, "\u{1F512} Save as Unfinished Draft"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)", lineHeight: 1.4 } }, isDraft ? "Only you and your teachers can see this. Teachers can review and comment. You can publish it anytime." : "Toggle on to upload privately \u2014 visible only to you and teachers.")))), isDraft && /* @__PURE__ */ React.createElement("div", { className: "fg", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("label", { style: { fontWeight: 600, fontSize: "0.82rem", color: "var(--purple)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("span", null, "\uD83D\uDCCC"), "Which section is this draft? ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, color: "var(--muted)", fontSize: "0.75rem" } }, "(optional)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, [{ value: "", label: "\u2753 Not sure yet", icon: "\u2753" }, { value: "Title & Authors", label: "Title & Authors", icon: "\uD83D\uDCCB" }, { value: "Rationale", label: "Rationale", icon: "\uD83D\uDCA1" }, { value: "Abstract", label: "Abstract", icon: "\uD83D\uDCDD" }, { value: "Methodology", label: "Methodology", icon: "\uD83E\uDDEA" }, { value: "Research Plan", label: "Research Plan", icon: "\uD83D\uDDFA\uFE0F" }, { value: "Proposal", label: "Proposal", icon: "\uD83D\uDCC4" }, { value: "Introduction", label: "Introduction", icon: "\uD83D\uDCDA" }, { value: "Literature Review", label: "Literature Review", icon: "\uD83D\uDD0D" }, { value: "Results", label: "Results", icon: "\uD83D\uDCCA" }, { value: "Discussion", label: "Discussion", icon: "\uD83D\uDCAC" }, { value: "Conclusion", label: "Conclusion", icon: "\u2705" }, { value: "References", label: "References", icon: "\uD83D\uDCD6" }].map(function(opt) { return /* @__PURE__ */ React.createElement("button", { key: opt.value, type: "button", onClick: function() { setDraftSection(opt.value); }, style: { padding: "5px 12px", borderRadius: 99, border: "1.5px solid " + (draftSection === opt.value ? "var(--purple)" : "var(--border)"), background: draftSection === opt.value ? "rgba(109,63,168,0.12)" : "var(--surface)", color: draftSection === opt.value ? "var(--purple)" : "var(--muted)", fontSize: "0.75rem", fontWeight: draftSection === opt.value ? 700 : 500, cursor: "pointer", transition: "all 0.15s", fontFamily: "var(--font-body)" } }, opt.icon, " ", opt.label); }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 9, justifyContent: "flex-end", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol", onClick: confirmClose }, form.title.trim() || authorTags.length > 1 || form.abstract.trim() ? "\u{1F4BE} Save & Close" : "Cancel"), /* @__PURE__ */ React.createElement("button", { className: `btn ${isDraft ? "btn-purple" : "btn-gold"}`, style: isDraft ? { background: "var(--purple)", color: "#fff", borderColor: "var(--purple)" } : {}, onClick: submit, disabled: loading || (!isDraft && (!!titleDupe || ((_a = plagResults[0]) == null ? void 0 : _a.score) >= 0.5 || ((_b = publishedResults[0]) == null ? void 0 : _b.score) >= 0.55)) }, loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "spin spin-dark" }), isDraft ? "Saving\u2026" : "Uploading\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, isDraft ? "\u{1F512} Save as Unfinished Draft" : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Ico.up, null), " Upload Study")))));
 }
 function EmptyState({ icon = "\u{1F4ED}", title, message, action = null, compact = false }) {
   return /* @__PURE__ */ React.createElement("div", { className: "empty", style: compact ? { padding: "28px 20px" } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "empty-badge" }, icon), /* @__PURE__ */ React.createElement("h3", null, title), message && /* @__PURE__ */ React.createElement("p", null, message), action && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, action));
@@ -12781,6 +12982,7 @@ const Sidebar = memo(function Sidebar2({ currentUser, activeTab, setActiveTab, o
     { id: "stat-analysis", label: "Statistical Analysis", icon: /* @__PURE__ */ React.createElement(Ico.search, null) },
     { id: "repository", label: "Repository", icon: /* @__PURE__ */ React.createElement(Ico.search, null) },
     { id: "recognized", label: "Recognized Studies", icon: /* @__PURE__ */ React.createElement(Ico.award, null) },
+    { id: "gap-map", label: "Research Gap Map", icon: /* @__PURE__ */ React.createElement(Ico.bulb, null) },
     { id: "announcements", label: "Announcements", icon: /* @__PURE__ */ React.createElement(Ico.bell, null) },
     { id: "submission-tracker", label: "Submission Tracker", icon: /* @__PURE__ */ React.createElement(Ico.chk, null), "data-tour": "nav-submission-tracker" },
     { id: "feedback-inbox", label: "Feedback Inbox", icon: /* @__PURE__ */ React.createElement(Ico.search, null), "data-tour": "nav-feedback-inbox" },
@@ -12796,6 +12998,7 @@ const Sidebar = memo(function Sidebar2({ currentUser, activeTab, setActiveTab, o
     { id: "stat-analysis", label: "Statistical Analysis", icon: /* @__PURE__ */ React.createElement(Ico.search, null) },
     { id: "repository", label: "Browse Studies", icon: /* @__PURE__ */ React.createElement(Ico.book, null) },
     { id: "recognized", label: "Recognized Studies", icon: /* @__PURE__ */ React.createElement(Ico.award, null) },
+    { id: "gap-map", label: "Research Gap Map", icon: /* @__PURE__ */ React.createElement(Ico.bulb, null) },
     { id: "announcements", label: "Announcements", icon: /* @__PURE__ */ React.createElement(Ico.bell, null) },
     { id: "chatbot", label: "AI Assistant", icon: /* @__PURE__ */ React.createElement(Ico.bot, null) }
   ];
@@ -13296,6 +13499,10 @@ const NAV_TOUR_COPY = {
   recognized: {
     admin: "Spotlight outstanding student work here for the whole school to see.",
     student: "Browse standout studies your teachers have recognized."
+  },
+  "gap-map": {
+    admin: "See which STEM categories and topics your students haven't researched yet \u2014 useful for steering next term's project ideas.",
+    student: "See what topics no one's researched yet \u2014 an unclaimed gap can make for a stronger, more original project."
   },
   announcements: {
     admin: "Post updates and notices that your students will see across the portal.",
@@ -13967,7 +14174,7 @@ function App() {
       }
     };
   }, []);
-  const titles = { dashboard: "Dashboard", users: "User Management", analytics: "Class Analytics", "grade-overview": "Grade Overview", announcements: "Announcements", "studies-admin": "Manage Studies", categories: "Manage Categories", "audit-log": "Audit Log", repository: "Research Repository", chatbot: "AI Research Assistant", recognized: "Recognized Studies", "my-stats": "My Stats", "checklist": "Student Checklist", "stat-analysis": "Statistical Analysis", "teacher-analytics": "Teacher Dashboard", "approval-workflow": "Approval Queue", "submission-tracker": "Submission Tracker", "feedback-inbox": "Feedback Inbox", "reading-progress": "Reading Progress", "notif-center": "Notifications", "shop": "Token Shop", "shop-admin": "Shop Management", "shop-log": "Redemption Log" };
+  const titles = { dashboard: "Dashboard", users: "User Management", analytics: "Class Analytics", "grade-overview": "Grade Overview", announcements: "Announcements", "studies-admin": "Manage Studies", categories: "Manage Categories", "audit-log": "Audit Log", repository: "Research Repository", chatbot: "AI Research Assistant", recognized: "Recognized Studies", "gap-map": "Research Gap Map", "my-stats": "My Stats", "checklist": "Student Checklist", "stat-analysis": "Statistical Analysis", "teacher-analytics": "Teacher Dashboard", "approval-workflow": "Approval Queue", "submission-tracker": "Submission Tracker", "feedback-inbox": "Feedback Inbox", "reading-progress": "Reading Progress", "notif-center": "Notifications", "shop": "Token Shop", "shop-admin": "Shop Management", "shop-log": "Redemption Log" };
   if (!authChecked || !loaderDone) {
     if (authChecked && !loaderDone) {
       if (typeof window.sabnahisLoaderDone === "function") {
@@ -14040,6 +14247,8 @@ function App() {
         } }) : null;
       case "recognized":
         return /* @__PURE__ */ React.createElement(RecognizedStudiesPage, { currentUser, isAdmin });
+      case "gap-map":
+        return /* @__PURE__ */ React.createElement(GapMapPage, { isAdmin });
       case "announcements":
         return /* @__PURE__ */ React.createElement(AnnouncementsPage, { currentUser });
       case "chatbot":
