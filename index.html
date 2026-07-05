@@ -13268,12 +13268,17 @@ function WatermarkOverlay({ currentUser }) {
         position: "absolute", top: 0, left: 0, width: "100%",
         height: pageHeight * 1.6 + "px", overflow: "hidden",
         pointerEvents: "none", zIndex: 999999,
-        transform: `rotate(${seed.angle}deg)`,
         display: "grid", gridTemplateColumns: `repeat(${colCount}, 1fr)`,
         gridAutoRows: rowHeight + "px"
       }
     },
-    tiles.map((i) => /* @__PURE__ */ React.createElement("span", { key: i, style: { fontSize: isMobile ? "10px" : "12px" } }, stamp))
+    // Rotate each individual tile, not the wrapper. The wrapper spans the
+    // full scrollable page height (can be thousands of pixels), and
+    // rotating something that tall around its center swings it sideways
+    // by a huge distance \u2014 that was the "watermark flying off to the
+    // left" bug. Rotating each small tile instead gives the same tilted-
+    // stamp look with zero lateral displacement.
+    tiles.map((i) => /* @__PURE__ */ React.createElement("span", { key: i, style: { fontSize: isMobile ? "10px" : "12px", transform: `rotate(${seed.angle}deg)` } }, stamp))
   );
 }
 function useWatermarkWatchdog(stampRef, setRemountKey, isReading) {
