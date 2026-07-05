@@ -5495,7 +5495,7 @@ const GAP_TOPIC_LIST = [
   { topic: "Assistive & accessibility technology", check: /assistive technology|accessibility|disability/ },
   { topic: "Local culture & indigenous knowledge in STEM", check: /indigenous|heritage|local practices|traditional knowledge/ }
 ];
-const GAP_DEFAULT_CATEGORIES = ["Biology", "Chemistry", "Physics", "Mathematics", "Computer Science", "Environmental Science", "Engineering", "Health Science", "Earth Science", "Social Science"];
+const GAP_DEFAULT_CATEGORIES = ["Life Science", "Mathematical and Computational Science", "Physical Science", "Robotics and Intelligent Machines", "Innovation Expo"];
 function detectResearchGaps(studies, query = "") {
   if (!studies.length) return [];
   const allText = studies.map((s) => [s.title, s.abstract, ...s.keywords || [], ...s.categories || []].join(" ").toLowerCase()).join(" ");
@@ -5750,11 +5750,11 @@ async function callAI(query, history, studies, mode = "general", onToken, provid
         generationConfig: { temperature: 0.7, maxOutputTokens: 1600 }
       });
       const endpoint = useStreaming
-        ? `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:streamGenerateContent?alt=sse&key=${API_KEY}`
-        : `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:generateContent?key=${API_KEY}`;
+        ? `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:streamGenerateContent?alt=sse`
+        : `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:generateContent`;
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": API_KEY },
         body
       });
       if (!res.ok) {
@@ -11901,7 +11901,7 @@ function AdminCats() {
     if (!selectedStudy) return;
     window.dispatchEvent(new CustomEvent("sabnahis:study-reading", { detail: { delta: 1 } }));
     return () => window.dispatchEvent(new CustomEvent("sabnahis:study-reading", { detail: { delta: -1 } }));
-  }, [selectedStudy]);
+  }, [selectedStudy?.id]);
   useEffect(() => {
     API.getCategories().then((c) => {
       setCats(c);
@@ -13211,7 +13211,28 @@ function WatermarkOverlay({ currentUser }) {
       clearInterval(poll);
     };
   }, []);
-  const isReading = readingCount > 0 && !!currentUser;
+  const isReadingRaw = readingCount > 0 && !!currentUser;
+  const [isReading, setIsReading] = useState(isReadingRaw);
+  const hideTimeoutRef = useRef(null);
+  useEffect(() => {
+    if (isReadingRaw) {
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+        hideTimeoutRef.current = null;
+      }
+      setIsReading(true);
+    } else {
+      // Small grace period: if readingCount dips to 0 only transiently
+      // (e.g. a background data refresh briefly swapping the selected
+      // study reference) and recovers within this window, the watermark
+      // never visibly disappears. A genuine navigate-away still hides it,
+      // just 350ms later than before \u2014 not perceptible in practice.
+      hideTimeoutRef.current = setTimeout(() => setIsReading(false), 350);
+    }
+    return () => {
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    };
+  }, [isReadingRaw]);
   const userLabel = currentUser ? [
     currentUser.name || "Unknown",
     currentUser.email || currentUser.id || "",
