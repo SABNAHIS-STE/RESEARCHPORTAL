@@ -93,6 +93,30 @@
     return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
   }
 
+  // ---- Per-parent physical row IDs ------------------------------------------
+  // Firestore scopes a doc ID to its parent (users/A/streak/current and
+  // users/B/streak/current are different documents). Postgres does not:
+  // every subcollection table's `id` column is a single global primary key
+  // with no parent awareness. Fixed IDs like doc("current") (streak,
+  // freezes, wallet, ...) would therefore collide across every user in the
+  // whole app — whoever writes first "owns" that row, and everyone else's
+  // writes silently overwrite its data (not its parent_id) while their own
+  // reads get filtered out by RLS, looking exactly like "this never saves".
+  // Namespacing the physical row id with its parent fixes this without any
+  // schema/RPC changes. The logical id handed back to app code (ref.id,
+  // snap.id) is always the plain, unprefixed one.
+  function physicalId(logicalId, parentId) {
+    return parentId ? (parentId + '::' + logicalId) : logicalId;
+  }
+  function logicalIdFromRow(row) {
+    if (!row) return undefined;
+    if (row.parent_id && typeof row.id === 'string') {
+      var prefix = row.parent_id + '::';
+      if (row.id.indexOf(prefix) === 0) return row.id.slice(prefix.length);
+    }
+    return row.id;
+  }
+
   function mapError(error) {
     var e = new Error((error && error.message) || String(error));
     var msg = ((error && error.message) || '').toLowerCase();
@@ -149,7 +173,7 @@
 
   // ---- DocumentSnapshot / QueryDocumentSnapshot -----------------------------
   function makeDocSnap(collName, row, fallbackId) {
-    var id = row ? row.id : fallbackId;
+    var id = row ? logicalIdFromRow(row) : fallbackId;
     return {
       id: id,
       exists: !!row,
@@ -162,29 +186,31 @@
   function makeDocRef(collName, id, parentId) {
     var table = tableFor(collName);
     id = id || newId();
+    var pid = physicalId(id, parentId);
     var ref = {
       id: id,
       _table: table,
       _coll: collName,
       _parentId: parentId,
+      _pid: pid,
       get: async function () {
-        var q = sb.from(table).select('*').eq('id', id);
+        var q = sb.from(table).select('*').eq('id', pid);
         var { data, error } = await q.maybeSingle();
         if (error) throw mapError(error);
         return makeDocSnap(collName, data, id);
       },
       set: async function (data, opts) {
-        await rpcMutate(table, id, parentId, data, opts && opts.merge);
+        await rpcMutate(table, pid, parentId, data, opts && opts.merge);
       },
       update: async function (data) {
-        await rpcMutate(table, id, parentId, data, true);
+        await rpcMutate(table, pid, parentId, data, true);
       },
       delete: async function () {
-        var { error } = await sb.rpc('firestore_delete', { p_table: table, p_id: id });
+        var { error } = await sb.rpc('firestore_delete', { p_table: table, p_id: pid });
         if (error) throw mapError(error);
       },
       collection: function (subName) { return makeCollectionRef(subName, id); },
-      onSnapshot: function (onNext, onError) { return watchDoc(collName, table, id, onNext, onError); }
+      onSnapshot: function (onNext, onError) { return watchDoc(collName, table, pid, id, onNext, onError); }
     };
     return ref;
   }
@@ -276,18 +302,18 @@
     return function unsubscribe() { active = false; sb.removeChannel(channel); };
   }
 
-  function watchDoc(collName, table, id, onNext, onError) {
+  function watchDoc(collName, table, pid, logicalId, onNext, onError) {
     var active = true;
     async function refresh() {
       try {
-        var { data, error } = await sb.from(table).select('*').eq('id', id).maybeSingle();
+        var { data, error } = await sb.from(table).select('*').eq('id', pid).maybeSingle();
         if (error) throw error;
-        if (active) onNext(makeDocSnap(collName, data, id));
+        if (active) onNext(makeDocSnap(collName, data, logicalId));
       } catch (e) { if (onError) onError(e); }
     }
     refresh();
-    var channel = sb.channel('d_' + table + '_' + id).on(
-      'postgres_changes', { event: '*', schema: 'public', table: table, filter: 'id=eq.' + id },
+    var channel = sb.channel('d_' + table + '_' + pid).on(
+      'postgres_changes', { event: '*', schema: 'public', table: table, filter: 'id=eq.' + pid },
       function () { refresh(); }
     ).subscribe();
     return function unsubscribe() { active = false; sb.removeChannel(channel); };
@@ -300,9 +326,9 @@
     batch: function () {
       var ops = [];
       return {
-        set: function (ref, data, opts) { ops.push(opFromPayload('set', ref._table, ref.id, ref._parentId, data, opts && opts.merge)); },
-        update: function (ref, data) { ops.push(opFromPayload('update', ref._table, ref.id, ref._parentId, data, true)); },
-        delete: function (ref) { ops.push({ op: 'delete', table: ref._table, id: ref.id }); },
+        set: function (ref, data, opts) { ops.push(opFromPayload('set', ref._table, ref._pid, ref._parentId, data, opts && opts.merge)); },
+        update: function (ref, data) { ops.push(opFromPayload('update', ref._table, ref._pid, ref._parentId, data, true)); },
+        delete: function (ref) { ops.push({ op: 'delete', table: ref._table, id: ref._pid }); },
         commit: async function () {
           if (!ops.length) return;
           var { error } = await sb.rpc('firestore_batch', { p_ops: ops });
@@ -314,9 +340,9 @@
       var ops = [];
       var tx = {
         get: function (ref) { return ref.get(); },
-        set: function (ref, data, opts) { ops.push(opFromPayload('set', ref._table, ref.id, ref._parentId, data, opts && opts.merge)); return tx; },
-        update: function (ref, data) { ops.push(opFromPayload('update', ref._table, ref.id, ref._parentId, data, true)); return tx; },
-        delete: function (ref) { ops.push({ op: 'delete', table: ref._table, id: ref.id }); return tx; }
+        set: function (ref, data, opts) { ops.push(opFromPayload('set', ref._table, ref._pid, ref._parentId, data, opts && opts.merge)); return tx; },
+        update: function (ref, data) { ops.push(opFromPayload('update', ref._table, ref._pid, ref._parentId, data, true)); return tx; },
+        delete: function (ref) { ops.push({ op: 'delete', table: ref._table, id: ref._pid }); return tx; }
       };
       var result = await updateFn(tx);
       if (ops.length) {
