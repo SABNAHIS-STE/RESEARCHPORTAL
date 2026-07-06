@@ -5063,10 +5063,31 @@ const API = {
           timestamp: Date.now()
         });
       }
-      Cache.invalidate("studies:raw", "allStudies", "stats", `studyLogs:${id}`);
+      Cache.invalidate("studies:raw", "allStudies", "stats", `studyLogs:${id}`, `studyLatestActivity:${id}`);
     } catch (e) {
       console.error("trackStudy error:", e);
     }
+  },
+  // Lightweight sibling of getStudyLogs() for surfaces (AdminStudies list)
+  // that only need the single most-recent view/download per study, not the
+  // full history. Fetches 1 row per subcollection (via limit(1)) instead of
+  // scanning the whole thing — this is what turns "100 studies open ~200-300
+  // full subcollection reads" into "100 studies open ~200 single-row reads".
+  async getStudyLatestActivity(id) {
+    return Cache.wrap(`studyLatestActivity:${id}`, "studyLogs", async () => {
+      try {
+        const [vSnap, dSnap] = await Promise.all([
+          db.collection("studies").doc(id).collection("views").orderBy("timestamp", "desc").limit(1).get(),
+          db.collection("studies").doc(id).collection("downloads").orderBy("timestamp", "desc").limit(1).get()
+        ]);
+        return {
+          latestView: vSnap.docs[0] ? vSnap.docs[0].data() : null,
+          latestDl: dSnap.docs[0] ? dSnap.docs[0].data() : null
+        };
+      } catch (e) {
+        return { latestView: null, latestDl: null };
+      }
+    });
   },
   async getStudyLogs(id) {
     // Was 3 fully-uncached collection reads (views/downloads/citations) fired
@@ -6121,14 +6142,11 @@ function checkPlagiarism(inputText, studies, excludeId = null) {
 // needed: Semantic Scholar's Graph API and CrossRef's Works API. This closes
 // the gap the repo-only check has \u2014 a student could pass the internal check
 // cleanly by copying a paper that simply isn't in this school's repository.
-async function checkPublishedPlagiarism(inputText) {
-  if (!inputText || inputText.trim().length < 50) return [];
-  const tokensA = tokenize(inputText);
-  if (tokensA.length < 10) return [];
-  const tfA = buildTF(tokensA);
-  // Use the first ~12 meaningful words as the search query \u2014 short enough
-  // for both APIs' query limits, long enough to find a real abstract match.
-  const query = tokensA.slice(0, 12).join(" ");
+// Shared search against free, keyless public literature APIs \u2014 used both
+// for plagiarism checking (with similarity scoring layered on top, below)
+// and for the "Related Published Work" discovery panel on study pages
+// (same search, no scoring, just surfaced as further reading).
+async function searchPublishedPapers(query) {
   const candidates = [];
   try {
     const ssRes = await fetch(
@@ -6166,11 +6184,63 @@ async function checkPublishedPlagiarism(inputText) {
     }
   } catch (e) {
   }
+  return candidates;
+}
+async function checkPublishedPlagiarism(inputText) {
+  if (!inputText || inputText.trim().length < 50) return [];
+  const tokensA = tokenize(inputText);
+  if (tokensA.length < 10) return [];
+  const tfA = buildTF(tokensA);
+  // Use the first ~12 meaningful words as the search query \u2014 short enough
+  // for both APIs' query limits, long enough to find a real abstract match.
+  const query = tokensA.slice(0, 12).join(" ");
+  const candidates = await searchPublishedPapers(query);
   return candidates.map((p) => {
     const tfB = buildTF(tokenize(p.abstract));
     const score = cosineSimilarity(tfA, tfB);
     return { paper: p, score, shared: getSharedTerms(inputText, p.abstract) };
   }).filter((r) => r.score > 0.12).sort((a, b) => b.score - a.score).slice(0, 5);
+}
+// Generates an APA-style citation for an externally-sourced paper (from
+// searchPublishedPapers), matching the same formatting convention as
+// generateAPA() above \u2014 with a URL appended, standard APA practice for
+// an online source.
+function generateAPAForExternalPaper(p) {
+  const authors = p.authors || [];
+  let a = "Unknown Author";
+  if (authors.length === 1) a = fmtAPA(authors[0]);
+  else if (authors.length === 2) a = `${fmtAPA(authors[0])}, & ${fmtAPA(authors[1])}`;
+  else if (authors.length > 2) {
+    const f = authors.map(fmtAPA), l = f.pop();
+    a = f.join(", ") + ", & " + l;
+  }
+  const year = p.year || "n.d.";
+  return `${a}. (${year}). ${p.title || "Untitled"}.${p.url ? ` ${p.url}` : ""}`;
+}
+function RelatedPublishedWorkSection({ study }) {
+  const [status, setStatus] = useState("idle"); // idle | loading | done | error
+  const [results, setResults] = useState([]);
+  const [copiedIdx, setCopiedIdx] = useState(null);
+  const findRelated = async () => {
+    setStatus("loading");
+    try {
+      const query = [study.title, ...(study.keywords || []).slice(0, 3)].filter(Boolean).join(" ");
+      const papers = await searchPublishedPapers(query || study.title || "");
+      setResults(papers.slice(0, 5));
+      setStatus("done");
+    } catch (e) {
+      setStatus("error");
+    }
+  };
+  const copyCitation = (p, i) => {
+    var _a;
+    const apa = generateAPAForExternalPaper(p);
+    (_a = navigator.clipboard) == null ? void 0 : _a.writeText(apa).then(() => {
+      setCopiedIdx(i);
+      setTimeout(() => setCopiedIdx(null), 2e3);
+    });
+  };
+  return /* @__PURE__ */ React.createElement("div", { className: "ds", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("h4", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, "\u{1F4DA} Related Published Work", status === "done" && results.length > 0 && /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: findRelated }, "\u21BB Refresh")), status === "idle" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", marginBottom: 8 } }, "Find real published papers on this same topic \u2014 useful for further reading or citing in your own related work."), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", onClick: findRelated }, "\u{1F50D} Find related published research")), status === "loading" && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, fontSize: "0.78rem", color: "var(--muted)" } }, /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 12, height: 12 } }), "Searching Semantic Scholar & CrossRef\u2026"), status === "error" && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.78rem", color: "var(--muted)" } }, "\u26A0\uFE0F Couldn't reach the literature search right now. Try again in a moment."), status === "done" && results.length === 0 && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.78rem", color: "var(--muted)" } }, "No closely related published papers found for this topic."), status === "done" && results.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } }, results.map((p, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { padding: "10px 12px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, p.url ? /* @__PURE__ */ React.createElement("a", { href: p.url, target: "_blank", rel: "noopener noreferrer", style: { fontSize: "0.82rem", fontWeight: 600, color: "var(--gold)", textDecoration: "underline" } }, p.title) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.82rem", fontWeight: 600 } }, p.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--muted)", marginTop: 2 } }, (p.authors || []).slice(0, 3).join(", "), p.year ? ` \xB7 ${p.year}` : "", " \xB7 ", p.source)), /* @__PURE__ */ React.createElement("button", { className: "btn btn-ol btn-sm", style: { flexShrink: 0 }, onClick: () => copyCitation(p, i) }, copiedIdx === i ? "\u2713 Copied" : "Copy citation")))))); 
 }
 function plagiarismLevel(score) {
   if (score >= 0.5) return { label: "High Similarity", color: "var(--red)", bg: "var(--red-light)", block: true };
@@ -7278,11 +7348,8 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies = 
   }, []);
   useEffect(() => {
     if (currentUser.role === "admin" || isOwner) return;
-    console.log("[readBadge] dwell timer started for", study.id, "will fire in", READ_DWELL_MS, "ms");
     const t = setTimeout(() => {
-      console.log("[readBadge] dwell timer fired for", study.id);
       API.markStudyRead(currentUser.id, study).then((isNew) => {
-        console.log("[readBadge] markStudyRead result, isNew=", isNew);
         if (!isNew) return;
         toast.ok("\u{1F4D6} Marked as read!");
         // Progress toward the next streak freeze — every study read counts.
@@ -7290,7 +7357,6 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies = 
           if (earned) toast.ok(`\u2744\uFE0F Streak freeze earned! You now have ${count}.`);
         }).catch((e) => console.warn("registerReadForFreeze failed:", e));
         API.getReadCount(currentUser.id).then((count) => {
-          console.log("[readBadge] new read count=", count);
           const b = [...READING_BADGES].reverse().find((x) => x.min <= count);
           const prevB = [...READING_BADGES].reverse().find((x) => x.min <= count - 1);
           if (b && b !== prevB) {
@@ -7308,7 +7374,6 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies = 
       }).catch((e) => console.warn("markStudyRead failed:", e));
     }, READ_DWELL_MS);
     return () => {
-      console.log("[readBadge] timer cleared for", study.id);
       clearTimeout(t);
     };
   }, [study.id]);
@@ -7350,7 +7415,7 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies = 
   } : onClose, wide: true }, /* @__PURE__ */ React.createElement("div", { className: "sc-cats", style: { marginBottom: 12 } }, (liveStudy.categories || []).map((c) => /* @__PURE__ */ React.createElement("span", { key: c, className: "sc-cat" }, c))), /* @__PURE__ */ React.createElement("h2", { className: "sd-title" }, liveStudy.title), /* @__PURE__ */ React.createElement("div", { className: "sd-auth", style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", flexShrink: 0 } }, "Authors"), liveStudy.coAuthors && liveStudy.coAuthors.length > 0 ? [
     /* @__PURE__ */ React.createElement("span", { key: "uploader", className: "author-tag self", style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (liveStudy.uploadedByName || liveStudy.authors && liveStudy.authors[0] || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, liveStudy.uploadedByName || liveStudy.authors && liveStudy.authors[0] || "Unknown"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", opacity: 0.6, fontWeight: 400, marginLeft: 1 } }, "(owner)")),
     ...liveStudy.coAuthors.map((ca, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: `author-tag${ca.registered ? " registered" : ""}`, style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (ca.name || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, ca.name), !ca.registered && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", opacity: 0.55, fontWeight: 400, marginLeft: 1 } }, "(ext.)")))
-  ] : (liveStudy.authors || []).map((a, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: `author-tag${i === 0 ? " self" : ""}`, style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (a || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, a)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.eye, null), liveStudy.viewCount || 0, " views"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.dl, null), liveStudy.downloadCount || 0, " downloads"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, "\u{1F4CB} ", liveStudy.citationCount || 0, " citations"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.cal, null), liveStudy.year)), /* @__PURE__ */ React.createElement("div", { className: "ds", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("h4", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, "Abstract", /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", fontWeight: 400, color: "var(--muted)", fontFamily: "var(--font-body)" } }, "\u{1F4D6} ", readingTime(liveStudy.abstract))), /* @__PURE__ */ React.createElement("p", { style: { lineHeight: 1.7, color: "var(--ink-3)", fontSize: "var(--text-sm)", transition: "all .2s" } }, absIsLong && !absExpanded ? absPreview : liveStudy.abstract), absIsLong && /* @__PURE__ */ React.createElement("button", { className: "sc-abs-toggle", style: { marginTop: 6 }, onClick: () => setAbsExpanded((v) => !v), "aria-expanded": absExpanded }, absExpanded ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "18 15 12 9 6 15" })), " Show less") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" })), " Read full abstract"))), (liveStudy.keywords || []).length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "Keywords"), (liveStudy.keywords || []).map((k) => /* @__PURE__ */ React.createElement("span", { key: k, className: "kw" }, k))), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "APA Citation"), /* @__PURE__ */ React.createElement(APABox, { study: liveStudy, currentUser })), gdriveUrl && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--teal-light)", border: "1.5px solid var(--teal)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 87.3 78", width: "22", height: "22", xmlns: "http://www.w3.org/2000/svg", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z", fill: "#0066da" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.6c-.8 1.4-1.2 2.95-1.2 4.5h27.5z", fill: "#00ac47" }), /* @__PURE__ */ React.createElement("path", { d: "M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 11.5z", fill: "#ea4335" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.1.45-4.5 1.2z", fill: "#00832d" }), /* @__PURE__ */ React.createElement("path", { d: "M59.8 53.1H27.5L13.75 76.9c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.1-.45 4.5-1.2z", fill: "#2684fc" }), /* @__PURE__ */ React.createElement("path", { d: "M73.4 26.6l-12.6-21.9C59.9 3.2 58.75 2.1 57.4 1.3L43.65 25l16.15 28.1h27.45c0-1.55-.4-3.1-1.2-4.5z", fill: "#ffba00" })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.875rem", color: "var(--teal)" } }, "Google Drive File"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.73rem", color: "var(--teal)", opacity: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "Linked file \u2014 use Open or Download below")), /* @__PURE__ */ React.createElement("a", { href: gdriveUrl, target: "_blank", rel: "noopener noreferrer", onClick: handleDL, className: "btn btn-teal btn-sm", style: { textDecoration: "none" } }, /* @__PURE__ */ React.createElement(Ico.eye, null), " Open"), gdriveDownload && /* @__PURE__ */ React.createElement("a", { href: gdriveDownload, target: "_blank", rel: "noopener noreferrer", onClick: handleDL, className: "btn btn-ol btn-sm", style: { textDecoration: "none" } }, /* @__PURE__ */ React.createElement(Ico.dl, null), " Download")), liveStudy.uploadedByName && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--surface)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 32, height: 32, fontSize: "0.78rem" } }, initials(liveStudy.uploadedByName)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, "Uploaded by"), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.875rem" } }, liveStudy.uploadedByName))), /* @__PURE__ */ React.createElement(TeacherFeedbackSection, { study: liveStudy, currentUser }), /* @__PURE__ */ React.createElement(ReviewsSection, { study: liveStudy, currentUser }), /* @__PURE__ */ React.createElement(StudyImpactTimeline, { studyId: liveStudy.id }), /* @__PURE__ */ React.createElement(StudyAbstractCritiqueSection, { study: liveStudy }), /* @__PURE__ */ React.createElement(StudyRevisionDiffSection, { studyId: liveStudy.id, currentStudy: liveStudy }), isOwner && favBy.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14, padding: "10px 14px", background: "var(--purple-light)", border: "1px solid var(--purple)", borderRadius: "var(--radius)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, cursor: "pointer" }, onClick: () => setShowFavBy((s) => !s) }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.8rem", fontWeight: 600, color: "var(--purple)" } }, "\u{1F4CC} ", favBy.length, " student", favBy.length !== 1 ? "s" : "", " bookmarked this study"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--purple)", marginLeft: "auto" } }, showFavBy ? "\u25B2 hide" : "\u25BC show")), showFavBy && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, favBy.map((u) => /* @__PURE__ */ React.createElement("div", { key: u.uid, style: { display: "flex", alignItems: "center", gap: 8, fontSize: "0.78rem" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 26, height: 26, borderRadius: "50%", background: "var(--purple)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.7rem", flexShrink: 0 } }, u.name.charAt(0).toUpperCase()), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500 } }, u.name), u.institution && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--muted)" } }, u.institution)))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingTop: 14, borderTop: "1px solid var(--border)", flexWrap: "wrap", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(
+  ] : (liveStudy.authors || []).map((a, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: `author-tag${i === 0 ? " self" : ""}`, style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (a || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, a)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.eye, null), liveStudy.viewCount || 0, " views"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.dl, null), liveStudy.downloadCount || 0, " downloads"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, "\u{1F4CB} ", liveStudy.citationCount || 0, " citations"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.cal, null), liveStudy.year)), /* @__PURE__ */ React.createElement("div", { className: "ds", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("h4", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, "Abstract", /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", fontWeight: 400, color: "var(--muted)", fontFamily: "var(--font-body)" } }, "\u{1F4D6} ", readingTime(liveStudy.abstract))), /* @__PURE__ */ React.createElement("p", { style: { lineHeight: 1.7, color: "var(--ink-3)", fontSize: "var(--text-sm)", transition: "all .2s" } }, absIsLong && !absExpanded ? absPreview : liveStudy.abstract), absIsLong && /* @__PURE__ */ React.createElement("button", { className: "sc-abs-toggle", style: { marginTop: 6 }, onClick: () => setAbsExpanded((v) => !v), "aria-expanded": absExpanded }, absExpanded ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "18 15 12 9 6 15" })), " Show less") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" })), " Read full abstract"))), (liveStudy.keywords || []).length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "Keywords"), (liveStudy.keywords || []).map((k) => /* @__PURE__ */ React.createElement("span", { key: k, className: "kw" }, k))), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "APA Citation"), /* @__PURE__ */ React.createElement(APABox, { study: liveStudy, currentUser })), /* @__PURE__ */ React.createElement(RelatedPublishedWorkSection, { study: liveStudy }), gdriveUrl && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--teal-light)", border: "1.5px solid var(--teal)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 87.3 78", width: "22", height: "22", xmlns: "http://www.w3.org/2000/svg", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z", fill: "#0066da" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.6c-.8 1.4-1.2 2.95-1.2 4.5h27.5z", fill: "#00ac47" }), /* @__PURE__ */ React.createElement("path", { d: "M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 11.5z", fill: "#ea4335" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.1.45-4.5 1.2z", fill: "#00832d" }), /* @__PURE__ */ React.createElement("path", { d: "M59.8 53.1H27.5L13.75 76.9c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.1-.45 4.5-1.2z", fill: "#2684fc" }), /* @__PURE__ */ React.createElement("path", { d: "M73.4 26.6l-12.6-21.9C59.9 3.2 58.75 2.1 57.4 1.3L43.65 25l16.15 28.1h27.45c0-1.55-.4-3.1-1.2-4.5z", fill: "#ffba00" })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.875rem", color: "var(--teal)" } }, "Google Drive File"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.73rem", color: "var(--teal)", opacity: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "Linked file \u2014 use Open or Download below")), /* @__PURE__ */ React.createElement("a", { href: gdriveUrl, target: "_blank", rel: "noopener noreferrer", onClick: handleDL, className: "btn btn-teal btn-sm", style: { textDecoration: "none" } }, /* @__PURE__ */ React.createElement(Ico.eye, null), " Open"), gdriveDownload && /* @__PURE__ */ React.createElement("a", { href: gdriveDownload, target: "_blank", rel: "noopener noreferrer", onClick: handleDL, className: "btn btn-ol btn-sm", style: { textDecoration: "none" } }, /* @__PURE__ */ React.createElement(Ico.dl, null), " Download")), liveStudy.uploadedByName && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--surface)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 32, height: 32, fontSize: "0.78rem" } }, initials(liveStudy.uploadedByName)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, "Uploaded by"), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.875rem" } }, liveStudy.uploadedByName))), /* @__PURE__ */ React.createElement(TeacherFeedbackSection, { study: liveStudy, currentUser }), /* @__PURE__ */ React.createElement(ReviewsSection, { study: liveStudy, currentUser }), /* @__PURE__ */ React.createElement(StudyImpactTimeline, { studyId: liveStudy.id }), /* @__PURE__ */ React.createElement(StudyAbstractCritiqueSection, { study: liveStudy }), /* @__PURE__ */ React.createElement(StudyRevisionDiffSection, { studyId: liveStudy.id, currentStudy: liveStudy }), isOwner && favBy.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14, padding: "10px 14px", background: "var(--purple-light)", border: "1px solid var(--purple)", borderRadius: "var(--radius)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, cursor: "pointer" }, onClick: () => setShowFavBy((s) => !s) }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.8rem", fontWeight: 600, color: "var(--purple)" } }, "\u{1F4CC} ", favBy.length, " student", favBy.length !== 1 ? "s" : "", " bookmarked this study"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--purple)", marginLeft: "auto" } }, showFavBy ? "\u25B2 hide" : "\u25BC show")), showFavBy && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, favBy.map((u) => /* @__PURE__ */ React.createElement("div", { key: u.uid, style: { display: "flex", alignItems: "center", gap: 8, fontSize: "0.78rem" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 26, height: 26, borderRadius: "50%", background: "var(--purple)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.7rem", flexShrink: 0 } }, u.name.charAt(0).toUpperCase()), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500 } }, u.name), u.institution && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--muted)" } }, u.institution)))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingTop: 14, borderTop: "1px solid var(--border)", flexWrap: "wrap", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: faved ? "btn btn-gold btn-sm" : "btn btn-ol btn-sm",
@@ -11677,9 +11742,7 @@ function AdminStudies({ currentUser }) {
     const entries = await Promise.all(
       list.map(async (s) => {
         try {
-          const logs = await API.getStudyLogs(s.id);
-          const latestView = logs.views[0] || null;
-          const latestDl = logs.downloads[0] || null;
+          const { latestView, latestDl } = await API.getStudyLatestActivity(s.id);
           return [s.id, { latestView, latestDl }];
         } catch (e) {
           return [s.id, { latestView: null, latestDl: null }];
@@ -14660,16 +14723,24 @@ function ApprovalWorkflowPage({ currentUser }) {
         status:"approved", reviewedBy:currentUser.id, reviewedByName:currentUser.name,
         reviewedAt:new Date().toISOString(), adminNote: notes[item.id]||""
       });
+      let studySyncFailed = false;
       if (item.studyId) {
-        await db.collection("studies").doc(item.studyId).update({approvalStatus:"approved"}).catch(()=>{});
+        await db.collection("studies").doc(item.studyId).update({approvalStatus:"approved"}).catch((e) => {
+          console.error("Failed to sync approvalStatus onto study", item.studyId, e);
+          studySyncFailed = true;
+        });
         await API.createNotification(item.submittedByUid||"", {
           type:"feedback", title:"✅ Your study was approved",
           body:`"${item.studyTitle}" has been approved and is now live in the repository.`,
           link:item.studyId
-        }).catch(()=>{});
+        }).catch((e) => console.error("Failed to notify researcher of approval", e));
       }
       setQueue(prev=>prev.map(q=>q.id===item.id?{...q,status:"approved"}:q));
-      toast.ok("✅ Study approved and researcher notified.");
+      if (studySyncFailed) {
+        toast.err("Review approved, but the study record didn't update — please retry or check it manually.");
+      } else {
+        toast.ok("✅ Study approved and researcher notified.");
+      }
     } catch(e){ toast.err(e.message); }
     setActing(a=>({...a,[item.id]:null}));
   };
@@ -14683,15 +14754,23 @@ function ApprovalWorkflowPage({ currentUser }) {
         status:"rejected", reviewedBy:currentUser.id, reviewedByName:currentUser.name,
         reviewedAt:new Date().toISOString(), adminNote:note
       });
+      let studySyncFailed = false;
       if (item.studyId) {
-        await db.collection("studies").doc(item.studyId).update({approvalStatus:"rejected"}).catch(()=>{});
+        await db.collection("studies").doc(item.studyId).update({approvalStatus:"rejected"}).catch((e) => {
+          console.error("Failed to sync approvalStatus onto study", item.studyId, e);
+          studySyncFailed = true;
+        });
         await API.createNotification(item.submittedByUid||"", {
           type:"revision_request", title:"⚠️ Study returned for revision",
           body:`"${item.studyTitle}" needs changes: ${note}`, link:item.studyId
-        }).catch(()=>{});
+        }).catch((e) => console.error("Failed to notify researcher of rejection", e));
       }
       setQueue(prev=>prev.map(q=>q.id===item.id?{...q,status:"rejected"}:q));
-      toast.ok("Study returned with feedback.");
+      if (studySyncFailed) {
+        toast.err("Feedback saved, but the study record didn't update — please retry or check it manually.");
+      } else {
+        toast.ok("Study returned with feedback.");
+      }
     } catch(e){ toast.err(e.message); }
     setActing(a=>({...a,[item.id]:null}));
   };
