@@ -6659,7 +6659,6 @@ function APABox({ study, currentUser }) {
       if (currentUser) {
   window.__sb.rpc("log_study_event", { p_study_id: study.id, p_event_type: "citation" }).catch(() => {});
 }
-      }
     });
   };
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "apa-box" }, apa, /* @__PURE__ */ React.createElement("button", { className: "apa-cp", onClick: copy }, copied ? "\u2713 Copied" : "Copy")), (study.citationCount || 0) > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--muted)", marginTop: 4, textAlign: "right" } }, "\u{1F4CB} Cited ", study.citationCount, " time", study.citationCount !== 1 ? "s" : ""));
@@ -13589,6 +13588,10 @@ function useWatermarkWatchdog(stampRef, setRemountKey, isReading) {
       }
       return true;
     }
+    function ensureIntact() {
+      if (!checkOne("rn-fx-9c2")) {
+        setRemountKey((k) => k + 1);
+      }
     }
     const mo = new MutationObserver(ensureIntact);
     // Watch only direct body children (not entire subtree) to avoid firing on every React re-render
