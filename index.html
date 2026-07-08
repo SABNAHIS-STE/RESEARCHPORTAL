@@ -2291,11 +2291,13 @@ tr { transition: background .1s; }
 #rn-fx-9c2 span {
   display: flex; align-items: center; justify-content: center;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  font-family: var(--font-mono, monospace); font-weight: 600;
-  color: rgba(120,120,120,0.09); user-select: none; padding: 0 6px;
+  font-family: var(--font-mono, monospace); font-weight: 700;
+  color: rgba(120,120,120,0.20); user-select: none; padding: 0 6px;
+  text-shadow: 0 0 1px rgba(255,255,255,0.15);
 }
 [data-theme="dark"] #rn-fx-9c2 span {
-  color: rgba(255,255,255,0.055);
+  color: rgba(255,255,255,0.14);
+  text-shadow: 0 0 1px rgba(0,0,0,0.3);
 }
 [data-theme="dark"] .cm-src.groq { background: rgba(39,168,98,0.15); color: var(--green); }
 [data-theme="dark"] .cm-src.mistral { background: rgba(212,163,26,0.15); color: var(--gold); }
@@ -13576,13 +13578,17 @@ function useWatermarkWatchdog(stampRef, setRemountKey, isReading) {
         node.style.removeProperty("opacity");
         node.style.removeProperty("visibility");
       }
+      // NEW: also check a sample tile itself, since a targeted rule like
+      // "#rn-fx-9c2 span { opacity:0 }" bypasses the container-level check above.
+      const sampleSpan = node.querySelector("span");
+      if (sampleSpan) {
+        const spanCs = window.getComputedStyle(sampleSpan);
+        if (parseFloat(spanCs.opacity) === 0 || spanCs.visibility === "hidden" || spanCs.display === "none") {
+          return false; // signal caller to force a full remount
+        }
+      }
       return true;
     }
-    function ensureIntact() {
-      const aPresent = checkOne("rn-fx-9c2");
-      if (!aPresent) {
-        setRemountKey((k) => k + 1);
-      }
     }
     const mo = new MutationObserver(ensureIntact);
     // Watch only direct body children (not entire subtree) to avoid firing on every React re-render
