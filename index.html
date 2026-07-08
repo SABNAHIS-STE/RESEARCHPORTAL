@@ -5103,19 +5103,11 @@ const API = {
     });
   },
   async trackStudy(id, field, user) {
+    // field kept for call-site compatibility; map to the canonical event name
+    const eventType = field === "viewCount" ? "view" : field === "downloadCount" ? "download" : "citation";
     try {
-      await db.collection("studies").doc(id).update({ [field]: firebase.firestore.FieldValue.increment(1) });
-      if (user) {
-        const logType = field === "viewCount" ? "views" : "downloads";
-        await db.collection("studies").doc(id).collection(logType).add({
-          userId: user.id,
-          userName: user.name,
-          userEmail: user.email,
-          institution: user.institution || "",
-          department: user.department || "",
-          timestamp: Date.now()
-        });
-      }
+      const { error } = await window.__sb.rpc("log_study_event", { p_study_id: id, p_event_type: eventType });
+      if (error) throw error;
       Cache.invalidate("studies:raw", "allStudies", "stats", `studyLogs:${id}`, `studyLatestActivity:${id}`);
     } catch (e) {
       console.error("trackStudy error:", e);
@@ -6663,15 +6655,8 @@ function APABox({ study, currentUser }) {
       }).catch(() => {
       });
       if (currentUser) {
-        db.collection("studies").doc(study.id).collection("citations").add({
-          userId: currentUser.id,
-          userName: currentUser.name,
-          userEmail: currentUser.email,
-          institution: currentUser.institution || "",
-          department: currentUser.department || "",
-          timestamp: Date.now()
-        }).catch(() => {
-        });
+  window.__sb.rpc("log_study_event", { p_study_id: study.id, p_event_type: "citation" }).catch(() => {});
+}
       }
     });
   };
@@ -13572,7 +13557,10 @@ function WatermarkOverlay({ currentUser }) {
     // by a huge distance \u2014 that was the "watermark flying off to the
     // left" bug. Rotating each small tile instead gives the same tilted-
     // stamp look with zero lateral displacement.
-    tiles.map((i) => /* @__PURE__ */ React.createElement("span", { key: i, style: { fontSize: isMobile ? "10px" : "12px", transform: `rotate(${seed.angle}deg)` } }, stamp))
+    tiles.map((i) => {
+  const jitter = ((i * 37) % 13) - 6; // deterministic -6..+6° spread per tile
+  return React.createElement("span", { key: i, style: { fontSize: isMobile ? "10px" : "12px", transform: `rotate(${seed.angle + jitter}deg)` } }, stamp);
+})
   );
 }
 function useWatermarkWatchdog(stampRef, setRemountKey, isReading) {
