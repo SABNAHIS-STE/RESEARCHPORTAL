@@ -3721,6 +3721,13 @@ document.addEventListener('DOMContentLoaded', function() {
   window.__SUPABASE_ANON_KEY__ = "sb_publishable_SVtmWNUAqHpTeuFwFqhWeA_voH0Wetj";
   window.__SECURITY_RESET_URL__ = "https://fbzcztctelidztwjhkea.supabase.co/functions/v1/security-question-reset";
   window.__FIREBASE_PASSWORD_BRIDGE_URL__ = "https://fbzcztctelidztwjhkea.supabase.co/functions/v1/firebase-password-bridge";
+  // Notification writes (creating a notification FOR someone else) go
+  // through the push server instead of straight to Supabase, since RLS
+  // blocks a user inserting rows into another uid's notifications. The
+  // push server uses the Supabase service role key to bypass RLS and,
+  // in the same call, fires a Web Push payload to that user's device(s).
+  // TODO: set this to your actual push server URL on Render.
+  window.__PUSH_SERVER_URL__ = "https://YOUR-PUSH-SERVER.onrender.com";
 </script>
 <script src="./compat-shim.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -4090,23 +4097,19 @@ const API = {
     } catch (e) {
       console.warn("publishDraft: co-author uploadCount failed:", e.message);
     }
-    // Co-author notifications: deferred from draft save, fire now
+    // Co-author notifications: deferred from draft save, fire now.
+    // Goes through the push server (see createNotificationForAll) since a
+    // direct Supabase write here gets rejected by RLS — the actor isn't
+    // the recipient.
     try {
       const registeredCoAuthors = (data.coAuthors || []).filter((ca) => ca.userId && ca.registered);
       if (registeredCoAuthors.length > 0) {
-        const notifBatch = db.batch();
-        registeredCoAuthors.forEach((ca) => {
-          const ref = db.collection("users").doc(ca.userId).collection("notifications").doc();
-          notifBatch.set(ref, {
-            type: "coauthor_tag",
-            title: "You were tagged as co-author",
-            body: `"${data.title}" by ${data.uploadedByName} lists you as a co-author.`,
-            link: studyId,
-            createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-            read: false
-          });
+        await API.createNotificationForAll(registeredCoAuthors.map((ca) => ca.userId), {
+          type: "coauthor_tag",
+          title: "You were tagged as co-author",
+          body: `"${data.title}" by ${data.uploadedByName} lists you as a co-author.`,
+          link: studyId
         });
-        await notifBatch.commit();
       }
     } catch (e) {
       console.warn("publishDraft: co-author notification failed:", e.message);
@@ -4203,25 +4206,20 @@ const API = {
     } catch (e) {
       console.warn("Notification write failed:", e.message);
     }
-    // Co-author notifications: only on live publish, not draft save
+    // Co-author notifications: only on live publish, not draft save.
+    // Goes through the push server (see createNotificationForAll) —
+    // a direct Supabase write here gets rejected by RLS.
     if (!isDraft) {
     try {
       const registeredCoAuthors = (coAuthors || []).filter((ca) => ca.userId && ca.registered);
       if (registeredCoAuthors.length > 0) {
-        const coAuthorBatch = db.batch();
         const studyId = newStudyDocRef.id;
-        registeredCoAuthors.forEach((ca) => {
-          const ref = db.collection("users").doc(ca.userId).collection("notifications").doc();
-          coAuthorBatch.set(ref, {
-            type: "coauthor_tag",
-            title: "You were tagged as co-author",
-            body: `"${title.trim()}" by ${uploadedByName} lists you as a co-author.`,
-            link: studyId,
-            createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-            read: false
-          });
+        await API.createNotificationForAll(registeredCoAuthors.map((ca) => ca.userId), {
+          type: "coauthor_tag",
+          title: "You were tagged as co-author",
+          body: `"${title.trim()}" by ${uploadedByName} lists you as a co-author.`,
+          link: studyId
         });
-        await coAuthorBatch.commit();
       }
     } catch (e) {
       console.warn("Co-author notification failed:", e.message);
@@ -5308,34 +5306,40 @@ const API = {
     Cache.invalidate("users", "studies", "allStudies", "stats");
   },
   // ── Generic User Notifications (feedback, announcements, etc.) ──
+  // Both writes below go through the push server, not directly to
+  // Supabase: RLS correctly blocks a client from inserting notification
+  // rows for a uid that isn't its own, so creation has to happen
+  // server-side (via the service role key) instead. See
+  // MIGRATION-README.md "Notifications" section.
+  async _pushServerAuthHeader() {
+    const { data } = await window.__sb.auth.getSession();
+    const token = data && data.session ? data.session.access_token : null;
+    return { "Content-Type": "application/json", "Authorization": "Bearer " + (token || "") };
+  },
   async createNotification(uid, { type, title, body = "", link = null }) {
     try {
-      await db.collection("users").doc(uid).collection("notifications").add({
-        type,
-        title,
-        body,
-        link,
-        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-        read: false
+      const res = await fetch(window.__PUSH_SERVER_URL__ + "/notifications", {
+        method: "POST",
+        headers: await this._pushServerAuthHeader(),
+        body: JSON.stringify({ uid, type, title, body, link })
       });
+      if (!res.ok) throw new Error(`push server responded ${res.status}`);
       Cache.invalidate(`notifCount:${uid}`);
     } catch (e) {
+      console.warn("Notification write failed:", e.message);
     }
   },
   async createNotificationForAll(uids, data) {
     try {
-      const batches = [];
-      for (let i = 0; i < uids.length; i += 400) {
-        const batch = db.batch();
-        uids.slice(i, i + 400).forEach((uid) => {
-          const ref = db.collection("users").doc(uid).collection("notifications").doc();
-          batch.set(ref, __spreadProps(__spreadValues({}, data), { createdAt: (/* @__PURE__ */ new Date()).toISOString(), read: false }));
-        });
-        batches.push(batch.commit());
-      }
-      await Promise.all(batches);
+      const res = await fetch(window.__PUSH_SERVER_URL__ + "/notifications/batch", {
+        method: "POST",
+        headers: await this._pushServerAuthHeader(),
+        body: JSON.stringify(__spreadProps(__spreadValues({}, data), { uids }))
+      });
+      if (!res.ok) throw new Error(`push server responded ${res.status}`);
       uids.forEach((uid) => Cache.invalidate(`notifCount:${uid}`));
     } catch (e) {
+      console.warn("Batch notification write failed:", e.message);
     }
   },
   async getNotifications(uid, limitN = 20) {
