@@ -3286,6 +3286,32 @@ tr { transition: background .1s; }
     bottom: calc(var(--mob-nav-h) + var(--safe-bottom) + 12px); top: auto;
   }
 }
+
+/* ── Print protection ────────────────────────────────────────
+ * Without this, Ctrl+P / "Print to PDF" produces a clean, unwatermarked
+ * copy: #rn-fx-9c2 is position:absolute with a huge z-index, and most
+ * browsers' print engines either drop or mis-place that kind of overlay
+ * rather than rendering it in the page flow. This forces it visible and
+ * forces color printing (browsers skip low-contrast/decorative colors
+ * on print by default, which would otherwise make the already-faint
+ * on-screen watermark invisible on paper).
+ */
+@media print {
+  #rn-fx-9c2 {
+    position: absolute !important;
+    display: grid !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  #rn-fx-9c2 span {
+    opacity: 1 !important;
+    visibility: visible !important;
+    color: rgba(0,0,0,0.32) !important;
+    text-shadow: none !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -4275,6 +4301,30 @@ const API = {
   async updateStudyTasks(id, tasks) {
     await db.collection("studies").doc(id).update({ tasks: tasks || [] });
     Cache.invalidate("studies", "allStudies");
+  },
+  // Owner/admin can temporarily disable watermarked view/download for a
+  // study — e.g. while investigating a suspected leak, or during a dispute
+  // — without unpublishing it (it still shows up in the repository).
+  // NOTE: this only gates the button in the UI. The watermarked-download
+  // Edge Function must ALSO check this flag server-side, or a non-owner
+  // could still fetch the file by calling the function directly — see
+  // MIGRATION-README.md "downloadsLocked enforcement" note.
+  async setDownloadsLocked(id, locked) {
+    await db.collection("studies").doc(id).update({ downloadsLocked: !!locked });
+    Cache.invalidate("studies", "allStudies");
+  },
+  // All users across every role, for the leak tracer's identity search.
+  // getUsers() filters by a single role; this deliberately doesn't, since
+  // a leaked copy could belong to a student, teacher, or admin.
+  async getAllUsersForSearch() {
+    return Cache.wrap("users:all", "users", async () => {
+      try {
+        const snap = await db.collection("users").get();
+        return snap.docs.map((d) => __spreadValues({ id: d.id }, d.data()));
+      } catch (e) {
+        return [];
+      }
+    });
   },
   async getCoAuthoredStudies(userId) {
     var _a;
@@ -7620,8 +7670,27 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies = 
   const isCollaborator = isStudyCollaborator(currentUser, liveStudy);
   const canDel = currentUser.role === "admin";
   const canEdit = currentUser.role === "admin" || isCollaborator;
+  const canManageAccess = isOwner || currentUser.role === "admin";
   const [wmLoading, setWmLoading] = useState(null); // "view" | "download" | null
+  const [lockBusy, setLockBusy] = useState(false);
+  const toggleDownloadsLocked = async () => {
+    setLockBusy(true);
+    try {
+      const next = !liveStudy.downloadsLocked;
+      await API.setDownloadsLocked(liveStudy.id, next);
+      setLiveStudy((s) => __spreadProps(__spreadValues({}, s), { downloadsLocked: next }));
+      toast.ok(next ? "\u{1F512} Downloads locked \u2014 only you and admins can open/download this study now." : "\u{1F513} Downloads unlocked \u2014 everyone with access can open/download again.");
+    } catch (e) {
+      toast.err("Couldn't change the lock: " + (e.message || "unknown error"));
+    } finally {
+      setLockBusy(false);
+    }
+  };
   const fetchWatermarked = async (mode) => {
+    if (liveStudy.downloadsLocked && !canManageAccess) {
+      toast.err("\u{1F512} The owner has temporarily locked downloads for this study.");
+      return;
+    }
     if (!window.__sb) {
       toast.err("Watermarked delivery isn't set up on this deployment yet.");
       return;
@@ -7755,7 +7824,7 @@ function StudyDetailModal({ study, onClose, currentUser, onDelete, allStudies = 
   } : onClose, wide: true }, /* @__PURE__ */ React.createElement("div", { className: "sc-cats", style: { marginBottom: 12 } }, (liveStudy.categories || []).map((c) => /* @__PURE__ */ React.createElement("span", { key: c, className: "sc-cat" }, c))), /* @__PURE__ */ React.createElement("h2", { className: "sd-title" }, liveStudy.title), /* @__PURE__ */ React.createElement("div", { className: "sd-auth", style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "var(--text-xs)", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", flexShrink: 0 } }, "Authors"), liveStudy.coAuthors && liveStudy.coAuthors.length > 0 ? [
     /* @__PURE__ */ React.createElement("span", { key: "uploader", className: "author-tag self", style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (liveStudy.uploadedByName || liveStudy.authors && liveStudy.authors[0] || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, liveStudy.uploadedByName || liveStudy.authors && liveStudy.authors[0] || "Unknown"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", opacity: 0.6, fontWeight: 400, marginLeft: 1 } }, "(owner)")),
     ...liveStudy.coAuthors.map((ca, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: `author-tag${ca.registered ? " registered" : ""}`, style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (ca.name || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, ca.name), !ca.registered && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.6rem", opacity: 0.55, fontWeight: 400, marginLeft: 1 } }, "(ext.)")))
-  ] : (liveStudy.authors || []).map((a, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: `author-tag${i === 0 ? " self" : ""}`, style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (a || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, a)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.eye, null), liveStudy.viewCount || 0, " views"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.dl, null), liveStudy.downloadCount || 0, " downloads"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, "\u{1F4CB} ", liveStudy.citationCount || 0, " citations"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.cal, null), liveStudy.year)), /* @__PURE__ */ React.createElement("div", { className: "ds", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("h4", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, "Abstract", /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", fontWeight: 400, color: "var(--muted)", fontFamily: "var(--font-body)" } }, "\u{1F4D6} ", readingTime(liveStudy.abstract))), /* @__PURE__ */ React.createElement("p", { style: { lineHeight: 1.7, color: "var(--ink-3)", fontSize: "var(--text-sm)", transition: "all .2s" } }, absIsLong && !absExpanded ? absPreview : liveStudy.abstract), absIsLong && /* @__PURE__ */ React.createElement("button", { className: "sc-abs-toggle", style: { marginTop: 6 }, onClick: () => setAbsExpanded((v) => !v), "aria-expanded": absExpanded }, absExpanded ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "18 15 12 9 6 15" })), " Show less") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" })), " Read full abstract"))), (liveStudy.keywords || []).length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "Keywords"), (liveStudy.keywords || []).map((k) => /* @__PURE__ */ React.createElement("span", { key: k, className: "kw" }, k))), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "APA Citation"), /* @__PURE__ */ React.createElement(APABox, { study: liveStudy, currentUser })), /* @__PURE__ */ React.createElement(RelatedStudiesSection, { study: liveStudy, allStudies, onOpenStudy }), gdriveUrl && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--teal-light)", border: "1.5px solid var(--teal)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 87.3 78", width: "22", height: "22", xmlns: "http://www.w3.org/2000/svg", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z", fill: "#0066da" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.6c-.8 1.4-1.2 2.95-1.2 4.5h27.5z", fill: "#00ac47" }), /* @__PURE__ */ React.createElement("path", { d: "M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 11.5z", fill: "#ea4335" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.1.45-4.5 1.2z", fill: "#00832d" }), /* @__PURE__ */ React.createElement("path", { d: "M59.8 53.1H27.5L13.75 76.9c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.1-.45 4.5-1.2z", fill: "#2684fc" }), /* @__PURE__ */ React.createElement("path", { d: "M73.4 26.6l-12.6-21.9C59.9 3.2 58.75 2.1 57.4 1.3L43.65 25l16.15 28.1h27.45c0-1.55-.4-3.1-1.2-4.5z", fill: "#ffba00" })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.875rem", color: "var(--teal)" } }, "Google Drive File"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.73rem", color: "var(--teal)", opacity: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "Linked file \u2014 use Open or Download below")), /* @__PURE__ */ React.createElement("button", { onClick: () => fetchWatermarked("view"), disabled: wmLoading !== null, className: "btn btn-teal btn-sm", style: { border: "none", cursor: wmLoading ? "wait" : "pointer" } }, wmLoading === "view" ? /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 12, height: 12 } }) : /* @__PURE__ */ React.createElement(Ico.eye, null), " Open"), /* @__PURE__ */ React.createElement("button", { onClick: () => fetchWatermarked("download"), disabled: wmLoading !== null, className: "btn btn-ol btn-sm", style: { cursor: wmLoading ? "wait" : "pointer" } }, wmLoading === "download" ? /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 12, height: 12 } }) : /* @__PURE__ */ React.createElement(Ico.dl, null), " Download")), gdriveUrl && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.7rem", color: "var(--muted)", marginTop: -10, marginBottom: 16, display: "flex", alignItems: "center", gap: 5 } }, "\u{1F512} Opens & downloads are logged under your account \u2014 please don't redistribute this file outside the portal."), liveStudy.uploadedByName && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--surface)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 32, height: 32, fontSize: "0.78rem" } }, initials(liveStudy.uploadedByName)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, "Uploaded by"), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.875rem" } }, liveStudy.uploadedByName))), /* @__PURE__ */ React.createElement(StudyTasksSection, { study: liveStudy, currentUser, isCollaborator, onTasksUpdated: (tasks) => setLiveStudy((s) => __spreadProps(__spreadValues({}, s), { tasks })) }), /* @__PURE__ */ React.createElement(TeacherFeedbackSection, { study: liveStudy, currentUser }), /* @__PURE__ */ React.createElement(ReviewsSection, { study: liveStudy, currentUser }), /* @__PURE__ */ React.createElement(StudyImpactTimeline, { studyId: liveStudy.id }), /* @__PURE__ */ React.createElement(StudyAbstractCritiqueSection, { study: liveStudy }), /* @__PURE__ */ React.createElement(StudyRevisionDiffSection, { studyId: liveStudy.id, currentStudy: liveStudy }), /* @__PURE__ */ React.createElement(StudyAccessLogSection, { study: liveStudy, currentUser }), isOwner && favBy.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14, padding: "10px 14px", background: "var(--purple-light)", border: "1px solid var(--purple)", borderRadius: "var(--radius)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, cursor: "pointer" }, onClick: () => setShowFavBy((s) => !s) }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.8rem", fontWeight: 600, color: "var(--purple)" } }, "\u{1F4CC} ", favBy.length, " student", favBy.length !== 1 ? "s" : "", " bookmarked this study"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--purple)", marginLeft: "auto" } }, showFavBy ? "\u25B2 hide" : "\u25BC show")), showFavBy && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, favBy.map((u) => /* @__PURE__ */ React.createElement("div", { key: u.uid, style: { display: "flex", alignItems: "center", gap: 8, fontSize: "0.78rem" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 26, height: 26, borderRadius: "50%", background: "var(--purple)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.7rem", flexShrink: 0 } }, u.name.charAt(0).toUpperCase()), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500 } }, u.name), u.institution && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--muted)" } }, u.institution)))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingTop: 14, borderTop: "1px solid var(--border)", flexWrap: "wrap", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(
+  ] : (liveStudy.authors || []).map((a, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: `author-tag${i === 0 ? " self" : ""}`, style: { fontSize: "var(--text-xs)" } }, /* @__PURE__ */ React.createElement("span", { className: "author-tag-avatar" }, /* @__PURE__ */ React.createElement("span", null, (a || "?").charAt(0).toUpperCase())), /* @__PURE__ */ React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 } }, a)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.eye, null), liveStudy.viewCount || 0, " views"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.dl, null), liveStudy.downloadCount || 0, " downloads"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, "\u{1F4CB} ", liveStudy.citationCount || 0, " citations"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.82rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Ico.cal, null), liveStudy.year)), /* @__PURE__ */ React.createElement("div", { className: "ds", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("h4", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, "Abstract", /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", fontWeight: 400, color: "var(--muted)", fontFamily: "var(--font-body)" } }, "\u{1F4D6} ", readingTime(liveStudy.abstract))), /* @__PURE__ */ React.createElement("p", { style: { lineHeight: 1.7, color: "var(--ink-3)", fontSize: "var(--text-sm)", transition: "all .2s" } }, absIsLong && !absExpanded ? absPreview : liveStudy.abstract), absIsLong && /* @__PURE__ */ React.createElement("button", { className: "sc-abs-toggle", style: { marginTop: 6 }, onClick: () => setAbsExpanded((v) => !v), "aria-expanded": absExpanded }, absExpanded ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "18 15 12 9 6 15" })), " Show less") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "2.5" }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" })), " Read full abstract"))), (liveStudy.keywords || []).length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "Keywords"), (liveStudy.keywords || []).map((k) => /* @__PURE__ */ React.createElement("span", { key: k, className: "kw" }, k))), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--muted)", marginBottom: 7 } }, "APA Citation"), /* @__PURE__ */ React.createElement(APABox, { study: liveStudy, currentUser })), /* @__PURE__ */ React.createElement(RelatedStudiesSection, { study: liveStudy, allStudies, onOpenStudy }), gdriveUrl && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--teal-light)", border: "1.5px solid var(--teal)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 87.3 78", width: "22", height: "22", xmlns: "http://www.w3.org/2000/svg", style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement("path", { d: "M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z", fill: "#0066da" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.6c-.8 1.4-1.2 2.95-1.2 4.5h27.5z", fill: "#00ac47" }), /* @__PURE__ */ React.createElement("path", { d: "M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 11.5z", fill: "#ea4335" }), /* @__PURE__ */ React.createElement("path", { d: "M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.1.45-4.5 1.2z", fill: "#00832d" }), /* @__PURE__ */ React.createElement("path", { d: "M59.8 53.1H27.5L13.75 76.9c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.1-.45 4.5-1.2z", fill: "#2684fc" }), /* @__PURE__ */ React.createElement("path", { d: "M73.4 26.6l-12.6-21.9C59.9 3.2 58.75 2.1 57.4 1.3L43.65 25l16.15 28.1h27.45c0-1.55-.4-3.1-1.2-4.5z", fill: "#ffba00" })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.875rem", color: "var(--teal)" } }, "Google Drive File"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.73rem", color: "var(--teal)", opacity: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "Linked file \u2014 use Open or Download below")), /* @__PURE__ */ React.createElement("button", { onClick: () => fetchWatermarked("view"), disabled: wmLoading !== null || (liveStudy.downloadsLocked && !canManageAccess), className: "btn btn-teal btn-sm", style: { border: "none", cursor: wmLoading ? "wait" : "pointer" } }, wmLoading === "view" ? /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 12, height: 12 } }) : /* @__PURE__ */ React.createElement(Ico.eye, null), " Open"), /* @__PURE__ */ React.createElement("button", { onClick: () => fetchWatermarked("download"), disabled: wmLoading !== null || (liveStudy.downloadsLocked && !canManageAccess), className: "btn btn-ol btn-sm", style: { cursor: wmLoading ? "wait" : "pointer" } }, wmLoading === "download" ? /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 12, height: 12 } }) : /* @__PURE__ */ React.createElement(Ico.dl, null), " Download"), canManageAccess && /* @__PURE__ */ React.createElement("button", { onClick: toggleDownloadsLocked, disabled: lockBusy, className: "btn btn-ol btn-sm", "data-tip": liveStudy.downloadsLocked ? "Unlock \u2014 let everyone open/download again" : "Lock \u2014 temporarily block everyone but you and admins", style: { cursor: lockBusy ? "wait" : "pointer", color: liveStudy.downloadsLocked ? "var(--red)" : "var(--muted)", borderColor: liveStudy.downloadsLocked ? "var(--red)" : "var(--border)" } }, lockBusy ? /* @__PURE__ */ React.createElement("span", { className: "spin", style: { width: 12, height: 12 } }) : liveStudy.downloadsLocked ? "\u{1F512} Locked" : "\u{1F513} Lock")), gdriveUrl && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.7rem", color: liveStudy.downloadsLocked ? "var(--red)" : "var(--muted)", marginTop: -10, marginBottom: 16, display: "flex", alignItems: "center", gap: 5 } }, liveStudy.downloadsLocked ? (canManageAccess ? "\u{1F512} Locked \u2014 only you and admins can open/download this study right now." : "\u{1F512} The owner has temporarily locked downloads for this study.") : "\u{1F512} Opens & downloads are logged under your account \u2014 please don't redistribute this file outside the portal."), liveStudy.uploadedByName && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "10px 14px", background: "var(--surface)", borderRadius: "var(--radius)", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 32, height: 32, fontSize: "0.78rem" } }, initials(liveStudy.uploadedByName)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.72rem", color: "var(--muted)" } }, "Uploaded by"), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500, fontSize: "0.875rem" } }, liveStudy.uploadedByName))), /* @__PURE__ */ React.createElement(StudyTasksSection, { study: liveStudy, currentUser, isCollaborator, onTasksUpdated: (tasks) => setLiveStudy((s) => __spreadProps(__spreadValues({}, s), { tasks })) }), /* @__PURE__ */ React.createElement(TeacherFeedbackSection, { study: liveStudy, currentUser }), /* @__PURE__ */ React.createElement(ReviewsSection, { study: liveStudy, currentUser }), /* @__PURE__ */ React.createElement(StudyImpactTimeline, { studyId: liveStudy.id }), /* @__PURE__ */ React.createElement(StudyAbstractCritiqueSection, { study: liveStudy }), /* @__PURE__ */ React.createElement(StudyRevisionDiffSection, { studyId: liveStudy.id, currentStudy: liveStudy }), /* @__PURE__ */ React.createElement(StudyAccessLogSection, { study: liveStudy, currentUser }), isOwner && favBy.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14, padding: "10px 14px", background: "var(--purple-light)", border: "1px solid var(--purple)", borderRadius: "var(--radius)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, cursor: "pointer" }, onClick: () => setShowFavBy((s) => !s) }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.8rem", fontWeight: 600, color: "var(--purple)" } }, "\u{1F4CC} ", favBy.length, " student", favBy.length !== 1 ? "s" : "", " bookmarked this study"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.7rem", color: "var(--purple)", marginLeft: "auto" } }, showFavBy ? "\u25B2 hide" : "\u25BC show")), showFavBy && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, favBy.map((u) => /* @__PURE__ */ React.createElement("div", { key: u.uid, style: { display: "flex", alignItems: "center", gap: 8, fontSize: "0.78rem" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 26, height: 26, borderRadius: "50%", background: "var(--purple)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.7rem", flexShrink: 0 } }, u.name.charAt(0).toUpperCase()), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500 } }, u.name), u.institution && /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.7rem", color: "var(--muted)" } }, u.institution)))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingTop: 14, borderTop: "1px solid var(--border)", flexWrap: "wrap", gap: 9 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: faved ? "btn btn-gold btn-sm" : "btn btn-ol btn-sm",
@@ -12420,6 +12489,100 @@ function AdminAuditLog() {
           )
   );
 }
+// Leak tracer: paste any text found on a suspected leaked/redistributed
+// copy (a screenshot crop, OCR'd PDF text, whatever's visible) and this
+// scores every user's watermark identity against it. The watermark stamp
+// is literally "Name · email · Gr.X · §Section · timestamp" tiled across
+// the page, so even a partial/garbled crop usually retains a recognizable
+// fragment of someone's name or email — this doesn't need an exact match,
+// it ranks everyone by how much of their identity shows up in the text.
+function scoreLeakCandidates(pastedText, users) {
+  const hay = (pastedText || "").toLowerCase();
+  if (!hay.trim()) return [];
+  return users.map((u) => {
+    let score = 0;
+    const reasons = [];
+    const name = (u.name || "").toLowerCase().trim();
+    const email = (u.email || "").toLowerCase().trim();
+    if (email && hay.includes(email)) { score += 55; reasons.push("email matched exactly"); }
+    if (name && hay.includes(name)) { score += 50; reasons.push("full name matched exactly"); }
+    // Partial credit: individual name tokens (ignore very short ones like "de", "jr")
+    if (name && score < 50) {
+      const tokens = name.split(/\s+/).filter((t) => t.length >= 3);
+      const hits = tokens.filter((t) => hay.includes(t));
+      if (hits.length > 0) {
+        const frac = hits.length / tokens.length;
+        score += Math.round(frac * 35);
+        reasons.push(`${hits.length}/${tokens.length} name token(s) matched`);
+      }
+    }
+    // Email local-part only (before the @), in case the domain got cropped
+    if (email && !hay.includes(email)) {
+      const local = email.split("@")[0];
+      if (local && local.length >= 4 && hay.includes(local)) {
+        score += 20;
+        reasons.push("email username matched");
+      }
+    }
+    if (u.gradeLevel && hay.includes(`gr.${String(u.gradeLevel).toLowerCase()}`)) { score += 8; reasons.push("grade level matched"); }
+    if (u.section && hay.includes(`§${String(u.section).toLowerCase()}`)) { score += 8; reasons.push("section matched"); }
+    return { user: u, score: Math.min(100, score), reasons };
+  }).filter((c) => c.score >= 15).sort((a, b) => b.score - a.score).slice(0, 10);
+}
+function LeakTracerPage({ currentUser }) {
+  const [pasted, setPasted] = useState("");
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState(null);
+  useEffect(() => {
+    API.getAllUsersForSearch().then((u) => { setUsers(u); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+  const runSearch = () => setResults(scoreLeakCandidates(pasted, users));
+  const confColor = (score) => score >= 70 ? "var(--red)" : score >= 40 ? "var(--gold)" : "var(--muted)";
+  const confLabel = (score) => score >= 70 ? "Strong match" : score >= 40 ? "Possible match" : "Weak match";
+  return /* @__PURE__ */ React.createElement("div", null,
+    /* @__PURE__ */ React.createElement("div", { className: "page-hd" },
+      /* @__PURE__ */ React.createElement("div", { className: "page-hd-left" },
+        /* @__PURE__ */ React.createElement("h2", null, "🔍 Leak Tracer"),
+        /* @__PURE__ */ React.createElement("p", { className: "muted" }, "Found a copy of a study somewhere it shouldn't be? Paste any visible text from it below to trace whose watermark it came from.")
+      )
+    ),
+    /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 16 } },
+      /* @__PURE__ */ React.createElement("div", { className: "fg" },
+        /* @__PURE__ */ React.createElement("label", null, "Text found on the suspected copy"),
+        /* @__PURE__ */ React.createElement("textarea", {
+          value: pasted,
+          onChange: (e) => setPasted(e.target.value),
+          placeholder: "Paste whatever text is visible \u2014 a full watermark line, a fragment from a screenshot, OCR output, anything. Doesn't need to be exact or complete.",
+          style: { minHeight: 110 }
+        })
+      ),
+      /* @__PURE__ */ React.createElement("button", { className: "btn btn-gold", onClick: runSearch, disabled: loading || !pasted.trim() },
+        loading ? "Loading users\u2026" : "\u{1F50D} Trace Identity"
+      )
+    ),
+    results !== null && /* @__PURE__ */ React.createElement("div", { className: "card" },
+      /* @__PURE__ */ React.createElement("div", { className: "card-hd", style: { marginBottom: 10 } },
+        /* @__PURE__ */ React.createElement("span", { className: "card-title" }, results.length === 0 ? "No matches found" : `${results.length} possible match${results.length !== 1 ? "es" : ""}`)
+      ),
+      results.length === 0 ? /* @__PURE__ */ React.createElement("p", { style: { fontSize: "0.82rem", color: "var(--muted)" } }, "Try pasting more of the visible text \u2014 even a partial name or email fragment usually works.") :
+      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+        results.map((r) => /* @__PURE__ */ React.createElement("div", { key: r.user.id, style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "var(--surface)", borderRadius: "var(--radius)", border: `1.5px solid ${confColor(r.score)}` } },
+          /* @__PURE__ */ React.createElement("div", { style: { width: 34, height: 34, borderRadius: "50%", background: confColor(r.score), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.8rem", flexShrink: 0 } }, (r.user.name || "?").charAt(0).toUpperCase()),
+          /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+            /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: "0.88rem" } }, r.user.name || "Unknown", " ", r.user.role === "admin" && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "0.65rem", color: "var(--muted)" } }, "(admin)")),
+            /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.75rem", color: "var(--muted)" } }, r.user.email, r.user.gradeLevel ? ` · Gr.${r.user.gradeLevel}` : "", r.user.section ? ` §${r.user.section}` : ""),
+            /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.68rem", color: "var(--muted)", marginTop: 2 } }, r.reasons.join(" · "))
+          ),
+          /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right", flexShrink: 0 } },
+            /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: "1rem", color: confColor(r.score) } }, r.score, "%"),
+            /* @__PURE__ */ React.createElement("div", { style: { fontSize: "0.65rem", color: confColor(r.score) } }, confLabel(r.score))
+          )
+        ))
+      )
+    )
+  );
+}
 function AdminCats() {
   const [cats, setCats] = useState([]);
   const [newCat, setNewCat] = useState("");
@@ -13560,7 +13723,7 @@ function AdminNotifBell({ currentUser, count, onCountChange }) {
     );
   })), notifs.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "notif-footer" }, notifs.length, " notification", notifs.length !== 1 ? "s" : "", " \xB7 Dismissed items are removed permanently")));
 }
-const NOTIF_ICONS = { feedback: "\u{1F4DD}", announcement: "\u{1F4E2}", coauthor_tag: "\u{1F91D}", revision_requested: "\u270F\uFE0F", resubmitted: "\u{1F504}", default: "\u{1F514}" };
+const NOTIF_ICONS = { feedback: "\u{1F4DD}", announcement: "\u{1F4E2}", coauthor_tag: "\u{1F91D}", revision_requested: "\u270F\uFE0F", resubmitted: "\u{1F504}", suspicious_download_burst: "\u26A0\uFE0F", default: "\u{1F514}" };
 function UserNotifBell({ currentUser, count, onCountChange, onOpenStudy }) {
   const [open, setOpen] = useState(false);
   const [notifs, setNotifs] = useState([]);
@@ -13660,6 +13823,7 @@ const Sidebar = memo(function Sidebar2({ currentUser, activeTab, setActiveTab, o
     { id: "approval-workflow", label: "Approval Queue", icon: /* @__PURE__ */ React.createElement(Ico.chk, null) },
     { id: "grade-overview", label: "Grade Overview", icon: /* @__PURE__ */ React.createElement(Ico.doc, null) },
     { id: "audit-log", label: "Audit Log", icon: /* @__PURE__ */ React.createElement(Ico.settings, null) },
+    { id: "leak-tracer", label: "Leak Tracer", icon: /* @__PURE__ */ React.createElement(Ico.search, null) },
     { id: "stat-analysis", label: "Statistical Analysis", icon: /* @__PURE__ */ React.createElement(Ico.search, null) },
     { id: "repository", label: "Repository", icon: /* @__PURE__ */ React.createElement(Ico.search, null) },
     { id: "recognized", label: "Recognized Studies", icon: /* @__PURE__ */ React.createElement(Ico.award, null) },
@@ -14875,7 +15039,7 @@ function App() {
       }
     };
   }, []);
-  const titles = { dashboard: "Dashboard", users: "User Management", analytics: "Class Analytics", "grade-overview": "Grade Overview", announcements: "Announcements", timeline: "Timeline", "studies-admin": "Manage Studies", categories: "Manage Categories", "audit-log": "Audit Log", repository: "Research Repository", chatbot: "AI Research Assistant", recognized: "Recognized Studies", "gap-map": "Research Gap Map", "my-stats": "My Stats", "checklist": "Student Checklist", "stat-analysis": "Statistical Analysis", "teacher-analytics": "Teacher Dashboard", "approval-workflow": "Approval Queue", "submission-tracker": "Submission Tracker", "feedback-inbox": "Feedback Inbox", "reading-progress": "Reading Progress", "notif-center": "Notifications", "shop": "Token Shop", "shop-admin": "Shop Management", "shop-log": "Redemption Log" };
+  const titles = { dashboard: "Dashboard", users: "User Management", analytics: "Class Analytics", "grade-overview": "Grade Overview", announcements: "Announcements", timeline: "Timeline", "studies-admin": "Manage Studies", categories: "Manage Categories", "audit-log": "Audit Log", "leak-tracer": "Leak Tracer", repository: "Research Repository", chatbot: "AI Research Assistant", recognized: "Recognized Studies", "gap-map": "Research Gap Map", "my-stats": "My Stats", "checklist": "Student Checklist", "stat-analysis": "Statistical Analysis", "teacher-analytics": "Teacher Dashboard", "approval-workflow": "Approval Queue", "submission-tracker": "Submission Tracker", "feedback-inbox": "Feedback Inbox", "reading-progress": "Reading Progress", "notif-center": "Notifications", "shop": "Token Shop", "shop-admin": "Shop Management", "shop-log": "Redemption Log" };
   if (!authChecked || !loaderDone) {
     if (authChecked && !loaderDone) {
       if (typeof window.sabnahisLoaderDone === "function") {
@@ -14940,6 +15104,8 @@ function App() {
         return /* @__PURE__ */ React.createElement(StatAnalysisTool, { currentUser });
       case "audit-log":
         return isAdmin ? /* @__PURE__ */ React.createElement(AdminAuditLog, null) : null;
+      case "leak-tracer":
+        return isAdmin ? /* @__PURE__ */ React.createElement(LeakTracerPage, { currentUser }) : null;
       case "repository":
         return /* @__PURE__ */ React.createElement(StudiesPage, { currentUser });
       case "offline-reading":
